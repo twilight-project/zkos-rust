@@ -1,4 +1,3 @@
 [workspace]
 
-members = [ "readerwriter", "elgamalsign", "rangeproof", "zkvm"]
-
+members = [ "readerwriter", "merkle", "elgamalsign", "rangeproof", "zkvm", "starsig", "mulmsgsig"]
