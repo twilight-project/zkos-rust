@@ -1,0 +1,2 @@
+cargo:rustc-env=TYPENUM_BUILD_CONSTS=/Users/quasar/Work/ZkOS/target/rls/debug/build/typenum-e3224a1ad2bf195a/out/consts.rs
+cargo:rustc-env=TYPENUM_BUILD_OP=/Users/quasar/Work/ZkOS/target/rls/debug/build/typenum-e3224a1ad2bf195a/out/op.rs
