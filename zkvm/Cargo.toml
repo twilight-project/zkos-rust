@@ -5,10 +5,10 @@ authors = ["Usman Shahid", "Gaurav Shukla"]
 edition = "2018"
 readme = "README.md"
 license = "Apache-2.0"
-repository = "https://github.com/interstellar/zkvm"
+#repository = "https://github.com/interstellar/zkvm"
 categories = ["cryptography", "blockchain"]
 keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs"]
-description = "A blockchain VM with cloaked transactions and zero-knowledge smart contracts"
+description = "A blockchain VM with QuisQuis transactions and zero-knowledge smart contracts"
 
 [dependencies]
 thiserror = "1"
@@ -41,6 +41,7 @@ path = "../mulmsgsig"
 git = "https://github.com/dalek-cryptography/bulletproofs"
 branch = "develop"
 features = ["yoloproofs"]
+
 
 [features]
 default = []
