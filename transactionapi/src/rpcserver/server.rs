@@ -1,9 +1,7 @@
-// use crate::kafkalib::producer_kafka;
 use crate::rpcserver::types::*;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
-// use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params, Value};
 use jsonrpc_http_server::{hyper, ServerBuilder};
 use std::collections::HashMap;
 #[derive(Default, Clone, Debug)]
