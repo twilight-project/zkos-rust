@@ -30,9 +30,9 @@ trait ProgramHelper {
 impl ProgramHelper for Program {
     fn issue_helper(&mut self, qty: u64, flv: Scalar, issuance_pred: Predicate) -> &mut Self {
         self.push(Commitment::blinded_with_factor(qty, Scalar::from(1u64))) // stack: qty
-            .var() // stack: qty-var
+            .commit() // stack: qty-var
             .push(Commitment::unblinded(flv)) // stack: qty-var, flv
-            .var() // stack: qty-var, flv-var
+            .commit() // stack: qty-var, flv-var
             .push(String::default()) // stack: qty-var, flv-var, data
             .push(issuance_pred) // stack: qty-var, flv-var, data, pred
             .issue() // stack: issue-contract
@@ -497,9 +497,9 @@ fn build_and_verify_without_signature(program: Program, inputs: &[Input], output
 //     Program::build(|p| {
 //         p.cloak_helper(1, vec![(qty, flavor)])
 //             .output_helper(pred)
-//             .r#const()
+//             .scalar()
 //             .push(secret)
-//             .r#const()
+//             .scalar()
 //             .eq()
 //             .verify();
 //     })
@@ -615,9 +615,9 @@ fn build_and_verify_without_signature(program: Program, inputs: &[Input], output
 //     let borrow_prog = Program::build(|p| {
 //         p.input_helper(10, flv, preds[1].clone()) // stack: Value(10,1)
 //             .push(Commitment::blinded(5u64)) // stack: Value(10,1), qty(5)
-//             .var() // stack: Value(10,1), qty-var(5)
+//             .commit() // stack: Value(10,1), qty-var(5)
 //             .push(Commitment::blinded(flv)) // stack: Value(10,1), qty-var(5),   flv(1)
-//             .var() // stack: Value(10,1), qty-var(5),   flv-var(1)
+//             .commit() // stack: Value(10,1), qty-var(5),   flv-var(1)
 //             .borrow() // stack: Value(10,1), Value(-5, 1), Value(5,1)
 //             .output_helper(preds[0].clone()) // stack: Value(10,1), Value(-5, 1); outputs (5,1)
 //             .cloak_helper(2, vec![(5u64, flv)]) // stack:  Value(5,1)
@@ -631,10 +631,10 @@ fn order_message_prog(
     order_qty: u64) -> Program {
         let order_prog = Program::build(|p| {
             p.push(Commitment::blinded(balance)) 
-                .var()
+                .commit()
                 .expr()
                 .push(order_qty)
-                .r#const()
+                .scalar()
                 .neg()
                 .add()
                 .range()
@@ -648,10 +648,10 @@ fn order_message_prog_input_output(
     order_qty: u64, in_index: usize, out_index: usize) -> Program {
         let order_prog = Program::build(|p| {
             p.push(Commitment::blinded(balance)) 
-                .var()
+                .commit()
                 .expr()
                 .push(order_qty)
-                .r#const()
+                .scalar()
                 .neg()
                 .add()
                 .range()
@@ -667,8 +667,8 @@ fn order_message_prog_input_output(
 
 #[test]
 fn order_message() {
-    let correct_program = order_message_prog_input_output(16u64, 9u64, 0, 0);
-   //let correct_program = order_message_prog(16u64, 9u64);
+    //let correct_program = order_message_prog_input_output(16u64, 9u64, 0, 0);
+   let correct_program = order_message_prog(16u64, 9u64);
    
     print!("\n Program \n{:?}", correct_program);
 
