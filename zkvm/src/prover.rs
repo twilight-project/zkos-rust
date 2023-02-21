@@ -15,6 +15,7 @@ use crate::predicate::Predicate;
 use crate::program::{Program, ProgramItem};
 use crate::tx::{TxHeader, UnsignedTx};
 use crate::vm::{Delegate, VM};
+use transaction::{Input, Output};
 
 /// This is the entry point API for creating a transaction.
 /// Prover passes the list of instructions through the VM,
@@ -83,6 +84,8 @@ impl<'g> Prover<'g> {
         program: Program,
         header: TxHeader,
         bp_gens: &BulletproofGens,
+        inputs: &[Input],
+        outputs: &[Output],
     ) -> Result<UnsignedTx, VMError> {
         // Prepare the constraint system
         
@@ -106,6 +109,8 @@ impl<'g> Prover<'g> {
                 program: program.to_vec().into(),
             },
             &mut prover,
+            inputs,
+            outputs,
         );
 
         let (txid, txlog, _fee) = vm.run()?;
@@ -128,4 +133,5 @@ impl<'g> Prover<'g> {
             signing_instructions: prover.signtx_items,
         })
     }
+    
 }

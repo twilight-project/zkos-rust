@@ -45,3 +45,4 @@ pub use self::verifier::Verifier;
 pub use merkle::{Hash, Hasher, MerkleItem, MerkleTree};
 
 pub use mulmsgsig::{Signature, VerificationKey};
+pub use transaction::util::Address;

@@ -1,22 +1,25 @@
 #![allow(non_snake_case)]
 //#![deny(missing_docs)]
 
+
+//use crate::readerwriter::{Encodable, ExactSizeEncodable, Writer, WriteError};
+use curve25519_dalek::ristretto::CompressedRistretto;
+use quisquislib::elgamal::ElGamalCommitment;
+//use serde::{Deserialize, Serialize};
 use crate::util::Address;
-use quisquislib::{accounts::Account, elgamal::ElGamalCommitment};
-use serde::{Deserialize, Serialize};
+
 
 /// Transaction ID is a unique 32-byte identifier of a transaction effects represented by `TxLog`.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct TxId(pub [u8; 32]);
 
-/// Transaction type: Transfer. Transition, Create, Vault
+/// Transaction type: Transfer. Script, Vault
 ///
 /// TransactionType implements [`Default`] and returns [`TransactionType::Transfer`].
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum TransactionType {
     Transfer,
-    Transition,
-    Create,
+    Script,
     Vault,
 }
 
@@ -25,9 +28,8 @@ impl TransactionType {
         use TransactionType::*;
         match byte {
             0 => Ok(Transfer),
-            1 => Ok(Transition),
-            2 => Ok(Create),
-            3 => Ok(Vault),
+            1 => Ok(Script),
+            2 => Ok(Vault),
             _ => Err("Error::InvalidTransactionType"),
         }
     }
@@ -48,11 +50,11 @@ pub struct TxPointer {
 }
 
 /// Identification of unspend transaction output.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Utxo {
-    /// transaction id
+    /// Hash of the transaction
     txid: TxId,
-    /// output index
+    /// Index of transaction output.
     output_index: u8,
 }
 
@@ -71,51 +73,133 @@ impl Utxo {
 
     pub fn replace_tx_id(&mut self, tx_id: TxId) {
         self.txid = tx_id;
+    } 
+}
+///Default returns a Utxo with id = 0 and witness index = 0
+/// 
+impl Default for Utxo {
+    fn default() -> Utxo {
+        let id: [u8;32]= [0 ; 32]; 
+        Utxo { 
+            txid: TxId(id),
+            output_index: 0,
+        }
     }
 }
 
-/// Input type: Dark, Record,
+/// Input type: Coin, Memo, State
 ///
-/// InputType implements [`Default`] and returns [`InputType::Dark`].
+/// InputType implements [`Default`] and returns [`InputType::Coin`].
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum InputType {
-    Dark,
-    Record,
+    Coin,
+    Memo,
+    State,
 }
 
 impl InputType {
     pub fn from_u8(byte: u8) -> Result<InputType, &'static str> {
         use InputType::*;
         match byte {
-            0 => Ok(Dark),
-            1 => Ok(Record),
+            0 => Ok(Coin),
+            1 => Ok(Memo),
+            2 => Ok(State),
             _ => Err("Error::InvalidInputType"),
+        }
+    }
+    pub fn is_coin(&self) -> bool {
+        match *self {
+            InputType::Coin => true,
+            _ => false,
         }
     }
 }
 impl Default for InputType {
     fn default() -> InputType {
-        InputType::Dark
+        InputType::Coin
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputData {
-    Coin { utxo: Utxo, account: Account },
+    Coin {
+        /// txID, output Index  (Index of transaction output) 
+        utxo: Utxo, 
+        /// Owning address or predicate root.
+        owner: Address, 
+        /// Elgamal encryption on amount of coins.
+        encryption: ElGamalCommitment,
+        //coin: Coin,
+        ///Index of witness that authorizes spending the coin.
+        witness: u8,
+    },
+    Memo {
+        /// txID, output Index  (Index of transaction output) 
+        utxo: Utxo,
+        /// Script Address
+        script_address: Address, 
+        /// Owning address or predicate root.
+        owner: Address, 
+       /// Pedersen commitment on amount of coins.
+        commitment: CompressedRistretto, 
+        ///Additional varibales
+        data: u32,	
+        ///Index of witness that authorizes spending the coin.
+        witness: u8,
+        ///UTXO being spent must have been created at least this many blocks ago.
+        timebounds:	u32,	
+        ///Index of witness that contains the program
+        program_index: u8,
+    },
+
+    State {
+          /// txID, output Index  (Index of transaction output) 
+          utxo: Utxo,
+          /// Script Address
+          script_address: Address, 
+          /// Owning address or predicate root.
+          owner: Address, 
+         /// Pedersen commitment on amount of coins.
+          commitment: CompressedRistretto, 
+          ///Script data?
+          script_data: Vec<u8>,	
+          ///Index of witness that authorizes spending the coin.
+          witness: u8,
+          ///UTXO being spent must have been created at least this many blocks ago.
+          timebounds:	u32,	
+          ///Index of witness that contains the program
+          program_index: u8,
+    },
+
 }
 
 impl InputData {
-    pub const fn coin_dark(utxo: Utxo, account: Account) -> Self {
-        Self::Coin { utxo, account }
+    //pub const fn coin(utxo: Utxo, coin: Coin, witness: u8) -> Self {
+      //  Self::Coin { utxo, coin, witness}
+    //}
+    pub const fn coin(utxo: Utxo, owner: Address, encryption: ElGamalCommitment, witness: u8) -> Self {
+        Self::Coin { utxo, owner, encryption, witness}
     }
-
-    pub const fn utxo_id(&self) -> Option<&Utxo> {
+   // pub const fn memo()
+    pub const fn get_utxo_id(&self) -> Option<&Utxo> {
         match self {
             Self::Coin { utxo, .. } => Some(utxo),
             _ => None,
         }
     }
 
+    pub const fn get_owner(&self) -> Option<&Address> {
+        match self {
+            Self::Coin { owner, .. } => Some(owner),
+            _ => None,
+        }
+    }
+    pub const fn get_encryption(&self) -> Option<&ElGamalCommitment> {
+        match self {
+            Self::Coin { encryption, .. } => Some(encryption),
+            _ => None,
+        }
+    }
     /*pub const fn tx_pointer(&self) -> Option<&TxPointer> {
         match self {
             InputData::Coin { tx_pointer, .. } => Some(tx_pointer),
@@ -123,12 +207,19 @@ impl InputData {
         }
     }*/
 
-    pub const fn account(&self) -> Option<&Account> {
+   /*  pub const fn owner(&self) -> Option<&Address> {
         match self {
-            InputData::Coin { account, .. } => Some(account),
+            InputData::Coin { owner, .. } => Some(owner),
+            _ => None,
+        }
+    }*/
+    pub const fn witness(&self) -> Option<&u8> {
+        match self {
+            InputData::Coin { witness, .. } => Some(witness),
             _ => None,
         }
     }
+
 }
 
 /// A complete twilight typed Input valid for a specific network.
@@ -155,67 +246,86 @@ impl Input {
 /// OutputType implements [`Default`] and returns [`OutputType::Dark`].
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum OutputType {
-    Dark,
-    Record,
+    Coin,
+    Memo,
+    State,
 }
 
 impl OutputType {
     pub fn from_u8(byte: u8) -> Result<OutputType, &'static str> {
         use OutputType::*;
         match byte {
-            0 => Ok(Dark),
-            1 => Ok(Record),
+            0 => Ok(Coin),
+            1 => Ok(Memo),
+            2 => Ok(State),
             _ => Err("Error::InvalidInputType"),
+        }
+    }
+    pub fn is_coin(&self)->bool{
+        match *self {
+            OutputType::Coin => true,
+            _ => false,
         }
     }
 }
 impl Default for OutputType {
     fn default() -> OutputType {
-        OutputType::Dark
+        OutputType::Coin
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputData {
-    Coin {
+    Coin(Coin), 
+    Memo {
         address: Address,
-        comm: ElGamalCommitment,
+        elgamal_value: ElGamalCommitment,
+    },
+    State {
+        address: Address,
+        elgamal_value: ElGamalCommitment,
     },
 }
+#[derive(Clone, Debug, PartialEq)]
+pub struct Coin {
+    /// Encryption to value's quantity
+    pub encrypt: ElGamalCommitment,
+    /// Owners Address
+    pub address: Address,
+}
 
-// impl Default for Output {
-//     fn default() -> Self {
-//         Self::Coin {
-//             account: Default::default(),
-//         }
-//     }
-// }
 impl OutputData {
-    pub const fn coin(address: Address, comm: ElGamalCommitment) -> Self {
-        Self::Coin { address, comm }
+    pub const fn coin(c: Coin) -> Self {
+        Self::Coin(c)
     }
 
-    pub const fn adress(&self) -> Option<&Address> {
+    pub const fn get_address(&self) -> Option<&Address> {
+         match self {
+             Self::Coin(coin) => Some(&coin.address),
+             _ => None,
+         }
+    }
+    pub const fn get_encrypt(&self) -> Option<&ElGamalCommitment> {
         match self {
-            Self::Coin { address, .. } => Some(address),
+            Self::Coin(coin) => Some(&coin.encrypt),
             _ => None,
         }
-    }
+   }
 
-    pub const fn commitment(&self) -> Option<&ElGamalCommitment> {
-        match self {
-            Self::Coin { comm, .. } => Some(comm),
-            _ => None,
-        }
-    }
+    // pub const fn commitment(&self) -> Option<&ElGamalCommitment> {
+    //     match self {
+    //         Self::Coin { elgamal_value, .. } => Some(elgamal_value),
+    //         _ => None,
+    //     }
+    // }
 }
 
 /// A complete twilight typed Output valid for a specific network.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Output {
-    /// Defines the input type.
+    /// Defines the output type.
     pub out_type: OutputType,
-    /// The input data corresponding to the input type.
+    /// The input data corresponding to the output type.
     pub output: OutputData,
 }
 
@@ -228,6 +338,15 @@ impl Output {
         }
     }
 }
+// impl Default for Output {
+//     fn default() -> Self {
+//         let out_type = OutputType::default();
+
+//         Self::Coin {
+//             account: Default::default(),
+//         }
+//     }
+// }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct Witness {

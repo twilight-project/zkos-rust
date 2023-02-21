@@ -1,6 +1,7 @@
 use bs58;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use quisquislib::{keys::PublicKey, ristretto::RistrettoPublicKey};
+use serde::{Serialize, Deserialize};
 use sha3::{Digest, Keccak256};
 use std::fmt;
 
@@ -8,7 +9,7 @@ use std::fmt;
 /// Network type: Mainnet, Testnet.
 /// Network implements [`Default`] and returns [`Network::Mainnet`].
 ///
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum Network {
     /// Mainnet is the "production" network and blockchain.
     Mainnet,
@@ -24,11 +25,11 @@ impl Network {
         match self {
             Network::Mainnet => match addr_type {
                 Standard => 12,
-                Contract => 24,
+                Script => 24,
             },
             Network::Testnet => match addr_type {
                 Standard => 44,
-                Contract => 66,
+                Script => 66,
             },
         }
     }
@@ -53,12 +54,12 @@ impl Default for Network {
 /// Address type: standard, contract.
 ///
 /// AddressType implements [`Default`] and returns [`AddressType::Standard`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum AddressType {
-    /// Standard twilight account address.
+    /// Standard twilight coin address.
     Standard,
-    /// Contract addresses.
-    Contract,
+    /// Script addresses.
+    Script,
 }
 
 impl AddressType {
@@ -70,12 +71,12 @@ impl AddressType {
         match net {
             Mainnet => match byte {
                 12 => Ok(Standard),
-                24 => Ok(Contract),
+                24 => Ok(Script),
                 _ => Err("Error::InvalidAddressTypeMagicByte"),
             },
             Testnet => match byte {
                 44 => Ok(Standard),
-                66 => Ok(Contract),
+                66 => Ok(Script),
                 _ => Err("Error::InvalidAddressTypeMagicByte"),
             },
         }
@@ -92,13 +93,13 @@ impl fmt::Display for AddressType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             AddressType::Standard => write!(f, "Standard address"),
-            AddressType::Contract => write!(f, "Contract"),
+            AddressType::Script => write!(f, "Script"),
         }
     }
 }
 
 /// A complete twilight typed address valid for a specific network.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub struct Address {
     /// The network on which the address is valid and should be used.
     pub network: Network,
@@ -119,10 +120,10 @@ impl Address {
     }
 
     /// Create a Contract address which is valid on the given network.
-    pub fn contract(network: Network, public_key: RistrettoPublicKey) -> Address {
+    pub fn script(network: Network, public_key: RistrettoPublicKey) -> Address {
         Address {
             network,
-            addr_type: AddressType::Contract,
+            addr_type: AddressType::Script,
             public_key,
         }
     }
