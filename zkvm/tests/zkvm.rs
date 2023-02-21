@@ -123,7 +123,7 @@ fn build_and_verify(program: Program, keys: &Vec<Scalar>, inputs: &[Input], outp
             maxtime_ms: 0u64,
         };
         let gens = PedersenGens::default();
-        let utx = Prover::build_tx(program, header, &bp_gens, inputs, outputs)?;
+        let utx = Prover::build_tx(program, header, &bp_gens)?;
 
         let sig = if utx.signing_instructions.len() == 0 {
             Signature {
@@ -166,7 +166,7 @@ fn build_and_verify(program: Program, keys: &Vec<Scalar>, inputs: &[Input], outp
 }
 
 
-fn build_and_verify_without_signature(program: Program, inputs: &[Input], outputs: &[Output]) -> Result<UnsignedTx, VMError> {
+fn build_and_verify_without_signature(program: Program, inputs: &[Input], outputs: &[Output]) -> Result<(), VMError> {
      // Build tx
         let bp_gens = BulletproofGens::new(256, 1);
         let header = TxHeader {
@@ -177,22 +177,22 @@ fn build_and_verify_without_signature(program: Program, inputs: &[Input], output
         let gens = PedersenGens::default();
 
         //cretae unsigned Tx with program proof
-        let utx = Prover::build_tx(program, header, &bp_gens, inputs, outputs)?;
+        let (prog, proof) = Prover::build_tx_new(program, header, &bp_gens, inputs, outputs)?;
 
-        let sig =  
-            Signature {
-                R: RISTRETTO_BASEPOINT_COMPRESSED,
-                s: Scalar::zero(),
-            };
-            let tx: zkvm::Tx = utx.clone().sign(sig);
+        // let sig =  
+        //     Signature {
+        //         R: RISTRETTO_BASEPOINT_COMPRESSED,
+        //         s: Scalar::zero(),
+        //     };
+        //     let tx: zkvm::Tx = utx.clone().sign(sig);
 
     // Verify tx
     //let bp_gens = BulletproofGens::new(256, 1);
     
-    let verify_prog_proof = zkvm::Verifier::verify_proof(tx.proof, tx.header, tx.program, inputs, outputs);
+    let verify_prog_proof = zkvm::Verifier::verify_proof_new(proof, header, prog, inputs, outputs);
     println!("\n Verify Proof {:?}", verify_prog_proof.is_ok());
     //let vtx = tx.verify(&bp_gens, inputs, outputs)?;
-     Ok(utx)
+     Ok(())
 }
 // fn spend_1_1_contract(
 //     input: u64,
@@ -667,8 +667,8 @@ fn order_message_prog_input_output(
 
 #[test]
 fn order_message() {
-    //let correct_program = order_message_prog_input_output(16u64, 9u64, 0, 0);
-   let correct_program = order_message_prog(16u64, 9u64);
+   let correct_program = order_message_prog_input_output(16u64, 9u64, 0, 0);
+   //let correct_program = order_message_prog(16u64, 9u64);
    
     print!("\n Program \n{:?}", correct_program);
 
@@ -698,7 +698,7 @@ fn order_message() {
         let output: Vec<Output> =vec![coin_out]; 
 
     
-    let unsignedtx = build_and_verify_without_signature(correct_program, &input, &output).unwrap();
+   let unsignedtx = build_and_verify_without_signature(correct_program, &input, &output).unwrap();
     print!("{:?}", unsignedtx);
 }
 
