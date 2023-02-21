@@ -1,4 +1,4 @@
-use bulletproofs::r1cs;
+use bulletproofs::r1cs::{self, R1CSProof};
 use bulletproofs::r1cs::ConstraintSystem;
 use bulletproofs::{BulletproofGens, PedersenGens};
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -14,7 +14,7 @@ use crate::ops::Instruction;
 use crate::predicate::Predicate;
 use crate::program::{Program, ProgramItem};
 use crate::tx::{TxHeader, UnsignedTx};
-use crate::vm::{Delegate, VM};
+use crate::vm::{Delegate, VM, VMScript};
 use transaction::{Input, Output};
 
 /// This is the entry point API for creating a transaction.
@@ -84,8 +84,6 @@ impl<'g> Prover<'g> {
         program: Program,
         header: TxHeader,
         bp_gens: &BulletproofGens,
-        inputs: &[Input],
-        outputs: &[Output],
     ) -> Result<UnsignedTx, VMError> {
         // Prepare the constraint system
         
@@ -109,8 +107,7 @@ impl<'g> Prover<'g> {
                 program: program.to_vec().into(),
             },
             &mut prover,
-            inputs,
-            outputs,
+            
         );
 
         let (txid, txlog, _fee) = vm.run()?;
@@ -133,5 +130,57 @@ impl<'g> Prover<'g> {
             signing_instructions: prover.signtx_items,
         })
     }
+///New bulid tx 
+/// 
+     pub fn build_tx_new(
+        program: Program,
+        header: TxHeader,
+        bp_gens: &BulletproofGens,
+        inputs: &[Input],
+        outputs: &[Output],
+    ) -> Result<(Vec<u8>, R1CSProof), VMError> {
+        // Prepare the constraint system
+        
+        let pc_gens = PedersenGens::default();
+        let cs = r1cs::Prover::new(&pc_gens, Transcript::new(b"ZkVM.r1cs"));
+
+        // Serialize the tx program
+        let mut bytecode = Vec::new();
+        
+        program.encode(&mut bytecode)?;
+        
+        let mut prover = Prover {
+            signtx_items: Vec::new(),
+            cs: cs,
+            batch: starsig::BatchVerifier::new(rand::thread_rng()),
+        };
+
+        let vm = VMScript::new(
+            header.mintime_ms,
+            header.maxtime_ms,
+            false,
+            ProverRun {
+                program: program.to_vec().into(),
+            },
+            &mut prover,
+            inputs,
+            outputs,
+        );
+
+        let _fee = vm.run()?;
+
+        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
+        prover.cs.transcript().append_message(b"ZkVM.txid", b"ZKOS");
+
+        // Generate the R1CS proof
+        let proof = prover
+            .cs
+            .prove(bp_gens)
+            .map_err(|_| VMError::InvalidR1CSProof)?;
+        // Defer signing of the transaction to the UnsignedTx API.
+        Ok((bytecode, proof))
+        
+    }
     
+
 }

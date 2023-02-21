@@ -105,8 +105,6 @@ impl Verifier {
             tx.header,
             VerifierRun::new(tx.program.clone()),
             &mut verifier,
-            inputs,
-            outputs,
         );
 
         let (id, log, fee) = vm.run()?;
@@ -176,8 +174,7 @@ impl Verifier {
     }
 
     /// verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
-    pub fn verify_proof (proof: R1CSProof, header: TxHeader, program: Vec<u8>, inputs: &[Input],
-        outputs: &[Output]) -> Result<bool, VMError> {
+    pub fn verify_proof (proof: R1CSProof, header: TxHeader, program: Vec<u8>) -> Result<bool, VMError> {
         let bp_gens = BulletproofGens::new(256, 1);
         //print!("BP Gens in verify_proof {:?}", bp_gens);
         let pc_gens = PedersenGens::default();
@@ -193,14 +190,50 @@ impl Verifier {
             header,
             VerifierRun::new(program.clone()),
             &mut verifier,
-            inputs,
-            outputs,
         );
 
         let (id, _log, _fee) = vm.run()?;
 
         // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
         verifier.cs.transcript().append_message(b"ZkVM.txid", &id);
+
+        // Verify the R1CS proof
+        verifier
+            .cs
+            .verify(&proof, &pc_gens, &bp_gens)
+            .map_err(|_| VMError::InvalidR1CSProof)?;
+
+        Ok(true)
+    }
+
+    /// verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
+    pub fn verify_proof_new (proof: R1CSProof, header: TxHeader, program: Vec<u8>, inputs: &[Input],
+        outputs: &[Output]) -> Result<bool, VMError> {
+        let bp_gens = BulletproofGens::new(256, 1);
+        //print!("BP Gens in verify_proof {:?}", bp_gens);
+        let pc_gens = PedersenGens::default();
+        let cs = r1cs::Verifier::new(Transcript::new(b"ZkVM.r1cs"));
+
+        let mut verifier = Verifier {
+            signtx_items: Vec::new(),
+            cs: cs,
+            batch: starsig::BatchVerifier::new(rand::thread_rng()),
+        };
+
+        let vm = crate::vm::VMScript::new(
+            header.mintime_ms,
+            header.maxtime_ms,
+            false,
+            VerifierRun::new(program.clone()),
+            &mut verifier,
+            inputs,
+            outputs,
+        );
+
+        let (_fee) = vm.run()?;
+
+        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
+        verifier.cs.transcript().append_message(b"ZkVM.txid", b"ZKOS");
 
         // Verify the R1CS proof
         verifier

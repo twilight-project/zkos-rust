@@ -126,7 +126,7 @@ where
     D: Delegate<CS>,
 {
     /// Instantiates a new VM instance.
-    pub fn new(header: TxHeader, run: D::RunType, delegate: &'d mut D, inputs: &'d[Input], outputs: &'d[Output]) -> Self {
+    pub fn new(header: TxHeader, run: D::RunType, delegate: &'d mut D) -> Self {
         VM {
             mintime_ms: header.mintime_ms,
             maxtime_ms: header.maxtime_ms,
