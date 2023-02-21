@@ -517,7 +517,7 @@ dependencies = [
 [[package]]
 name = "quisquis-rust"
 version = "0.1.0"
-source = "git+ssh://github.com/twilight-project/quisquis-rust.git?branch=zkos#d78aae45631ab906fc898cb4df27ad9d211990ff"
+source = "git+ssh://github.com/twilight-project/quisquis-rust.git?branch=zkos#b6b55b511237e0ebf7bbd7557e1f5ac76d5f37ca"
 dependencies = [
  "anyhow",
  "array2d",
@@ -530,6 +530,7 @@ dependencies = [
  "itertools 0.10.5",
  "merlin",
  "rand",
+ "serde",
  "sha3",
 ]
 
@@ -886,6 +887,7 @@ dependencies = [
  "merlin",
  "quisquis-rust",
  "rand",
+ "readerwriter",
  "serde",
  "serde_json",
  "sha3",
@@ -995,10 +997,12 @@ dependencies = [
  "byteorder",
  "criterion",
  "curve25519-dalek",
+ "elgamalsign",
  "hex",
  "merkle",
  "merlin",
  "mulmsgsig",
+ "quisquis-rust",
  "rand",
  "rangeproof",
  "readerwriter",
@@ -1008,4 +1012,5 @@ dependencies = [
  "subtle",
  "subtle-encoding",
  "thiserror",
+ "transaction",
 ]

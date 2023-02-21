@@ -490,6 +490,15 @@ pub enum Instruction {
     /// 4. or last item in the `payload` (`tag`) is not a _string_.
     Signtag,
 
+    /// **inputcoin:_i_** → _Input_
+    ///
+    /// Pushes a _input_coin_ from index `i` of transaction data.
+    InputCoin(usize),
+    /// **outputcoin:_i_** → _Input_
+    ///
+    /// Pushes a _output_coin_ from index `i` of transaction data.
+    OutputCoin(usize),
+
     /// Unassigned opcode.
     Ext(u8),
 }
@@ -565,10 +574,14 @@ pub enum Opcode {
     /// A code for [Instruction::Signid]
     Signid = 0x20,
     /// A code for [Instruction::Signtag]
-    Signtag = MAX_OPCODE,
+    Signtag = 0x21,
+    /// A code for [Instruction::Inputtx]
+    InputCoin = 0x22,
+    /// A code for [Instruction::Outputtx]
+    OutputCoin = MAX_OPCODE,
 }
 
-const MAX_OPCODE: u8 = 0x21;
+const MAX_OPCODE: u8 = 0x23;
 
 impl Opcode {
     /// Converts the opcode to `u8`.
@@ -651,6 +664,14 @@ impl Encodable for Instruction {
             Instruction::Signtx => write(Opcode::Signtx)?,
             Instruction::Signid => write(Opcode::Signid)?,
             Instruction::Signtag => write(Opcode::Signtag)?,
+            Instruction::InputCoin(k) => {
+                write(Opcode::InputCoin)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
+            Instruction::OutputCoin(k) => {
+                write(Opcode::OutputCoin)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
             Instruction::Ext(x) => w.write_u8(b"ext", *x)?,
         };
         Ok(())
@@ -667,6 +688,8 @@ impl ExactSizeEncodable for Instruction {
            // Instruction::Cloak(_, _) => 1 + 4 + 4,
             Instruction::Output(_) => 1 + 4,
             Instruction::Contract(_) => 1 + 4,
+            Instruction::InputCoin(_) => 1 + 4,
+            Instruction::OutputCoin(_) => 1 + 4,
             _ => 1,
         }
     }
@@ -750,6 +773,14 @@ impl Instruction {
             Opcode::Signtx => Ok(Instruction::Signtx),
             Opcode::Signid => Ok(Instruction::Signid),
             Opcode::Signtag => Ok(Instruction::Signtag),
+            Opcode::InputCoin => {
+                let idx = program.read_size()?;
+                Ok(Instruction::InputCoin(idx ))
+            }
+            Opcode::OutputCoin => {
+                let idx = program.read_size()?;
+                Ok(Instruction::OutputCoin(idx ))
+            }
         }
     }
 }

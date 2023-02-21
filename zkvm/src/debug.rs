@@ -15,7 +15,7 @@ use crate::ops::Instruction;
 use crate::predicate::Predicate;
 use crate::program::Program;
 use crate::tx::{Tx, TxID, VerifiedTx};
-use crate::types::{String, Value};
+use crate::types::{String, Value, OutputCoin};
 
 impl fmt::Debug for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -75,6 +75,12 @@ impl Value {
     }
 }
 
+impl OutputCoin {
+    pub(crate) fn fmt_as_pushdata(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "OutputCoin{{{:?},{:?}}}", self.encrypt, self.address)
+    }
+}
+
 impl Instruction {
     pub(crate) fn fmt_with_lookahead(
         &self,
@@ -130,6 +136,8 @@ impl Instruction {
             Instruction::Signtx => write!(f, "signtx"),
             Instruction::Signid => write!(f, "signid"),
             Instruction::Signtag => write!(f, "signtag"),
+            Instruction::InputCoin(k) => write!(f, "inputcoin:{}", k),
+            Instruction::OutputCoin(k) => write!(f, "outputcoin:{}", k),
             Instruction::Ext(byte) => write!(f, "ext:{:x}", byte),
         }?;
 
@@ -165,6 +173,7 @@ impl fmt::Debug for PortableItem {
             PortableItem::String(s) => s.fmt_as_pushdata(f),
             PortableItem::Program(p) => write!(f, "[{:?}]", p),
             PortableItem::Value(v) => v.fmt_as_pushdata(f),
+            PortableItem::Coin(c) => c.fmt_as_pushdata(f),
         }
     }
 }

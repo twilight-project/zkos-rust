@@ -16,6 +16,8 @@ use crate::predicate::Predicate;
 use crate::program::ProgramItem;
 use crate::tx::{PrecomputedTx, Tx, VerifiedTx, TxHeader};
 use crate::vm::{Delegate, VM};
+use transaction::{Input, Output};
+
 
 /// This is the entry point API for verifying a transaction.
 /// Verifier passes the `Tx` object through the VM,
@@ -89,7 +91,8 @@ impl Verifier {
     /// One obstacle towards that is relation between CS and the transcript: the CS
     /// only holds a &mut of the transcript that can only be parked in the lexical scope,
     /// but not in the struct. And we need CS instance both for building tx and for verifying.
-    pub(crate) fn precompute(tx: &Tx) -> Result<PrecomputedTx, VMError> {
+    pub(crate) fn precompute(tx: &Tx, inputs: &[Input],
+        outputs: &[Output]) -> Result<PrecomputedTx, VMError> {
         let cs = r1cs::Verifier::new(Transcript::new(b"ZkVM.r1cs"));
 
         let mut verifier = Verifier {
@@ -102,6 +105,8 @@ impl Verifier {
             tx.header,
             VerifierRun::new(tx.program.clone()),
             &mut verifier,
+            inputs,
+            outputs,
         );
 
         let (id, log, fee) = vm.run()?;
@@ -170,8 +175,9 @@ impl Verifier {
         })
     }
 
-    /// verify_proof is a QuisQuis function that just verifies a proof instead of a whole tx
-    pub fn verify_proof (proof: R1CSProof, header: TxHeader, program: Vec<u8>) -> Result<bool, VMError> {
+    /// verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
+    pub fn verify_proof (proof: R1CSProof, header: TxHeader, program: Vec<u8>, inputs: &[Input],
+        outputs: &[Output]) -> Result<bool, VMError> {
         let bp_gens = BulletproofGens::new(256, 1);
         //print!("BP Gens in verify_proof {:?}", bp_gens);
         let pc_gens = PedersenGens::default();
@@ -187,6 +193,8 @@ impl Verifier {
             header,
             VerifierRun::new(program.clone()),
             &mut verifier,
+            inputs,
+            outputs,
         );
 
         let (id, _log, _fee) = vm.run()?;

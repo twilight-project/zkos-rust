@@ -13,6 +13,7 @@ use crate::fees::FeeRate;
 use crate::merkle::{Hash, MerkleItem, MerkleTree};
 use crate::transcript::TranscriptProtocol;
 use crate::verifier::Verifier;
+use transaction::{Input, Output};
 
 /// Transaction log, a list of all effects of a transaction called [entries](TxEntry).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -218,14 +219,16 @@ impl Decodable for Tx {
 
 impl Tx {
     /// Computes the TxID and TxLog without verifying the transaction.
-    pub fn precompute(&self) -> Result<PrecomputedTx, VMError> {
-        Verifier::precompute(self)
+    pub fn precompute(&self,  inputs: &[Input],
+        outputs: &[Output]) -> Result<PrecomputedTx, VMError> {
+        Verifier::precompute(self, inputs, outputs)
     }
 
     /// Performs stateless verification of the transaction:
     /// logic, signatures and ZK R1CS proof.
-    pub fn verify(&self, bp_gens: &BulletproofGens) -> Result<VerifiedTx, VMError> {
-        self.precompute()?.verify(bp_gens)
+    pub fn verify(&self, bp_gens: &BulletproofGens,  inputs: &[Input],
+        outputs: &[Output]) -> Result<VerifiedTx, VMError> {
+        self.precompute(inputs, outputs)?.verify(bp_gens)
     }
 
     /// Serializes the tx into a byte array.

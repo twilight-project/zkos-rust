@@ -2,11 +2,11 @@
 //#![deny(missing_docs)]
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
-use crate::types::{Input, Output, OutputData, TransactionType, TxEntry, TxLog, Witness};
+use crate::types::{Input, Output, OutputData, TransactionType, TxEntry, TxLog, Witness, Coin};
 use crate::util::{Address, Network};
 use merlin::Transcript;
 
-use serde::{Deserialize, Serialize};
+//use serde::{Deserialize, Serialize};
 
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::{
@@ -124,7 +124,7 @@ impl TransferTransaction {
         senders_count: usize,
         receivers_count: usize,
         tx_log: &mut TxLog,
-    ) -> Result<(TransferTransaction), &'static str> {
+    ) -> Result<TransferTransaction, &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
         for v in value_vector.iter() {
@@ -175,9 +175,11 @@ impl TransferTransaction {
         for i in senders_count..senders_count + receivers_count {
             //create address
             let (pk, comm) = updated_delta_accounts[i].get_account();
-            let out = Output::coin(OutputData::coin(
-                Address::standard(Network::default(), pk),
-                comm,
+            let coin: Coin = Coin{
+                encrypt: comm,
+                address: Address::standard(Network::default(), pk)
+            };
+            let out = Output::coin(OutputData::coin(coin
             ));
             outputs.push(out.clone());
             tx_log.push(TxEntry::Output(out));
@@ -268,7 +270,7 @@ impl TransferTransaction {
         let updated_delta_accounts =
             Account::update_delta_accounts(&updated_accounts, &delta_accounts)?;
 
-        ///create Dark Proof
+        //create Dark Proof
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
             &value_vector_scalar,
@@ -311,12 +313,14 @@ impl TransferTransaction {
         for out in output_final.iter() {
             //create address
             let (pk, comm) = out.get_account();
-            let output = Output::coin(OutputData::coin(
-                Address::standard(Network::default(), pk),
-                comm,
+            let coin: Coin = Coin{
+                encrypt: comm,
+                address: Address::standard(Network::default(), pk)
+            };
+            let out = Output::coin(OutputData::coin(coin
             ));
-            outputs.push(output.clone());
-            tx_log.push(TxEntry::Output(output));
+            outputs.push(out.clone());
+            tx_log.push(TxEntry::Output(out));
         }
 
         Ok(TransferTransaction::set_tranfer_transaction(
