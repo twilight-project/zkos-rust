@@ -177,4 +177,12 @@ pub enum VMError {
     /// This error occurs when tx attempts to add a fee beyond the limit.
     #[error("Fee is too high")]
     FeeTooHigh,
+
+    /// This error occurs when tx attempts to add invalid input coin.
+    #[error("Input is not Coin")]
+    InvalidInputCoin,
+    
+    /// This error occurs when tx attempts to add invalid output coin.
+    #[error("Output  is not Coin")]
+    InvalidOutputCoin,
 }

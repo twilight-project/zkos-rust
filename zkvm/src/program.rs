@@ -191,6 +191,8 @@ impl Program {
     def_op!(signtx, Signtx, "signtx");
     def_op!(signid, Signid, "signid");
     def_op!(signtag, Signtag, "signtag");
+    def_op!(inputcoin, InputCoin, usize, "inputcoin:k");
+    def_op!(outputcoin, OutputCoin, usize, "outputcoin:k");
 
     /// Takes predicate tree and index of program in Merkle tree to verify
     /// the program's membership in that Merkle tree and call the program.

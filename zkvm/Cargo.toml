@@ -36,11 +36,20 @@ path = "../starsig"
 [dependencies.mulmsgsig]
 path = "../mulmsgsig"
 
+[dependencies.transaction]
+path = "../transaction"
+
+[dependencies.elgamalsign]
+path = "../elgamalsign"
+
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
 branch = "develop"
 features = ["yoloproofs"]
 
+[dependencies.quisquis-rust]
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "zkos"
 
 [features]
 default = []

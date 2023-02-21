@@ -13,6 +13,8 @@ use crate::predicate::Predicate;
 use crate::program::ProgramItem;
 use crate::scalar_witness::ScalarWitness;
 use crate::transcript::TranscriptProtocol;
+use quisquislib::elgamal::ElGamalCommitment;
+use transaction::util::Address;
 
 /// An item on a VM stack.
 #[derive(Debug)]
@@ -40,6 +42,9 @@ pub enum Item {
 
     /// A constraint type.
     Constraint(Constraint),
+
+    /// An OutputCoin.
+    Coin(OutputCoin)
 }
 
 /// An item on a VM stack that can be copied.
@@ -50,6 +55,10 @@ pub enum CopyableItem {
 
     /// A variable type.
     Variable(Variable),
+
+    /// A OutputCoin.
+    Coin(OutputCoin)
+    
 }
 
 /// An item on a VM stack that can be dropped.
@@ -69,6 +78,9 @@ pub enum DroppableItem {
 
     /// A constraint type.
     Constraint(Constraint),
+
+    /// A OutputCoin.
+    Coin(OutputCoin)
 }
 
 /// A data item.
@@ -187,12 +199,20 @@ impl Item {
         }
     }
 
+    /// Downcasts item to `Coin` type.
+    pub fn to_coin(self) -> Result<OutputCoin, VMError> {
+        match self {
+            Item::Coin(c) => Ok(c),
+            _ => Err(VMError::TypeNotConstraint),
+        }
+    }
     /// Downcasts item to a portable type.
     pub fn to_portable(self) -> Result<PortableItem, VMError> {
         match self {
             Item::String(x) => Ok(PortableItem::String(x)),
             Item::Program(x) => Ok(PortableItem::Program(x)),
             Item::Value(x) => Ok(PortableItem::Value(x)),
+            Item::Coin(x) => Ok(PortableItem::Coin(x)),
             _ => Err(VMError::TypeNotPortable),
         }
     }
@@ -202,6 +222,8 @@ impl Item {
         match self {
             Item::String(x) => Ok(CopyableItem::String(x.clone())),
             Item::Variable(x) => Ok(CopyableItem::Variable(x.clone())),
+            Item::Coin(x) => Ok(CopyableItem::Coin(x.clone())),
+
             _ => Err(VMError::TypeNotCopyable),
         }
     }
@@ -214,6 +236,8 @@ impl Item {
             Item::Variable(x) => Ok(DroppableItem::Variable(x)),
             Item::Expression(x) => Ok(DroppableItem::Expression(x)),
             Item::Constraint(x) => Ok(DroppableItem::Constraint(x)),
+            Item::Coin(x) => Ok(DroppableItem::Coin(x)),
+
             _ => Err(VMError::TypeNotDroppable),
         }
     }
@@ -479,6 +503,12 @@ impl From<Constraint> for Item {
     }
 }
 
+impl From<OutputCoin> for Item {
+    fn from(x: OutputCoin) -> Self {
+        Item::Coin(x)
+    }
+}
+
 // Upcast a portable item to any item
 impl From<PortableItem> for Item {
     fn from(portable: PortableItem) -> Self {
@@ -486,6 +516,7 @@ impl From<PortableItem> for Item {
             PortableItem::String(x) => Item::String(x),
             PortableItem::Program(x) => Item::Program(x),
             PortableItem::Value(x) => Item::Value(x),
+            PortableItem::Coin(x) => Item::Coin(x),
         }
     }
 }
@@ -496,6 +527,29 @@ impl From<CopyableItem> for Item {
         match copyable {
             CopyableItem::String(x) => Item::String(x),
             CopyableItem::Variable(x) => Item::Variable(x),
+            CopyableItem::Coin(x) => Item::Coin(x),
+
         }
+    }
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct OutputCoin {
+    /// Encryption to value's quantity
+    pub encrypt: ElGamalCommitment,
+    /// Owners Address
+    pub address: Address,
+}
+
+impl Encodable for OutputCoin {
+    fn encode(&self, w: &mut impl Writer ) -> Result<(), WriteError> {
+        w.write_encryption(b"encrypt", &self.encrypt)?;
+        w.write_address(b"address", &self.address)?;
+        Ok(())
+    }
+}
+
+impl ExactSizeEncodable for OutputCoin {
+    fn encoded_size(&self) -> usize {
+        64 + 69
     }
 }

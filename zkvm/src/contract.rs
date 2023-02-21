@@ -6,8 +6,12 @@ use crate::merkle::MerkleItem;
 use crate::predicate::Predicate;
 use crate::program::ProgramItem;
 use crate::transcript::TranscriptProtocol;
-use crate::types::{String, Value};
+use crate::types::{String, Value, OutputCoin};
 use merlin::Transcript;
+//use transaction::types::Coin;
+//use crate::util::Address;
+//use quisquislib::elgamal::ElGamalCommitment;
+
 
 /// Prefix for the string type in the Output Structure
 pub const STRING_TYPE: u8 = 0x00;
@@ -17,6 +21,9 @@ pub const PROG_TYPE: u8 = 0x01;
 
 /// Prefix for the value type in the Output Structure
 pub const VALUE_TYPE: u8 = 0x02;
+
+/// Prefix for the value type in the Output Structure
+pub const COIN_TYPE: u8 = 0x03;
 
 /// A unique identifier for an anchor
 #[derive(Clone, Copy, PartialEq, Default)]
@@ -52,6 +59,9 @@ pub enum PortableItem {
 
     /// Value payload
     Value(Value),
+
+    /// Coin payload
+    Coin(OutputCoin),
 }
 
 impl Contract {
@@ -172,6 +182,11 @@ impl Encodable for PortableItem {
                 w.write_u8(b"type", VALUE_TYPE)?;
                 v.encode(w)?;
             }
+            // Coin = 0x03 || <64 bytes> || <69 bytes>
+            PortableItem::Coin(c) => {
+                w.write_u8(b"type", COIN_TYPE)?;
+                c.encode(w)?;
+            }
         }
         Ok(())
     }
@@ -183,6 +198,7 @@ impl ExactSizeEncodable for PortableItem {
             PortableItem::String(d) => 1 + 4 + d.encoded_size(),
             PortableItem::Program(p) => 1 + 4 + p.encoded_size(),
             PortableItem::Value(_) => 1 + 64,
+            PortableItem::Coin(_) => 1 + 64 + 69,
         }
     }
 }
@@ -205,6 +221,11 @@ impl Decodable for PortableItem {
                 let flv = Commitment::Closed(reader.read_point()?);
                 Ok(PortableItem::Value(Value { qty, flv }))
             }
+            COIN_TYPE => {
+                let encrypt = reader.read_encryption()?;
+                let address = reader.read_address()?;
+                Ok(PortableItem::Coin(OutputCoin { encrypt, address }))
+            }
             _ => Err(ReadError::InvalidFormat),
         }
     }
@@ -214,6 +235,13 @@ impl PortableItem {
     pub fn as_value(&self) -> Option<&Value> {
         match self {
             PortableItem::Value(v) => Some(v),
+            _ => None,
+        }
+    }
+     /// Attempts to cast the item as an OutputCoin type.
+     pub fn as_coin(&self) -> Option<&OutputCoin> {
+        match self {
+            PortableItem::Coin(c) => Some(c),
             _ => None,
         }
     }
