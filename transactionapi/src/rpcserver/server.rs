@@ -13,8 +13,16 @@ pub fn rpcserver() {
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
 
+
     io.add_method_with_meta(
-        "hello",
+        "tx_queue",
+        move |params: Params, _meta: Meta| async move {
+            let tx: Transaction =params.parse::<Transaction>()
+            Ok(serde_json::to_value("transaction ID").unwrap())
+        },
+    );
+    io.add_method_with_meta(
+        "tx_commit",
         move |params: Params, _meta: Meta| async move {
            
             Ok(serde_json::to_value("Hello world").unwrap())
