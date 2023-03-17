@@ -24,8 +24,10 @@ bs58 = "0.4.0"
 
 
 [dependencies.quisquis-rust]
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "zkos"
+path = "../../../quisquis-rust"
+# [dependencies.quisquis-rust]
+# git = "ssh://github.com/twilight-project/quisquis-rust.git"
+# branch = "zkos"
 
 [dependencies.elgamalsign]
 path = "../elgamalsign"

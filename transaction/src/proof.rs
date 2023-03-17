@@ -18,7 +18,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Used in Dark Transaction and Quisquis Tx
 /// Store Dark Tx Proof
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DarkTxProof {
     pub(super) delta_accounts: Vec<Account>,
     pub(super) epsilon_accounts: Vec<Account>,
@@ -30,7 +30,7 @@ pub struct DarkTxProof {
 
 ///
 /// Store the shuffle proof and missing info for QuisQuis TX
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ShuffleTxProof {
     pub(super) input_dash_accounts: Vec<Account>, //Updated input accounts
     pub(super) input_shuffle_proof: ShuffleProof,
@@ -254,14 +254,14 @@ impl DarkTxProof {
     }
 }
 
-impl Serialize for DarkTxProof {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
+// impl Serialize for DarkTxProof {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         serializer.serialize_bytes(&self.to_bytes()[..])
+//     }
+// }
 
 //impl<'de> Deserialize<'de> for DarkTxProof {
 //    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -443,14 +443,14 @@ impl ShuffleTxProof {
     }
 }
 
-impl Serialize for ShuffleTxProof {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
+// impl Serialize for ShuffleTxProof {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         serializer.serialize_bytes(&self.to_bytes()[..])
+//     }
+// }
 
 //impl<'de> Deserialize<'de> for ShuffleTxProof {
 //  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

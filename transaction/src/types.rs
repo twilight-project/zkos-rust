@@ -6,13 +6,13 @@ use quisquislib::{accounts::Account, elgamal::ElGamalCommitment};
 use serde::{Deserialize, Serialize};
 
 /// Transaction ID is a unique 32-byte identifier of a transaction effects represented by `TxLog`.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxId(pub [u8; 32]);
 
 /// Transaction type: Transfer. Transition, Create, Vault
 ///
 /// TransactionType implements [`Default`] and returns [`TransactionType::Transfer`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum TransactionType {
     Transfer,
     Transition,
@@ -39,7 +39,7 @@ impl Default for TransactionType {
 }
 
 /// Identification of transaction in a block.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxPointer {
     /// block id
     block_height: u64,
@@ -48,7 +48,7 @@ pub struct TxPointer {
 }
 
 /// Identification of unspend transaction output.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Utxo {
     /// transaction id
     txid: TxId,
@@ -77,7 +77,7 @@ impl Utxo {
 /// Input type: Dark, Record,
 ///
 /// InputType implements [`Default`] and returns [`InputType::Dark`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum InputType {
     Dark,
     Record,
@@ -99,7 +99,7 @@ impl Default for InputType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InputData {
     Coin { utxo: Utxo, account: Account },
 }
@@ -132,7 +132,7 @@ impl InputData {
 }
 
 /// A complete twilight typed Input valid for a specific network.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Input {
     /// Defines the input type.
     pub in_type: InputType,
@@ -153,7 +153,7 @@ impl Input {
 /// Output type: Dark, Record,
 ///
 /// OutputType implements [`Default`] and returns [`OutputType::Dark`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum OutputType {
     Dark,
     Record,
@@ -175,7 +175,7 @@ impl Default for OutputType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OutputData {
     Coin {
         address: Address,
@@ -211,7 +211,7 @@ impl OutputData {
 }
 
 /// A complete twilight typed Output valid for a specific network.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Output {
     /// Defines the input type.
     pub out_type: OutputType,
@@ -229,7 +229,7 @@ impl Output {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Witness {
     data: Vec<u8>,
 }
@@ -279,11 +279,11 @@ impl Extend<u8> for Witness {
 }
 
 /// Transaction log, a list of all effects of a transaction called [entries](TxEntry).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TxLog(Vec<TxEntry>);
 
 /// Entry in a transaction log. All entries are hashed into a [transaction ID](TxID).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TxEntry {
     /// Transaction [header](self::TxHeader).
     /// This entry is not present in the [transaction log](TxLog), but used only for computing a [TxID](TxID) hash.
