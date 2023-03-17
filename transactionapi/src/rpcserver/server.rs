@@ -1,4 +1,7 @@
 use crate::rpcserver::types::*;
+// use crate::transaction as zkostx;
+// use zkostx::Transaction;
+ use transaction::Transaction;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
@@ -17,12 +20,20 @@ pub fn rpcserver() {
     io.add_method_with_meta(
         "tx_queue",
         move |params: Params, _meta: Meta| async move {
-            let tx: Transaction =params.parse::<Transaction>()
+            let tx: Transaction =params.parse::<Transaction>().unwrap();
+            // let tx: Transaction =serde_json::from_str(&params).unwrap();
             Ok(serde_json::to_value("transaction ID").unwrap())
         },
     );
     io.add_method_with_meta(
         "tx_commit",
+        move |params: Params, _meta: Meta| async move {
+           
+            Ok(serde_json::to_value("Hello world").unwrap())
+        },
+    );
+    io.add_method_with_meta(
+        "tx_status",
         move |params: Params, _meta: Meta| async move {
            
             Ok(serde_json::to_value("Hello world").unwrap())
