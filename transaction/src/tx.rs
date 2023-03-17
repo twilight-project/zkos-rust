@@ -5,7 +5,7 @@ use crate::proof::{DarkTxProof, ShuffleTxProof};
 use crate::types::{Input, Output, OutputData, TransactionType, TxEntry, TxLog, Witness};
 use crate::util::{Address, Network};
 use merlin::Transcript;
-
+// use serde_derive::{Deserialize, Serialize};
 use serde::{Deserialize, Serialize};
 
 use curve25519_dalek::scalar::Scalar;
@@ -19,7 +19,7 @@ use quisquislib::{
 };
 
 /// A complete twilight Transactiont valid for a specific network.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
     /// Defines the Tx type.
     pub tx_type: TransactionType,
@@ -39,7 +39,7 @@ impl Transaction {
 
 ///
 /// Store for TransactionTransfer
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferTransaction {
     //transaction header
     pub(crate) version: u64,
@@ -59,7 +59,7 @@ pub struct TransferTransaction {
     pub(crate) witness: Option<Vec<Witness>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransactionData {
     TransactionTransfer(TransferTransaction),
     //TransactionTransition,

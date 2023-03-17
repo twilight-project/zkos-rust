@@ -1,14 +1,14 @@
 use bs58;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use quisquislib::{keys::PublicKey, ristretto::RistrettoPublicKey};
+use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::fmt;
-
 /// The list of the existing Twilight networks.
 /// Network type: Mainnet, Testnet.
 /// Network implements [`Default`] and returns [`Network::Mainnet`].
 ///
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum Network {
     /// Mainnet is the "production" network and blockchain.
     Mainnet,
@@ -53,7 +53,7 @@ impl Default for Network {
 /// Address type: standard, contract.
 ///
 /// AddressType implements [`Default`] and returns [`AddressType::Standard`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum AddressType {
     /// Standard twilight account address.
     Standard,
@@ -98,7 +98,7 @@ impl fmt::Display for AddressType {
 }
 
 /// A complete twilight typed address valid for a specific network.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub struct Address {
     /// The network on which the address is valid and should be used.
     pub network: Network,
