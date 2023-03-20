@@ -1,5 +1,4 @@
 mod rpcserver;
-mod service;
 // use crate::trasaction;
 // mod transaction::tx;
 use rpcserver::*;
