@@ -1,5 +1,8 @@
-use crate::threadpool::ThreadPool;
+use super::threadpool::ThreadPool;
+use std::sync::mpsc;
+use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
 use transaction::Transaction;
 // extern crate lazy_static;
 // #[macro_use]
@@ -14,5 +17,8 @@ pub fn tx_queue(transaction: Transaction) {
     });
     drop(queue);
 }
-pub fn tx_commit(transaction: Transaction) {}
+pub fn tx_commit(transaction: Transaction) {
+
+    // need to call transaction function
+}
 pub fn tx_status(transaction: Transaction) {}
