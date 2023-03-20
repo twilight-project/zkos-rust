@@ -1,5 +1,5 @@
+use super::service;
 use crate::rpcserver::types::*;
-use crate::service;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
