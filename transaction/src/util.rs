@@ -1,9 +1,15 @@
 use bs58;
 use curve25519_dalek::ristretto::CompressedRistretto;
-use quisquislib::{keys::PublicKey, ristretto::RistrettoPublicKey};
+use quisquislib::{keys::PublicKey, ristretto::RistrettoPublicKey,
+    accounts::{Account, Prover, RangeProofProver, RangeProofVerifier, Verifier},
+    shuffle::{Shuffle, ShuffleProof, ShuffleStatement}
+    transaction::Sender,};
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::fmt;
+use tx::{Transaction, TransactionTransfer};
+use types::{TransactionType};
+
 /// The list of the existing Twilight networks.
 /// Network type: Mainnet, Testnet.
 /// Network implements [`Default`] and returns [`Network::Mainnet`].
@@ -199,6 +205,30 @@ fn slice_to_pkpoint(data: &[u8]) -> Result<CompressedRistretto, &'static str> {
     };
     Ok(gr)
 }
+
+
+///Create Tx function to be used as Client for testing RPC Server
+/// 
+/// Creating a full qq tx
+///  
+pub fn create_transaction() -> Transaction{
+   
+        
+    let (
+        value_vector,
+        account_vector,
+        annonymity_com_scalar_vector,
+        diff,
+        sender_count,
+        receiver_count,
+        sk_sender,
+        updated_balance_sender = Sender::create_reference_tx_data_for_zkos_test();    
+        println!("{:?}", sender_count);
+}
+
+
+
+
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------
@@ -207,4 +237,9 @@ mod test {
     // use super::*;
     #[test]
     fn hex_encoding_decoding_test() {}
+
+    #[test]
+    fn create_transaction_test() {
+        create_transaction();
+    }
 }
