@@ -23,10 +23,3 @@ jsonrpsee = "0.16.2"
 
 [dependencies.transaction]
 path = "../transaction"
-
-[workspace]
-
-
-
-
-members = []

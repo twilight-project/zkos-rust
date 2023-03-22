@@ -1154,6 +1154,7 @@ dependencies = [
 [[package]]
 name = "quisquis-rust"
 version = "0.1.0"
+source = "git+ssh://github.com/twilight-project/quisquis-rust.git?branch=qqtxapi#50aee075b8f513a7957c36ebe6a8afe3f7bc9bb2"
 dependencies = [
  "anyhow",
  "array2d",
