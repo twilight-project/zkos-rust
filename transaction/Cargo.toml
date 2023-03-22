@@ -22,11 +22,11 @@ sha3 = "0.9.1"
 bs58 = "0.4.0"
 
 
+#[dependencies.quisquis-rust]
+#path = "../../../quisquis-rust"
 [dependencies.quisquis-rust]
-path = "../../../quisquis-rust"
-# [dependencies.quisquis-rust]
-# git = "ssh://github.com/twilight-project/quisquis-rust.git"
-# branch = "zkos"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "qqtxapi"
 
 [dependencies.elgamalsign]
 path = "../elgamalsign"
