@@ -7,8 +7,8 @@ use core::{
 
 use serde::{Deserialize, Serialize};
 
-use super::error::Error;
-use crate::prelude::*;
+use std::io::Error;
+// use crate::prelude::*;
 
 /// Supported JSON-RPC version
 const SUPPORTED_VERSION: &str = "2.0";
