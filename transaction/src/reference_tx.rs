@@ -2,13 +2,22 @@
 //#![deny(missing_docs)]
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
-use crate::types::{Input, Output, OutputData, TransactionType, TxEntry, TxLog, Witness};
+use crate::types::{Input, Output, InputData, OutputData, TransactionType, TxEntry, TxLog, Witness, Utxo, TxId};
 use crate::util::{Address, Network};
 use merlin::Transcript;
+use crate::tx::{Transaction, TransferTransaction, TransactionData};
+
 // use serde_derive::{Deserialize, Serialize};
 use serde::{Deserialize, Serialize};
+use bulletproofs::PedersenGens;
 
 use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED;
+use curve25519_dalek::ristretto::RistrettoPoint;
+use sha3::{Sha3XofReader, Sha3_512, Shake256};
+use rand::rngs::OsRng;
+
+
 use quisquislib::{
     accounts::prover::Prover,
     accounts::verifier::Verifier,
@@ -29,7 +38,7 @@ use quisquislib::{
 #[derive(Debug, Clone)]
 pub struct Receiver {
     amount: i64,
-    public_key: RistrettoPublicKey,
+    acc: Account,
 }
 
 #[derive(Debug, Clone)]
@@ -58,8 +67,7 @@ impl Sender {
 
                 for rec in sender.receivers.iter() {
                     receiver_amount_vector.push(rec.amount);
-                    let (receiver_account, _) = Account::generate_account(rec.public_key);
-                    receiver_account_vector.push(receiver_account);
+                    receiver_account_vector.push(rec.acc.clone());
                 }
             }
 
@@ -71,9 +79,13 @@ impl Sender {
                 // this anonymity set may need to come from the blockchain state itself in the future
 
                 let diff = 9 - (senders_count + receivers_count);
-                //use sender key as base pk for annonymity accounts
+                //use random key as base pk for annonymity accounts
+                let pk_g = RISTRETTO_BASEPOINT_COMPRESSED;
+                let pk_h = RistrettoPoint::hash_from_bytes::<Sha3_512>(
+                    RISTRETTO_BASEPOINT_COMPRESSED.as_bytes()).compress();
+                let pk_ref = RistrettoPublicKey::new_from_pk(pk_g, pk_h);    
                 let pk_annonymity =
-                    PublicKey::update_public_key(&account_vector[0].pk, Scalar::random(&mut OsRng));
+                    PublicKey::update_public_key(&pk_ref, Scalar::random(&mut OsRng));
 
                 if diff >= 1 {
                     for _ in 0..diff {
@@ -105,7 +117,7 @@ impl Sender {
     }
 
 
-    pub fn create_reference_tx_data_for_zkos_test() -> Result<(Vec<i64>, Vec<Account>, Vec<Scalar>, usize, usize, usize, Vec<RistrettoSecretKey>, Vec<i64>), &'static str>{
+    pub fn create_reference_tx_data_for_zkos_test() -> Result<(Vec<i64>, Vec<Account>, Vec<Scalar>, usize, usize, usize, Vec<RistrettoSecretKey>, Vec<u64>), &'static str>{
         // lets say bob wants to sent 5 tokens to alice from his one account and 2 from his other account to fay
            // and 1 token to jay
    
@@ -130,7 +142,7 @@ impl Sender {
                    account: bob_account_1,
                    receivers: vec![Receiver {
                        amount: 5,
-                       public_key: alice_account.,
+                       acc: alice_account,
                    }],
                },
                Sender {
@@ -139,11 +151,11 @@ impl Sender {
                    receivers: vec![
                        Receiver {
                            amount: 2,
-                           public_key: fay_account.pk,
+                           acc: fay_account,
                        },
                        Receiver {
                            amount: 1,
-                           public_key: jay_account.pk,
+                           acc: jay_account,
                        },
                    ],
                },
@@ -160,17 +172,17 @@ impl Sender {
            //Create sender updated account vector for the verification of sk and bl-v
            let bl_first_sender = 10 - 5; //bl-v
            let bl_second_sender = 20 - 3; //bl-v
-           let updated_balance_sender: Vec<i64> = vec![bl_first_sender, bl_second_sender];
+           let updated_balance_sender: Vec<u64> = vec![bl_first_sender, bl_second_sender];
            //Create vector of sender secret keys
            let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1, bob_sk_account_2];
            
            Ok((
                        value_vector,
                        account_vector,
-                       annonymity_account_commmitment_scalars_vector,
+                       annonymity_com_scalar_vector,
                        diff,
-                       senders_count,
-                       receivers_count,
+                       sender_count,
+                       receiver_count,
                        sk_sender,
                        updated_balance_sender,    
                    ))
@@ -178,7 +190,7 @@ impl Sender {
 }
 
 
-pub fn create_transaction(){
+pub fn create_qq_reference_transaction()->Transaction{
                 let (
                     value_vector,
                     account_vector,
@@ -188,11 +200,65 @@ pub fn create_transaction(){
                     receiver_count,
                     sk_sender,
                     updated_sender_balance,
-                ) = Sender::generacreate_reference_tx_data_for_zkos_test();
+                ) = Sender::create_reference_tx_data_for_zkos_test().unwrap();
+    //create vector of inputs to be used in tx
+    //random utxo IDS to be used in Inputs
+    let id: [u8; 32] = [0; 32];
 
-                println("Data : {:?}", sender_count)
-            }
+    let utxo = Utxo::new(TxId(id),0);
+    //create vec of Inouts 
+    let mut inputs: Vec<Input> = Vec::new();
+    for input in account_vector.iter() {
+        //create address
+        
+        let inp = Input::coin(InputData::coin_dark(
+            utxo, *input));
+        inputs.push(inp.clone());
+        
+    }
 
+    let updated_balance_reciever: Vec<u64> = vec![5, 2, 1];
+    //println!("Data : {:?}", sender_count);
+    //create quisquis transfertransaction
+    let transfer = TransferTransaction::create_quisquis_transaction(&inputs, &value_vector, &account_vector, &updated_sender_balance, &updated_balance_reciever  , &sk_sender, sender_count, receiver_count, &annonymity_com_scalar_vector, diff);
+
+   Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))         
+}
+
+pub fn create_dark_reference_transaction()->Transaction{
+    let (
+        value_vector,
+        account_vector,
+        annonymity_com_scalar_vector,
+        diff,
+        sender_count,
+        receiver_count,
+        sk_sender,
+        updated_sender_balance,
+    ) = Sender::create_reference_tx_data_for_zkos_test().unwrap();
+//create vector of inputs to be used in tx
+//random utxo IDS to be used in Inputs
+let id: [u8; 32] = [0; 32];
+let accounts = &account_vector[..(sender_count+receiver_count)];
+let utxo = Utxo::new(TxId(id),0);
+//create vec of Inouts 
+let mut inputs: Vec<Input> = Vec::new();
+for input in accounts.iter() {
+//create address
+
+let inp = Input::coin(InputData::coin_dark(
+utxo, *input));
+inputs.push(inp.clone());
+
+}
+
+let updated_balance_reciever: Vec<u64> = vec![5, 2, 1];
+//println!("Data : {:?}", sender_count);
+//create quisquis transfertransaction
+let transfer = TransferTransaction::create_dark_transaction(&value_vector, &accounts, &updated_sender_balance, &updated_balance_reciever, &inputs, &sk_sender, sender_count, receiver_count);
+
+Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))         
+}
 
             // ------------------------------------------------------------------------
 // Tests
@@ -202,7 +268,8 @@ mod test {
      use super::*;
     #[test]
     fn create_transaction_test() {
-        println("IN TEST");
-        create_transaction();
+        println!("IN TEST");
+        //println!("{:?}",create_dark_reference_transaction());
+        println!("{:?}",create_qq_reference_transaction())
     }
 }

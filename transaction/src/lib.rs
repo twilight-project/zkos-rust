@@ -14,6 +14,7 @@ mod serialization;
 mod tx;
 mod types;
 mod util;
+pub mod reference_tx;
 
 pub use self::errors::TxError;
 pub use self::proof::{DarkTxProof, ShuffleTxProof};
@@ -24,3 +25,5 @@ pub use self::types::{
 };
 
 pub use self::util::{Address, Network};
+
+pub use self::reference_tx::{Sender};

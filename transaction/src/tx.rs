@@ -123,7 +123,7 @@ impl TransferTransaction {
         sender_sk: &[RistrettoSecretKey],
         senders_count: usize,
         receivers_count: usize,
-        tx_log: &mut TxLog,
+        //tx_log: &mut TxLog,
     ) -> Result<(TransferTransaction), &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
@@ -180,7 +180,6 @@ impl TransferTransaction {
                 comm,
             ));
             outputs.push(out.clone());
-            tx_log.push(TxEntry::Output(out));
         }
 
         Ok(TransferTransaction::set_tranfer_transaction(
@@ -232,7 +231,6 @@ impl TransferTransaction {
         receivers_count: usize,
         anonymity_comm_scalar: &[Scalar],
         anonymity_account_diff: usize,
-        tx_log: &mut TxLog,
     ) -> Result<TransferTransaction, &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
@@ -284,6 +282,7 @@ impl TransferTransaction {
         );
 
         let anonymity_index = 9 - anonymity_account_diff;
+        println!("anon index {:?}  diff{:?}",anonymity_index,anonymity_account_diff );
         let updated_accounts_slice = &updated_accounts[anonymity_index..9];
         let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
         let rscalars_slice = &delta_rscalar[anonymity_index..9];
@@ -316,7 +315,7 @@ impl TransferTransaction {
                 comm,
             ));
             outputs.push(output.clone());
-            tx_log.push(TxEntry::Output(output));
+            //tx_log.push(TxEntry::Output(output));
         }
 
         Ok(TransferTransaction::set_tranfer_transaction(
