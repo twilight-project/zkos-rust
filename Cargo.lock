@@ -1802,12 +1802,17 @@ dependencies = [
 name = "transactionapi"
 version = "0.1.0"
 dependencies = [
+ "bulletproofs",
+ "curve25519-dalek",
  "dotenv",
+ "elgamalsign",
  "jsonrpc",
  "jsonrpc-core",
  "jsonrpc-http-server",
  "jsonrpsee",
  "lazy_static",
+ "merlin",
+ "quisquis-rust",
  "reqwest",
  "serde",
  "serde_derive",
