@@ -305,10 +305,6 @@ impl ShuffleTxProof {
         updated_delta_accounts_slice: &[Account],
         rscalars_slice: &[Scalar],
         anonymity_comm_scalar: &[Scalar],
-        anonymity_index: usize,
-        senders_count: usize,
-        receivers_count: usize,
-        base_pk: RistrettoPublicKey,
         input_shuffle: &Shuffle,
         output_shuffle: &Shuffle,
     ) -> ShuffleTxProof {
