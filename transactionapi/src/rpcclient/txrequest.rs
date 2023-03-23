@@ -1,3 +1,5 @@
+use super::method::Method;
+// use super::method::Method;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
 use transaction::Transaction;
@@ -43,7 +45,7 @@ pub struct Wrapper<R> {
 
 impl<R> Wrapper<R>
 where
-    R: RequestMessage,
+    R: Transaction,
 {
     /// Create a new request wrapper from the given request.
     ///
@@ -58,7 +60,7 @@ where
         Self {
             jsonrpc: Version::current(),
             id,
-            method: request.method(),
+            method: method.as_str(),
             params: request,
         }
     }
