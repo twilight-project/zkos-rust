@@ -43,10 +43,3 @@ default = []
 nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
 
 
-
-[workspace]
-
-
-
-
-members = []
