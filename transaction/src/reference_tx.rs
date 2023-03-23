@@ -229,8 +229,8 @@ pub fn create_dark_reference_transaction()->Transaction{
     let (
         value_vector,
         account_vector,
-        annonymity_com_scalar_vector,
-        diff,
+        _,
+        _,
         sender_count,
         receiver_count,
         sk_sender,

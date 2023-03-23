@@ -292,14 +292,10 @@ impl TransferTransaction {
 
         let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
             &mut prover,
-            &updated_accounts,
-            &updated_delta_accounts,
-            &delta_rscalar,
+            &updated_accounts_slice,
+            &updated_delta_accounts_slice,
+            &rscalars_slice,
             &anonymity_comm_scalar,
-            anonymity_index,
-            senders_count,
-            receivers_count,
-            base_pk,
             &input_shuffle,
             &output_shuffle,
         );
