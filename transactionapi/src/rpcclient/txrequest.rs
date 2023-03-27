@@ -1,6 +1,8 @@
 use super::id::Id;
 use super::method::Method;
 use jsonrpc_core::Error;
+use jsonrpc_core::Version;
+use serde_derive::{Deserialize, Serialize};
 // use super::method::Method;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
@@ -58,7 +60,7 @@ pub trait RpcRequest<T> {
 
     fn into_json(self) -> String;
 
-    fn send(self, url: String) -> Result<Response, std::io::Error>;
+    fn send(self, url: String) -> Result<Response, reqwest::Error>;
 }
 
 impl RpcRequest<Transaction> for RpcBody<Transaction> {
@@ -68,9 +70,9 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
 
     fn new_with_id(id: Id, request: Transaction, method: Method) -> Self {
         Self {
-            jsonrpc: Version::current(),
+            jsonrpc: Version::V2,
             id,
-            method: method(),
+            method: method,
             params: request,
         }
     }
@@ -90,7 +92,11 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         &self.method
     }
 
-    fn send(self, url: String) -> Result<Response, std::io::Error> {
+    fn send(self, url: std::string::String) -> Result<Response, reqwest::Error> {
+        let mut file = File::create("foo.txt").unwrap();
+        file.write_all(&serde_json::to_vec(&self.clone()).unwrap())
+            .unwrap();
+
         let client = reqwest::blocking::Client::new();
         let clint_clone = client.clone();
         let res = clint_clone
@@ -101,3 +107,5 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         return res;
     }
 }
+use std::fs::File;
+use std::io::prelude::*;
