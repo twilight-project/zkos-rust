@@ -15,18 +15,29 @@ pub fn rpcserver() {
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
 
-    io.add_method_with_meta("tx_queue", move |params: Params, _meta: Meta| async move {
+    io.add_method_with_meta("TxQueue", move |params: Params, _meta: Meta| async move {
         let tx: Transaction = params.parse::<Transaction>().unwrap();
         service::tx_queue(tx);
 
         Ok(serde_json::to_value("transaction ID").unwrap())
     });
-    io.add_method_with_meta("tx_commit", move |params: Params, _meta: Meta| async move {
-        let tx: Transaction = params.parse::<Transaction>().unwrap();
-        service::tx_commit(tx);
+    io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
+        let mut tx: transaction::Transaction;
+        match params.parse::<Transaction>() {
+            Ok(txx) => tx = txx,
+            Err(args) => {
+                let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                return Err(err);
+            }
+        }
+        // println!("params:{:#?}", params);
+        // // service::tx_commit(tx);
+        // let mut file = File::create("foo1.txt").unwrap();
+        // file.write_all(&serde_json::to_vec(&params.clone()).unwrap())
+        //     .unwrap();
         Ok(serde_json::to_value("Hello world").unwrap())
     });
-    io.add_method_with_meta("tx_status", move |params: Params, _meta: Meta| async move {
+    io.add_method_with_meta("TxStatus", move |params: Params, _meta: Meta| async move {
         let tx: Transaction = params.parse::<Transaction>().unwrap();
         service::tx_status(tx);
         Ok(serde_json::to_value("Hello world").unwrap())
@@ -58,3 +69,6 @@ pub fn rpcserver() {
         .unwrap();
     server.wait();
 }
+
+use std::fs::File;
+use std::io::prelude::*;
