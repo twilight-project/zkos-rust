@@ -1,4 +1,6 @@
+use super::id::Id;
 use super::method::Method;
+use jsonrpc_core::Error;
 // use super::method::Method;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
@@ -27,53 +29,75 @@ fn create_request(path: String, tx: Transaction) -> Response {
     return res;
 }
 
-/// JSON-RPC request wrapper (i.e. message envelope)
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Wrapper<R> {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RpcBody<T> {
     /// JSON-RPC version
-    jsonrpc: Version,
+    pub jsonrpc: Version,
 
     /// Identifier included in request
-    id: Id,
+    pub id: Id,
 
     /// Request method
-    method: Method,
+    pub method: Method,
 
     /// Request parameters (i.e. request object)
-    params: R,
+    pub params: T,
 }
 
-impl<R> Wrapper<R>
-where
-    R: Transaction,
-{
-    /// Create a new request wrapper from the given request.
-    ///
-    /// The ID of the request is set to a random [UUIDv4] value.
-    ///
-    /// [UUIDv4]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)
-    pub fn new(request: R) -> Self {
-        Self::new_with_id(Id::uuid_v4(), request)
+pub trait RpcRequest<T> {
+    // fn remove(&mut self, order: T, cmd: RpcCommand) -> Result<T, std::io::Error>;
+    fn new(request: T, method: Method) -> Self;
+
+    fn new_with_id(id: Id, request: T, method: Method) -> Self;
+
+    fn id(&self) -> &Id;
+
+    fn params(&self) -> &T;
+
+    fn add_method(&self) -> &Method;
+
+    fn into_json(self) -> String;
+
+    fn send(self, url: String) -> Result<Response, std::io::Error>;
+}
+
+impl RpcRequest<Transaction> for RpcBody<Transaction> {
+    fn new(request: Transaction, method: Method) -> Self {
+        Self::new_with_id(Id::uuid_v4(), request, method)
     }
 
-    pub(crate) fn new_with_id(id: Id, request: R) -> Self {
+    fn new_with_id(id: Id, request: Transaction, method: Method) -> Self {
         Self {
             jsonrpc: Version::current(),
             id,
-            method: method.as_str(),
+            method: method(),
             params: request,
         }
     }
 
-    pub fn id(&self) -> &Id {
+    fn id(&self) -> &Id {
         &self.id
     }
 
-    pub fn params(&self) -> &R {
+    fn params(&self) -> &Transaction {
         &self.params
     }
-
-    pub fn into_json(self) -> String {
+    fn into_json(self) -> String {
         serde_json::to_string_pretty(&self).unwrap()
+    }
+
+    fn add_method(&self) -> &Method {
+        &self.method
+    }
+
+    fn send(self, url: String) -> Result<Response, std::io::Error> {
+        let client = reqwest::blocking::Client::new();
+        let clint_clone = client.clone();
+        let res = clint_clone
+            .post(url)
+            .headers(construct_headers())
+            .body(self.into_json())
+            .send();
+        return res;
     }
 }
