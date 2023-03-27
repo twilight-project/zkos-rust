@@ -1,92 +1,62 @@
 // mod quisquislib;
 mod rpcclient;
 mod rpcserver;
+use rpcclient::method::Method;
 use rpcclient::txrequest;
+use rpcclient::txrequest::{RpcBody, RpcRequest};
 // use crate::trasaction;
 // mod transaction::tx;
+
+use std::fs::File;
+use std::io::prelude::*;
+
 use rpcserver::*;
+use transaction::TransactionData;
 use transaction::TransferTransaction;
 #[macro_use]
 extern crate lazy_static;
-fn main() {
-    let handle = std::thread::Builder::new()
-        .name(String::from("rpc request"))
-        .spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(5000));
-            // txrequest::create_request();
-        })
-        .unwrap();
-    handle.join().unwrap();
-    rpcserver();
-}
-use bulletproofs::{PedersenGens, RangeProof};
-use curve25519_dalek::scalar::Scalar;
-use merlin::Transcript;
-use quisquislib::{
-    accounts::prover::{Prover, SigmaProof},
-    accounts::verifier::Verifier,
-    accounts::Account,
-    keys::PublicKey,
-    pedersen::vectorpedersen::VectorPedersenGens,
-    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
-    shuffle::{shuffle::ROWS, Shuffle, ShuffleProof, ShuffleStatement},
+use transaction::reference_tx::{
+    create_dark_reference_transaction, create_qq_reference_transaction,
 };
-use transaction::Input;
-// pub fn create_tx() {
-//     let base_pk = RistrettoPublicKey::generate_base_pk();
+fn main() {
+    // let handle = std::thread::Builder::new()
+    //     .name(String::from("rpc request"))
+    //     .spawn(move || {
+    //         std::thread::sleep(std::time::Duration::from_millis(5000));
+    let tx = create_dark_reference_transaction();
+    // println!("tx: {:?}", tx);
+    // let mut file = File::create("foo.txt").unwrap();
+    // file.write_all(&serde_json::to_vec(&tx).unwrap()).unwrap();
+    // let tx1 = serde_json::to_vec(&tx.clone()).unwrap();
+    // let mut file2 = File::create("foo2.txt").unwrap();
+    // file2.write_all(&serde_json::to_vec(&tx1).unwrap()).unwrap();
+    // // let tx3: transaction::Transaction = serde_json::from_str(&tx1).unwrap();
+    // let tx3: transaction::Transaction =
+    //     serde_json::from_str(&String::from_utf8_lossy(&tx1)).unwrap();
+    // let mut file2 = File::create("foo3.txt").unwrap();
+    // file2.write_all(&serde_json::to_vec(&tx3).unwrap()).unwrap();
+    // let tx_send: RpcBody<transaction::Transaction> =
+    //     RpcRequest::<transaction::Transaction>::new(tx, Method::TxCommit);
+    // let res = tx_send.send("http://127.0.0.1:3030".to_string());
+    // println!("res:{:#?}", res.unwrap().bytes());
 
-//     let value_vector: Vec<Scalar> = vec![
-//         -Scalar::from(5u64),
-//         -Scalar::from(3u64),
-//         Scalar::from(5u64),
-//         Scalar::from(3u64),
-//     ];
+    //**************************** */
+    // let proff = tx.tx.clone();
+    // let prooof: TransferTransaction = match proff {
+    //     TransactionData::TransactionTransfer(xx) => xx,
+    // };
+    // let prooff = prooof.get_proof();
+    // let mut file = File::create("foo.txt").unwrap();
+    // file.write_all(&serde_json::to_vec(&prooff).unwrap())
+    //     .unwrap();
+    // let tx1 = serde_json::to_value(&prooff.clone()).unwrap();
+    // let mut file2 = File::create("foo2.txt").unwrap();
+    // file2.write_all(&serde_json::to_vec(&tx1).unwrap()).unwrap();
 
-//     let mut updated_accounts: Vec<Account> = Vec::new();
-//     let mut sender_sk: Vec<RistrettoSecretKey> = Vec::new();
-
-//     for i in 0..4 {
-//         let (updated_account, sk) =
-//             Account::generate_random_account_with_value(Scalar::from(10u64));
-
-//         updated_accounts.push(updated_account);
-
-//         // lets save the first and second sk as sender's sk as we discard the rest
-//         if i == 0 || i == 1 {
-//             sender_sk.push(sk);
-//         }
-//     }
-
-//     let (delta_accounts, epsilon_accounts, delta_rscalar_vector) =
-//         Account::create_delta_and_epsilon_accounts(&updated_accounts, &value_vector, base_pk);
-
-//     let updated_delta_accounts =
-//         Account::update_delta_accounts(&updated_accounts, &delta_accounts).unwrap();
-//     let account_vector = updated_delta_accounts;
-//     // balance that we want to prove should be sender balance - the balance user is trying to send
-//     let sender_updated_balance: Vec<u64> = vec![5u64, 7u64];
-//     let sender_updated_balance: Vec<u64> = Vec::from([5u64, 7u64]);
-
-//     let reciever_updated_balance: Vec<u64> = vec![5u64, 3u64];
-
-//     let base_pk = RistrettoPublicKey::generate_base_pk();
-
-//     //create DarkTx Prover merlin transcript
-//     let mut transcript = Transcript::new(b"TxProof");
-//     let mut prover = Prover::new(b"DarkTx", &mut transcript);
-//     let value_vector: Vec<i64> = vec![5, 3];
-
-//     let tx = TransferTransaction::create_quisquis_transaction(
-//         &Vec::<Input>::new(),
-//         value_vector.as_slice(),
-//         &account_vector,
-//         &sender_updated_balance,
-//         &reciever_updated_balance,
-//         &sender_sk,
-//         2,
-//         2,
-//         anonymity_comm_scalar,
-//         anonymity_account_diff,
-//         tx_log,
-//     );
-// }
+    // let tx3: transaction::DarkTxProof = serde_json::from_value(tx1).unwrap();
+    // let mut file2 = File::create("foo3.txt").unwrap();
+    //     })
+    //     .unwrap();
+    // // rpcserver();
+    // handle.join().unwrap();
+}
