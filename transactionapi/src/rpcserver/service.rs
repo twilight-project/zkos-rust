@@ -4,8 +4,8 @@ use super::threadpool::ThreadPool;
 use std::sync::Mutex;
 // use std::thread;
 use transaction::Transaction;
-// extern crate lazy_static;
 // #[macro_use]
+// extern crate lazy_static;
 lazy_static! {
     pub static ref THREADPOOL_RPC_QUEUE: Mutex<ThreadPool> =
         Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue")));
