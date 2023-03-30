@@ -16,7 +16,7 @@ pub fn rpcserver() {
     let mut io = MetaIoHandler::default();
 
     io.add_method_with_meta("TxQueue", move |params: Params, _meta: Meta| async move {
-        let mut tx: transaction::Transaction;
+        let tx: transaction::Transaction;
         match params.parse::<Vec<u8>>() {
             Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
             Err(args) => {
@@ -26,10 +26,13 @@ pub fn rpcserver() {
         }
         service::tx_queue(tx);
 
-        Ok(serde_json::to_value("transaction ID").unwrap())
+        Ok(
+            serde_json::to_value("Transaction submitted successfully, Your transaction ID is XXX")
+                .unwrap(),
+        )
     });
     io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
-        let mut tx: transaction::Transaction;
+        let tx: transaction::Transaction;
         match params.parse::<Vec<u8>>() {
             Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
             Err(args) => {
@@ -38,10 +41,10 @@ pub fn rpcserver() {
             }
         }
         service::tx_commit(tx);
-        Ok(serde_json::to_value("Hello world").unwrap())
+        Ok(serde_json::to_value("please wait while we proccess your request").unwrap())
     });
     io.add_method_with_meta("TxStatus", move |params: Params, _meta: Meta| async move {
-        let mut tx: transaction::Transaction;
+        let tx: transaction::Transaction;
         match params.parse::<Vec<u8>>() {
             Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
             Err(args) => {
@@ -50,7 +53,7 @@ pub fn rpcserver() {
             }
         }
         service::tx_status(tx);
-        Ok(serde_json::to_value("Hello world").unwrap())
+        Ok(serde_json::to_value("Checking for status").unwrap())
     });
 
     eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
