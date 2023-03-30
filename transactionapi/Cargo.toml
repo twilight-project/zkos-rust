@@ -21,6 +21,8 @@ jsonrpsee = "0.16.2"
 curve25519-dalek = { version = "3", features = ["serde"] }
 merlin = "2"
 getrandom = { version = "0.2", default-features = false, features = ["js"] }
+uuid = { version = "0.8.2", features = ["v4", "serde"] } #https://github.com/serde-rs/serde/issues/324
+bincode = "1"
 # tendermint-rpc = "0.28.0"
 # check bitcoin core rpc 
 
