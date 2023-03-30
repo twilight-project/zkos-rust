@@ -20,7 +20,7 @@ hex = "^0.3"
 merlin = "2"
 sha3 = "0.9.1"
 bs58 = "0.4.0"
-
+serde_bytes = "0.11.9"
 
 [dependencies.quisquis-rust]
 path = "../../../quisquis-rust"

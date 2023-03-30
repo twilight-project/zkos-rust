@@ -1,8 +1,8 @@
 use super::threadpool::ThreadPool;
-use std::sync::mpsc;
-use std::sync::Arc;
+// use std::sync::mpsc;
+// use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
+// use std::thread;
 use transaction::Transaction;
 // extern crate lazy_static;
 // #[macro_use]

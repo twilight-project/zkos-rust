@@ -1,5 +1,5 @@
 use super::service;
-use crate::rpcserver::types::*;
+// use crate::rpcserver::types::*;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
@@ -16,29 +16,39 @@ pub fn rpcserver() {
     let mut io = MetaIoHandler::default();
 
     io.add_method_with_meta("TxQueue", move |params: Params, _meta: Meta| async move {
-        let tx: Transaction = params.parse::<Transaction>().unwrap();
+        let mut tx: transaction::Transaction;
+        match params.parse::<Vec<u8>>() {
+            Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
+            Err(args) => {
+                let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                return Err(err);
+            }
+        }
         service::tx_queue(tx);
 
         Ok(serde_json::to_value("transaction ID").unwrap())
     });
     io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
         let mut tx: transaction::Transaction;
-        match params.parse::<Transaction>() {
-            Ok(txx) => tx = txx,
+        match params.parse::<Vec<u8>>() {
+            Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
             Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
                 return Err(err);
             }
         }
-        // println!("params:{:#?}", params);
-        // // service::tx_commit(tx);
-        // let mut file = File::create("foo1.txt").unwrap();
-        // file.write_all(&serde_json::to_vec(&params.clone()).unwrap())
-        //     .unwrap();
+        service::tx_commit(tx);
         Ok(serde_json::to_value("Hello world").unwrap())
     });
     io.add_method_with_meta("TxStatus", move |params: Params, _meta: Meta| async move {
-        let tx: Transaction = params.parse::<Transaction>().unwrap();
+        let mut tx: transaction::Transaction;
+        match params.parse::<Vec<u8>>() {
+            Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
+            Err(args) => {
+                let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                return Err(err);
+            }
+        }
         service::tx_status(tx);
         Ok(serde_json::to_value("Hello world").unwrap())
     });
