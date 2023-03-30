@@ -1,6 +1,5 @@
 use super::id::Id;
 use super::method::Method;
-use jsonrpc_core::Error;
 use jsonrpc_core::Version;
 use serde_derive::{Deserialize, Serialize};
 // use super::method::Method;
@@ -17,18 +16,6 @@ fn construct_headers() -> HeaderMap {
     headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     headers
-}
-
-fn create_request(path: String, tx: Transaction) -> Response {
-    let client = reqwest::blocking::Client::new();
-    let clint_clone = client.clone();
-    let res = clint_clone
-            .post(path)
-            .headers(construct_headers())
-            .body("{\"jsonrpc\": \"2.0\", \"method\": \"CreateTraderOrder\", \"id\":123, \"params\": {\"account_id\":\"siddharth\",\"position_type\":\"LONG\",\"order_type\":\"MARKET\",\"leverage\":15.0,\"initial_margin\":2.0,\"available_margin\":2.0,\"order_status\":\"PENDING\",\"entryprice\":39000.01,\"execution_price\":44440.02} }")
-            .send()
-            .unwrap();
-    return res;
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -85,7 +72,7 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         &self.params
     }
     fn into_json(self) -> String {
-        serde_json::to_string_pretty(&self).unwrap()
+        serde_json::to_string(&Payload::new(self)).unwrap()
     }
 
     fn add_method(&self) -> &Method {
@@ -93,10 +80,6 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
     }
 
     fn send(self, url: std::string::String) -> Result<Response, reqwest::Error> {
-        let mut file = File::create("foo.txt").unwrap();
-        file.write_all(&serde_json::to_vec(&self.clone()).unwrap())
-            .unwrap();
-
         let client = reqwest::blocking::Client::new();
         let clint_clone = client.clone();
         let res = clint_clone
@@ -107,5 +90,27 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         return res;
     }
 }
-use std::fs::File;
-use std::io::prelude::*;
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Payload {
+    pub jsonrpc: Version,
+
+    /// Identifier included in request
+    pub id: Id,
+
+    /// Request method
+    pub method: Method,
+
+    /// Request parameters (i.e. request object)
+    pub params: Vec<u8>,
+}
+impl Payload {
+    pub fn new(data: RpcBody<Transaction>) -> Payload {
+        Payload {
+            jsonrpc: data.jsonrpc,
+            id: data.id,
+            method: data.method,
+            params: bincode::serialize(&data.params).unwrap(),
+        }
+    }
+}
