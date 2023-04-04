@@ -72,7 +72,11 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         &self.params
     }
     fn into_json(self) -> String {
-        serde_json::to_string(&Payload::new(self)).unwrap()
+        let tx = serde_json::to_string(&Payload::new(self)).unwrap();
+        // let mut file = File::create("foo.txt").unwrap();
+        // file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
+        //     .unwrap();
+        tx
     }
 
     fn add_method(&self) -> &Method {
@@ -114,3 +118,5 @@ impl Payload {
         }
     }
 }
+use std::fs::File;
+use std::io::prelude::*;
