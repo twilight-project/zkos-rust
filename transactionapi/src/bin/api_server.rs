@@ -1,6 +1,7 @@
 // mod quisquislib;
-mod rpcclient;
-mod rpcserver;
+use transactionapi::{rpcclient, rpcserver};
+// mod rpcclient;
+// mod rpcserver;
 use rpcclient::method::Method;
 use rpcclient::txrequest::{RpcBody, RpcRequest};
 
