@@ -17,19 +17,29 @@ pub fn rpcserver() {
 
     io.add_method_with_meta("TxQueue", move |params: Params, _meta: Meta| async move {
         let tx: transaction::Transaction;
-        match params.parse::<Vec<u8>>() {
-            Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
+        tx = match params.parse::<Vec<u8>>() {
+            Ok(txx) => match bincode::deserialize(&txx) {
+                Ok(value) => value,
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                    return Err(err);
+                }
+            },
             Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
                 return Err(err);
             }
-        }
+        };
         service::tx_queue(tx);
 
-        Ok(
-            serde_json::to_value("Transaction submitted successfully, Your transaction ID is XXX")
-                .unwrap(),
-        )
+        // Ok(
+        //     serde_json::to_value("Transaction submitted successfully, Your transaction ID is XXX")
+        //         .unwrap(),
+        // )
+        Ok(jsonrpc_core::Value::String(
+            "Transaction submitted successfully, Your transaction ID is XXX".to_string(),
+        ))
     });
     io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
         let tx: transaction::Transaction;
