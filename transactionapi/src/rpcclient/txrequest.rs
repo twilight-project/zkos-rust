@@ -1,5 +1,8 @@
 use super::id::Id;
 use super::method::Method;
+// use curve25519_dalek::digest::Output;
+use jsonrpc_core::response::{Failure, Output, Success};
+use jsonrpc_core::Response as RPCResponse;
 use jsonrpc_core::Version;
 use serde_derive::{Deserialize, Serialize};
 // use super::method::Method;
@@ -43,11 +46,13 @@ pub trait RpcRequest<T> {
 
     fn params(&self) -> &T;
 
-    fn add_method(&self) -> &Method;
+    fn get_method(&self) -> &Method;
 
     fn into_json(self) -> String;
 
     fn send(self, url: String) -> Result<Response, reqwest::Error>;
+    // fn response(resp: Result<Response, reqwest::Error>);
+    // // -> Result<jsonrpc_core::Response, jsonrpc_core::Error>;
 }
 
 impl RpcRequest<Transaction> for RpcBody<Transaction> {
@@ -73,13 +78,13 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
     }
     fn into_json(self) -> String {
         let tx = serde_json::to_string(&Payload::new(self)).unwrap();
-        // let mut file = File::create("foo.txt").unwrap();
-        // file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
-        //     .unwrap();
+        let mut file = File::create("foo.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
+            .unwrap();
         tx
     }
 
-    fn add_method(&self) -> &Method {
+    fn get_method(&self) -> &Method {
         &self.method
     }
 
@@ -90,7 +95,11 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
             .post(url)
             .headers(construct_headers())
             .body(self.into_json())
+            // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":1,"id":1}"#)
+            // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[],"id":1}"#)
+            // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
             .send();
+
         return res;
     }
 }
@@ -120,3 +129,45 @@ impl Payload {
 }
 use std::fs::File;
 use std::io::prelude::*;
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Resp {
+    /// Protocol version
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jsonrpc: Option<Version>,
+    /// Result
+    pub result: String,
+    /// Correlation id
+    pub id: Id,
+}
+
+pub fn rpc_response(resp: Result<Response, reqwest::Error>)
+// -> Result<jsonrpc_core::Response, jsonrpc_core::Error>
+{
+    match resp {
+        Ok(response) => {
+            // let rpc_resp = jsonrpc_core::Response::Single(
+            //     serde_json::from_slice(&response.bytes().unwrap()).unwrap(),
+            // );
+            // println!("RESP::{:#?}", rpc_resp);
+
+            if response.status().is_success() {
+                // let rpc_resp: Result<jsonrpc_core::Response, serde_json::Error> =
+                //     serde_json::from_slice(&response.bytes().unwrap());
+
+                let output: Output = serde_json::from_slice(&response.bytes().unwrap()).unwrap();
+                // println!("RESP::{:#?}", output);
+                let kk = match output {
+                    // Output::Success(s) => Ok(s.result),
+                    // Output::Failure(f) => Err(f.error),
+                    Output::Success(s) => Ok(s),
+                    Output::Failure(f) => Err(f),
+                };
+
+                println!("RESP::{:#?}", kk);
+            };
+        }
+        Err(arg) => {}
+    }
+}
