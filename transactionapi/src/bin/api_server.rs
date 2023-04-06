@@ -22,7 +22,14 @@ fn main() {
 
             // let resp: Resp = serde_json::from_slice(&res.unwrap().bytes().unwrap()).unwrap();
             // println!("res:{:#?}", resp);
-            rpcclient::txrequest::rpc_response(res);
+            match res {
+                Ok(x) => {
+                    println!("res:{:#?}", x);
+                }
+                Err(arg) => {
+                    println!("errr:{:#?}", arg);
+                }
+            }
         })
         .unwrap();
     rpcserver();
