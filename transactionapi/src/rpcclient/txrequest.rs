@@ -2,12 +2,13 @@ use super::id::Id;
 use super::method::Method;
 // use curve25519_dalek::digest::Output;
 use jsonrpc_core::response::{Failure, Output, Success};
-use jsonrpc_core::Response as RPCResponse;
+use jsonrpc_core::Response as JsonRPCResponse;
 use jsonrpc_core::Version;
 use serde_derive::{Deserialize, Serialize};
 // use super::method::Method;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
+use serde_json::Error;
 use transaction::Transaction;
 fn construct_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
@@ -50,7 +51,8 @@ pub trait RpcRequest<T> {
 
     fn into_json(self) -> String;
 
-    fn send(self, url: String) -> Result<Response, reqwest::Error>;
+    // fn send(self, url: String) -> Result<Response, reqwest::Error>;
+    fn send(self, url: String) -> Result<RpcResponse<serde_json::Value>, reqwest::Error>;
     // fn response(resp: Result<Response, reqwest::Error>);
     // // -> Result<jsonrpc_core::Response, jsonrpc_core::Error>;
 }
@@ -88,7 +90,10 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         &self.method
     }
 
-    fn send(self, url: std::string::String) -> Result<Response, reqwest::Error> {
+    fn send(
+        self,
+        url: std::string::String,
+    ) -> Result<RpcResponse<serde_json::Value>, reqwest::Error> {
         let client = reqwest::blocking::Client::new();
         let clint_clone = client.clone();
         let res = clint_clone
@@ -100,7 +105,7 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
             // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
             .send();
 
-        return res;
+        return rpc_response(res);
     }
 }
 
@@ -129,6 +134,14 @@ impl Payload {
 }
 use std::fs::File;
 use std::io::prelude::*;
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RpcResponse<T> {
+    pub jsonrpc: Version,
+
+    /// Identifier included in request
+    pub id: jsonrpc_core::Id,
+    pub result: Result<T, jsonrpc_core::Error>,
+}
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -142,32 +155,29 @@ pub struct Resp {
     pub id: Id,
 }
 
-pub fn rpc_response(resp: Result<Response, reqwest::Error>)
-// -> Result<jsonrpc_core::Response, jsonrpc_core::Error>
-{
+pub fn rpc_response(
+    resp: Result<Response, reqwest::Error>,
+) -> Result<RpcResponse<serde_json::Value>, reqwest::Error> {
     match resp {
         Ok(response) => {
-            // let rpc_resp = jsonrpc_core::Response::Single(
-            //     serde_json::from_slice(&response.bytes().unwrap()).unwrap(),
-            // );
-            // println!("RESP::{:#?}", rpc_resp);
-
-            if response.status().is_success() {
-                // let rpc_resp: Result<jsonrpc_core::Response, serde_json::Error> =
-                //     serde_json::from_slice(&response.bytes().unwrap());
-
-                let output: Output = serde_json::from_slice(&response.bytes().unwrap()).unwrap();
-                // println!("RESP::{:#?}", output);
-                let kk = match output {
-                    // Output::Success(s) => Ok(s.result),
-                    // Output::Failure(f) => Err(f.error),
-                    Output::Success(s) => Ok(s),
-                    Output::Failure(f) => Err(f),
-                };
-
-                println!("RESP::{:#?}", kk);
+            // if response.status().is_success() {
+            let output: Output = serde_json::from_slice(&response.bytes().unwrap()).unwrap();
+            let kk = match output {
+                Output::Success(s) => RpcResponse {
+                    jsonrpc: s.jsonrpc.unwrap(),
+                    id: s.id,
+                    result: Ok(s.result),
+                },
+                Output::Failure(f) => RpcResponse {
+                    jsonrpc: f.jsonrpc.unwrap(),
+                    id: f.id,
+                    result: Err(f.error),
+                },
             };
+            return Ok(kk);
+
+            // } else { };
         }
-        Err(arg) => {}
+        Err(arg) => Err(arg),
     }
 }
