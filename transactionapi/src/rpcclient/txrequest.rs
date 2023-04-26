@@ -10,6 +10,8 @@ use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
 use serde_json::Error;
 use transaction::Transaction;
+// pub type TransactionStatusId = String;
+use crate::TransactionStatusId;
 fn construct_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static("reqwest"));
@@ -94,18 +96,44 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         self,
         url: std::string::String,
     ) -> Result<RpcResponse<serde_json::Value>, reqwest::Error> {
-        let client = reqwest::blocking::Client::new();
-        let clint_clone = client.clone();
-        let res = clint_clone
-            .post(url)
-            .headers(construct_headers())
-            .body(self.into_json())
-            // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":1,"id":1}"#)
-            // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[],"id":1}"#)
-            // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
-            .send();
+        match self.method {
+            Method::TxCommit => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":1,"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[],"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
+                    .send();
 
-        return rpc_response(res);
+                return rpc_response(res);
+            }
+            Method::TxQueue => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            Method::TxStatus => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+        }
     }
 }
 
@@ -179,5 +207,97 @@ pub fn rpc_response(
             // } else { };
         }
         Err(arg) => Err(arg),
+    }
+}
+
+impl RpcRequest<TransactionStatusId> for RpcBody<TransactionStatusId> {
+    fn new(request: TransactionStatusId, method: Method) -> Self {
+        Self::new_with_id(Id::uuid_v4(), request, method)
+    }
+
+    fn new_with_id(id: Id, request: TransactionStatusId, method: Method) -> Self {
+        Self {
+            jsonrpc: Version::V2,
+            id,
+            method: method,
+            params: request,
+        }
+    }
+
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn params(&self) -> &TransactionStatusId {
+        &self.params
+    }
+    fn into_json(self) -> String {
+        let tx = serde_json::to_string(&self).unwrap();
+        let mut file = File::create("foo.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
+            .unwrap();
+        tx
+    }
+
+    fn get_method(&self) -> &Method {
+        &self.method
+    }
+
+    fn send(
+        self,
+        url: std::string::String,
+    ) -> Result<RpcResponse<serde_json::Value>, reqwest::Error> {
+        // let res: Result<reqwest::blocking::Response, reqwest::Error>;
+        match self.method {
+            Method::TxCommit => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":1,"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[],"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
+                    .send();
+
+                return rpc_response(res);
+            }
+            Method::TxQueue => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            Method::TxStatus => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+        }
+
+        // let client = reqwest::blocking::Client::new();
+        // let clint_clone = client.clone();
+        // let res = clint_clone
+        //     .post(url)
+        //     .headers(construct_headers())
+        //     .body(self.into_json())
+        //     // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":1,"id":1}"#)
+        //     // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[],"id":1}"#)
+        //     // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
+        //     .send();
+
+        // return rpc_response(res);
     }
 }
