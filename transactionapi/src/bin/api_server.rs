@@ -2,6 +2,7 @@ use rpcclient::method::Method;
 use rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use rpcserver::*;
 use transaction::Transaction;
+use transactionapi::TransactionStatusId;
 use transactionapi::{rpcclient, rpcserver};
 #[macro_use]
 extern crate lazy_static;
@@ -22,6 +23,21 @@ fn main() {
 
             // let resp: Resp = serde_json::from_slice(&res.unwrap().bytes().unwrap()).unwrap();
             // println!("res:{:#?}", resp);
+            match res {
+                Ok(x) => {
+                    println!("res:{:#?}", x);
+                }
+                Err(arg) => {
+                    println!("errr:{:#?}", arg);
+                }
+            }
+            let tx_send: RpcBody<TransactionStatusId> = RpcRequest::new(
+                TransactionStatusId {
+                    txid: "5f516a8a-fc68-4a34-b299-373dcaae6b4c".to_string(),
+                },
+                Method::TxStatus,
+            );
+            let res = tx_send.send("http://127.0.0.1:3030".to_string());
             match res {
                 Ok(x) => {
                     println!("res:{:#?}", x);

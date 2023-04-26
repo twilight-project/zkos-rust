@@ -3,6 +3,7 @@ use super::threadpool::ThreadPool;
 // use std::sync::Arc;
 use std::sync::Mutex;
 // use std::thread;
+use crate::TransactionStatusId;
 use transaction::Transaction;
 // #[macro_use]
 // extern crate lazy_static;
@@ -21,4 +22,4 @@ pub fn tx_commit(transaction: Transaction) {
 
     // need to call transaction function
 }
-pub fn tx_status(transaction: Transaction) {}
+pub fn tx_status(transaction: TransactionStatusId) {}

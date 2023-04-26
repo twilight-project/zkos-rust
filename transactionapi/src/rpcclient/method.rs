@@ -12,3 +12,4 @@ pub enum Method {
     /// Queries status of a transaction by hash and returns the final transaction result.
     TxStatus,
 }
+impl Method {}
