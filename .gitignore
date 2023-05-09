@@ -16,3 +16,4 @@ Cargo.lock
 #Ignore .DS_Store
 **/.DS_Store
 transactionapi/target/*
+utxo-in-memory/target/*
