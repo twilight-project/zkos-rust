@@ -36,35 +36,6 @@ impl UTXOStorage {
         }
     }
 
-    // pub fn execute_command_single(cmd: UTXO_OP) {
-    //     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    //     match cmd {
-    //         UTXO_OP::Add(id, value) => {}
-    //         UTXO_OP::Remove(id) => {}
-    //         UTXO_OP::Search(id) => {}
-    //         UTXO_OP::Snapshot(log_id, time) => {}
-    //         UTXO_OP::StopTime(time) => {}
-    //         UTXO_OP::ReloadDB(log_id, time) => {}
-    //         UTXO_OP::AddBulk(id_array) => {}
-    //         UTXO_OP::RemoveBUlk(id_array) => {}
-    //         UTXO_OP::SearchBulk(id_array) => {}
-    //     }
-    // }
-    // pub fn execute_command_bulk(cmd: UTXO_OP) {
-    //     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    //     match cmd {
-    //         UTXO_OP::AddBulk(id_array) => {}
-    //         UTXO_OP::RemoveBUlk(id_array) => {}
-    //         UTXO_OP::SearchBulk(id_array) => {}
-    //         UTXO_OP::Add(id, value) => {}
-    //         UTXO_OP::Remove(id) => {}
-    //         UTXO_OP::Search(id) => {}
-    //         UTXO_OP::Snapshot(log_id, time) => {}
-    //         UTXO_OP::StopTime(time) => {}
-    //         UTXO_OP::ReloadDB(log_id, time) => {}
-    //     }
-    // }
-
     pub fn add(
         &mut self,
         id: String,
