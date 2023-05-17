@@ -23,7 +23,7 @@ getrandom = { version = "0.2", default-features = false, features = ["js"] }
 uuid = { version = "0.8.2", features = ["v4", "serde"] } #https://github.com/serde-rs/serde/issues/324
 bincode = "1"
 
-
+rusty-leveldb = "1.0.6"
 # [dependencies.quisquis-rust]
 # path = "../../../quisquis-rust"
 # # [dependencies.quisquis-rust]
