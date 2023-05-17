@@ -3,11 +3,12 @@
 mod commands;
 mod events;
 mod inmemory_db;
-// pub mod leveldbrep;
+mod leveldbrep;
 mod snapshot;
 mod threadpool;
 mod types;
 // pub use self::server::*;
 pub use self::commands::UTXO_OP;
 pub use self::inmemory_db::init_utxo;
+pub use self::leveldbrep::*;
 pub use self::types::*;

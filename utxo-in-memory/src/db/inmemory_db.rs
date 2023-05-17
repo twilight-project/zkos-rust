@@ -10,7 +10,6 @@ use std::time::SystemTime;
 
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<UTXOStorage>> = Arc::new(Mutex::new(UTXOStorage::new()));
-    // pub static ref UTXO_STORAGE1: UTXOStorage = UTXOStorage::new();
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,15 +125,15 @@ impl UTXOStorage {
             TxInputType::State => self.state_storage.contains_key(&id),
         }
     }
-    pub fn get_value(
+    pub fn get_utxo_by_id(
         &mut self,
         id: String,
         input_type: TxInputType,
-    ) -> Result<String, std::io::Error> {
+    ) -> Result<(String, String), std::io::Error> {
         match input_type {
             TxInputType::Coin => match self.coin_storage.get(&id) {
                 Some(value) => {
-                    return Ok(value.clone());
+                    return Ok((id, value.clone()));
                 }
                 None => {
                     return Err(std::io::Error::new(
@@ -145,7 +144,7 @@ impl UTXOStorage {
             },
             TxInputType::Memo => match self.memo_storage.get(&id) {
                 Some(value) => {
-                    return Ok(value.clone());
+                    return Ok((id, value.clone()));
                 }
                 None => {
                     return Err(std::io::Error::new(
@@ -156,7 +155,7 @@ impl UTXOStorage {
             },
             TxInputType::State => match self.state_storage.get(&id) {
                 Some(value) => {
-                    return Ok(value.clone());
+                    return Ok((id, value.clone()));
                 }
                 None => {
                     return Err(std::io::Error::new(
