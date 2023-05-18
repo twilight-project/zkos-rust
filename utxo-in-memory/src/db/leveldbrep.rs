@@ -32,7 +32,7 @@
 //   }
 //   Err(e) => { panic!("failed reading data: {:?}", e) }
 // }
-
+#![allow(unused_imports)]
 use rusty_leveldb::{CompressionType, DBIterator, LdbIterator, Options, DB};
 use std::sync::{mpsc, Arc, Mutex, RwLock};
 lazy_static! {
@@ -64,6 +64,6 @@ pub fn leveldbtest() {
 pub fn sn_db() -> DB {
     let mut opt = Options::default();
     opt.compression_type = CompressionType::CompressionSnappy;
-    let mut db = DB::open("./snapshot_storage/timestamp_Data", opt).unwrap();
+    let db = DB::open("./snapshot_storage/timestamp_Data", opt).unwrap();
     db
 }

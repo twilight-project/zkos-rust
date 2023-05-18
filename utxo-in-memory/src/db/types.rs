@@ -1,4 +1,4 @@
-pub type LogSequence = usize;
+pub type SequenceNumber = usize;
 
 pub enum TxInputType {
     Coin = 0,  //uint8
