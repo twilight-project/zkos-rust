@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(non_camel_case_types)]
-use super::{LogSequence, TxInputType, UTXO_OP};
+use super::{SequenceNumber, TxInputType, UTXO_OP};
+use crate::snapshot::SnapShot;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{mpsc, Arc, Mutex, RwLock};
@@ -17,9 +18,9 @@ pub struct UTXOStorage {
     pub coin_storage: HashMap<String, String>,
     pub memo_storage: HashMap<String, String>,
     pub state_storage: HashMap<String, String>,
-    pub sequence: LogSequence,
-    pub aggrigate_log_sequence: LogSequence,
-    pub last_snapshot_id: LogSequence,
+    pub block_height: SequenceNumber,
+    pub aggrigate_log_sequence: SequenceNumber,
+    pub snaps: SnapShot,
     pub pending_commands: Vec<String>,
 }
 impl UTXOStorage {
@@ -28,9 +29,9 @@ impl UTXOStorage {
             coin_storage: HashMap::new(),
             memo_storage: HashMap::new(),
             state_storage: HashMap::new(),
-            sequence: 0,
+            block_height: 0,
             aggrigate_log_sequence: 0,
-            last_snapshot_id: 0,
+            snaps: SnapShot::new(),
             pending_commands: Vec::new(),
         }
     }
@@ -169,5 +170,5 @@ impl UTXOStorage {
 }
 
 pub fn init_utxo() {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.lock().unwrap();
 }
