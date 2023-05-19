@@ -2,7 +2,8 @@
 #![allow(unused_imports)]
 #![allow(non_camel_case_types)]
 use super::{SequenceNumber, TxInputType, UTXO_OP};
-use crate::snapshot::SnapShot;
+use crate::db::leveldb_custom_put;
+use crate::db::SnapShot;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{mpsc, Arc, Mutex, RwLock};
@@ -167,6 +168,58 @@ impl UTXOStorage {
             },
         }
     }
+
+    pub fn take_snapshot(&mut self) -> Result<(), std::io::Error> {
+        let snapshot_path = self.snaps.snap_rules.path.clone();
+        let last_block = self.block_height.clone();
+        let new_snapshot_id = self.snaps.lastsnapid + 1;
+
+        // take snapshot of coin type utxo
+        let coin_db_upload_status = leveldb_custom_put(
+            format!("{}-coin", snapshot_path),
+            &bincode::serialize(&new_snapshot_id).unwrap(),
+            &bincode::serialize(&self.coin_storage).unwrap(),
+        )
+        .unwrap();
+        // take snapshot of memo type utxo
+        let memo_db_upload_status = leveldb_custom_put(
+            format!("{}-memo", snapshot_path),
+            &bincode::serialize(&new_snapshot_id).unwrap(),
+            &bincode::serialize(&self.memo_storage).unwrap(),
+        )
+        .unwrap();
+        // take snapshot of state type utxo
+        let state_db_upload_status = leveldb_custom_put(
+            format!("{}-state", snapshot_path),
+            &bincode::serialize(&new_snapshot_id).unwrap(),
+            &bincode::serialize(&self.state_storage).unwrap(),
+        )
+        .unwrap();
+
+        let snapmap_update_status = leveldb_custom_put(
+            format!("{}-snapmap", snapshot_path),
+            &bincode::serialize(&new_snapshot_id).unwrap(),
+            &bincode::serialize(&last_block).unwrap(),
+        );
+
+        self.snaps.block_height = last_block;
+        self.snaps.lastsnapid = self.snaps.currentsnapid;
+        self.snaps.currentsnapid = new_snapshot_id;
+        self.snaps.aggrigate_log_sequence = self.aggrigate_log_sequence;
+        self.snaps.lastsnaptimestamp = std::time::SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_micros();
+        let snapmap_update_status = leveldb_custom_put(
+            format!("{}-snapmap", snapshot_path),
+            &bincode::serialize(&String::from("utxosnapshot")).unwrap(),
+            &bincode::serialize(&self.snaps.clone()).unwrap(),
+        );
+
+        Ok(())
+    }
+
+    pub fn load_from_snapshot(&mut self) {}
 }
 
 pub fn init_utxo() {
