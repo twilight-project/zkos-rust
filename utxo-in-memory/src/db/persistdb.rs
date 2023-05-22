@@ -1,10 +1,14 @@
 use super::snap_rules::SnapRules;
-use crate::db::{SequenceNumber, UTXOStorage};
-use rusty_leveldb::{CompressionType, DBIterator, LdbIterator, Options, DB};
+use crate::SequenceNumber;
+use rusty_leveldb::{
+    CompressionType,
+    //  DBIterator, LdbIterator,
+    Options,
+    DB,
+};
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
 // use std::sync::{mpsc, Arc, Mutex, RwLock};
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SnapShot {
     // pub map: HashMap<u64, SequenceNumber>,
     pub currentsnapid: u64,
