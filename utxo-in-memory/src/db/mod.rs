@@ -6,7 +6,7 @@ mod leveldbrep;
 mod persistdb;
 mod snap_rules;
 mod utxostore;
-pub use self::persistdb::{leveldb_custom_put, SnapShot};
+pub use self::persistdb::*;
 
 // pub use self::server::*;
 pub use self::commands::UTXO_OP;

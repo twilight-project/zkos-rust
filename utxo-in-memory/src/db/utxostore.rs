@@ -1,14 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(non_camel_case_types)]
-use super::UTXO_OP;
-use crate::db::leveldb_custom_put;
-use crate::db::SnapShot;
+use crate::db::*;
 use crate::types::*;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::sync::{mpsc, Arc, Mutex, RwLock};
-use std::thread;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 lazy_static! {
@@ -168,6 +165,30 @@ impl UTXOStorage {
         }
     }
 
+    pub fn process_block(&mut self, block: ZkBlock) -> Result<ZkBlockResult, std::io::Error> {
+        let mut block_result: ZkBlockResult = ZkBlockResult::new();
+
+        //add utxo sets from block
+        for utxo in block.add_utxo.clone() {
+            match self.add(utxo.key, utxo.value, utxo.input_type) {
+                Ok(utxo) => block_result.utxo_added.push(utxo),
+                Err(arg) => block_result.error_vec.push(arg),
+            }
+        }
+
+        //remove utxo sets from block
+        for utxo in block.remove_block.clone() {
+            match self.remove(utxo.key, utxo.input_type) {
+                Ok(utxo) => block_result.utxo_added.push(utxo),
+                Err(arg) => block_result.error_vec.push(arg),
+            }
+        }
+        self.block_height = block.block_height;
+        //should i update remaining utxo if some utxo not found or adready existed
+        self.aggrigate_log_sequence += 1;
+        Ok(block_result)
+    }
+
     pub fn take_snapshot(&mut self) -> Result<(), std::io::Error> {
         let snapshot_path = self.snaps.snap_rules.path.clone();
         let last_block = self.block_height.clone();
@@ -218,9 +239,49 @@ impl UTXOStorage {
         Ok(())
     }
 
-    pub fn load_from_snapshot(&mut self) {}
+    pub fn load_from_snapshot(&mut self) {
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        let last_updated_block = utxo_storage.snaps.block_height;
+        let snapshot_id = utxo_storage.snaps.currentsnapid;
+        let snapshot_path = utxo_storage.snaps.snap_rules.path.clone();
+        let coin_map = leveldb_get_utxo_hashmap(
+            format!("{}-coin", snapshot_path),
+            &bincode::serialize(&snapshot_id).unwrap(),
+        );
+        let memo_map = leveldb_get_utxo_hashmap(
+            format!("{}-memo", snapshot_path),
+            &bincode::serialize(&snapshot_id).unwrap(),
+        );
+        let state_map = leveldb_get_utxo_hashmap(
+            format!("{}-state", snapshot_path),
+            &bincode::serialize(&snapshot_id).unwrap(),
+        );
+        match coin_map {
+            Ok(coin) => {
+                utxo_storage.coin_storage = coin;
+            }
+            Err(_) => {}
+        }
+        match memo_map {
+            Ok(coin) => {
+                utxo_storage.memo_storage = coin;
+            }
+            Err(_) => {}
+        }
+        match state_map {
+            Ok(coin) => {
+                utxo_storage.state_storage = coin;
+            }
+            Err(_) => {}
+        }
+        utxo_storage.block_height = utxo_storage.snaps.block_height;
+        utxo_storage.aggrigate_log_sequence = utxo_storage.snaps.aggrigate_log_sequence;
+
+        // check remaining blocks from chain and update the utxo set properly
+    }
 }
 
 pub fn init_utxo() {
-    let utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    utxo_storage.load_from_snapshot();
 }
