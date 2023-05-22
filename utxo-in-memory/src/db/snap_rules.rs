@@ -1,5 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SnapRules {
     pub path: String,
     pub block_size_threshold: usize,

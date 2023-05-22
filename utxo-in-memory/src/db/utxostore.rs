@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(non_camel_case_types)]
-use super::{SequenceNumber, TxInputType, UTXO_OP};
+use super::UTXO_OP;
 use crate::db::leveldb_custom_put;
 use crate::db::SnapShot;
+use crate::types::*;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{mpsc, Arc, Mutex, RwLock};
@@ -14,11 +15,11 @@ lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<UTXOStorage>> = Arc::new(Mutex::new(UTXOStorage::new()));
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct UTXOStorage {
-    pub coin_storage: HashMap<String, String>,
-    pub memo_storage: HashMap<String, String>,
-    pub state_storage: HashMap<String, String>,
+    pub coin_storage: HashMap<UtxoKey, UtxoValue>,
+    pub memo_storage: HashMap<UtxoKey, UtxoValue>,
+    pub state_storage: HashMap<UtxoKey, UtxoValue>,
     pub block_height: SequenceNumber,
     pub aggrigate_log_sequence: SequenceNumber,
     pub snaps: SnapShot,
@@ -39,87 +40,85 @@ impl UTXOStorage {
 
     pub fn add(
         &mut self,
-        id: String,
-        value: String,
+        id: UtxoKey,
+        value: UtxoValue,
         input_type: TxInputType,
-    ) -> Result<(String, String), std::io::Error> {
+    ) -> Result<UTXO, std::io::Error> {
         match input_type {
             TxInputType::Coin => {
                 if self.coin_storage.contains_key(&id) {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo address already exist",
+                        format!("utxo:{:?} address already exist", id),
                     ));
                 } else {
                     self.coin_storage.insert(id.clone(), value.clone());
-                    Ok((id, value))
+                    Ok(UTXO::new(id, value, input_type))
                 }
             }
             TxInputType::Memo => {
                 if self.memo_storage.contains_key(&id) {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo address already exist",
+                        format!("utxo:{:?} address already exist", id),
                     ));
                 } else {
                     self.memo_storage.insert(id.clone(), value.clone());
-                    Ok((id, value))
+                    Ok(UTXO::new(id, value, input_type))
                 }
             }
             TxInputType::State => {
                 if self.state_storage.contains_key(&id) {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo address already exist",
+                        format!("utxo:{:?} address already exist", id),
                     ));
                 } else {
                     self.state_storage.insert(id.clone(), value.clone());
-                    Ok((id, value))
+                    Ok(UTXO::new(id, value, input_type))
                 }
             }
         }
     }
-    pub fn remove(
-        &mut self,
-        id: String,
-        input_type: TxInputType,
-    ) -> Result<(String, String), std::io::Error> {
+
+    pub fn remove(&mut self, id: UtxoKey, input_type: TxInputType) -> Result<UTXO, std::io::Error> {
         match input_type {
             TxInputType::Coin => match self.coin_storage.remove(&id) {
                 Some(value) => {
-                    return Ok((id, value.clone()));
+                    return Ok(UTXO::new(id, value.clone(), input_type));
                 }
                 None => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo not found",
+                        format!("utxo:{:?} not found", id),
                     ))
                 }
             },
             TxInputType::Memo => match self.memo_storage.remove(&id) {
                 Some(value) => {
-                    return Ok((id, value.clone()));
+                    return Ok(UTXO::new(id, value.clone(), input_type));
                 }
                 None => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo not found",
+                        format!("utxo:{:?} not found", id),
                     ))
                 }
             },
             TxInputType::State => match self.state_storage.remove(&id) {
                 Some(value) => {
-                    return Ok((id, value.clone()));
+                    return Ok(UTXO::new(id, value.clone(), input_type));
                 }
                 None => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo not found",
+                        format!("utxo:{:?} not found", id),
                     ))
                 }
             },
         }
     }
+
     pub fn search_key(&mut self, id: String, input_type: TxInputType) -> bool {
         match input_type {
             TxInputType::Coin => self.coin_storage.contains_key(&id),
@@ -129,40 +128,40 @@ impl UTXOStorage {
     }
     pub fn get_utxo_by_id(
         &mut self,
-        id: String,
+        id: UtxoKey,
         input_type: TxInputType,
-    ) -> Result<(String, String), std::io::Error> {
+    ) -> Result<UTXO, std::io::Error> {
         match input_type {
             TxInputType::Coin => match self.coin_storage.get(&id) {
                 Some(value) => {
-                    return Ok((id, value.clone()));
+                    return Ok(UTXO::new(id, value.clone(), input_type));
                 }
                 None => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo not found",
+                        format!("utxo:{:?} not found", id),
                     ))
                 }
             },
             TxInputType::Memo => match self.memo_storage.get(&id) {
                 Some(value) => {
-                    return Ok((id, value.clone()));
+                    return Ok(UTXO::new(id, value.clone(), input_type));
                 }
                 None => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo not found",
+                        format!("utxo:{:?} not found", id),
                     ))
                 }
             },
             TxInputType::State => match self.state_storage.get(&id) {
                 Some(value) => {
-                    return Ok((id, value.clone()));
+                    return Ok(UTXO::new(id, value.clone(), input_type));
                 }
                 None => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        "utxo not found",
+                        format!("utxo:{:?} not found", id),
                     ))
                 }
             },
