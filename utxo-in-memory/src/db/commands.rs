@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types)]
-use super::SequenceNumber;
+use super::super::SequenceNumber;
 use serde_derive::{Deserialize, Serialize};
 use std::time::SystemTime;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
