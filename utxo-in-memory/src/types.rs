@@ -62,15 +62,15 @@ impl ZkosBlock {
 }
 #[derive(Debug)]
 pub struct ZkosBlockResult {
-    pub key_added: Vec<UtxoKey>,
-    pub key_removed: Vec<UtxoKey>,
+    pub utxo_added: Vec<UTXO>,
+    pub utxo_removed: Vec<UTXO>,
     pub error_vec: Vec<std::io::Error>,
 }
 impl ZkosBlockResult {
     pub fn new() -> Self {
         ZkosBlockResult {
-            key_added: Vec::new(),
-            key_removed: Vec::new(),
+            utxo_added: Vec::new(),
+            utxo_removed: Vec::new(),
             error_vec: Vec::new(),
         }
     }
