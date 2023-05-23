@@ -13,8 +13,8 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SnapShot {
     // pub map: HashMap<u64, SequenceNumber>,
-    pub currentsnapid: u64,
-    pub lastsnapid: u64,
+    pub currentsnapid: SequenceNumber,
+    pub lastsnapid: SequenceNumber,
     pub lastsnaptimestamp: u128,
     pub block_height: SequenceNumber,
     pub aggrigate_log_sequence: SequenceNumber,

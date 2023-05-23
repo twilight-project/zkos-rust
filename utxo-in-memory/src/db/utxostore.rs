@@ -1,15 +1,18 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(non_camel_case_types)]
+// #![allow(dead_code)]
+// #![allow(unused_imports)]
+// #![allow(non_camel_case_types)]
 use crate::db::*;
 use crate::types::*;
+use crate::ThreadPool;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::SystemTime;
-
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<UTXOStorage>> = Arc::new(Mutex::new(UTXOStorage::new()));
+    pub static ref SNAPSHOT_THREADPOOL: Mutex<ThreadPool> =
+        Mutex::new(ThreadPool::new(1, String::from("SnapShot_THREADPOOL")));
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -186,41 +189,66 @@ impl UTXOStorage {
         self.block_height = block.block_height;
         //should i update remaining utxo if some utxo not found or adready existed
         self.aggrigate_log_sequence += 1;
+
+        if self.block_height
+            >= self.snaps.snap_rules.block_size_threshold * (self.snaps.currentsnapid + 1)
+        {
+            let _ = self.take_snapshot();
+        }
+
         Ok(block_result)
     }
 
     pub fn take_snapshot(&mut self) -> Result<(), std::io::Error> {
         let snapshot_path = self.snaps.snap_rules.path.clone();
+        let coin_path = format!("{}-coin", snapshot_path.clone());
+        let memo_path = format!("{}-memo", snapshot_path.clone());
+        let state_path = format!("{}-state", snapshot_path.clone());
+        let snap_path = format!("{}-snapmap", snapshot_path.clone());
+        let snap_path1 = format!("{}-snapmap", snapshot_path.clone());
         let last_block = self.block_height.clone();
         let new_snapshot_id = self.snaps.lastsnapid + 1;
 
-        // take snapshot of coin type utxo
-        let coin_db_upload_status = leveldb_custom_put(
-            format!("{}-coin", snapshot_path),
-            &bincode::serialize(&new_snapshot_id).unwrap(),
-            &bincode::serialize(&self.coin_storage).unwrap(),
-        )
-        .unwrap();
-        // take snapshot of memo type utxo
-        let memo_db_upload_status = leveldb_custom_put(
-            format!("{}-memo", snapshot_path),
-            &bincode::serialize(&new_snapshot_id).unwrap(),
-            &bincode::serialize(&self.memo_storage).unwrap(),
-        )
-        .unwrap();
-        // take snapshot of state type utxo
-        let state_db_upload_status = leveldb_custom_put(
-            format!("{}-state", snapshot_path),
-            &bincode::serialize(&new_snapshot_id).unwrap(),
-            &bincode::serialize(&self.state_storage).unwrap(),
-        )
-        .unwrap();
+        let coin_storage = self.coin_storage.clone();
+        let memo_storage = self.memo_storage.clone();
+        let state_storage = self.state_storage.clone();
 
-        let snapmap_update_status = leveldb_custom_put(
-            format!("{}-snapmap", snapshot_path),
-            &bincode::serialize(&new_snapshot_id).unwrap(),
-            &bincode::serialize(&last_block).unwrap(),
-        );
+        let inner_snap_threadpool = ThreadPool::new(3, String::from("inner_snap_threadpool"));
+
+        inner_snap_threadpool.execute(move || {
+            // take snapshot of coin type utxo
+            let coin_db_upload_status = leveldb_custom_put(
+                coin_path,
+                &bincode::serialize(&new_snapshot_id).unwrap(),
+                &bincode::serialize(&coin_storage).unwrap(),
+            )
+            .unwrap();
+        });
+        inner_snap_threadpool.execute(move || {
+            // take snapshot of memo type utxo
+            let memo_db_upload_status = leveldb_custom_put(
+                memo_path,
+                &bincode::serialize(&new_snapshot_id).unwrap(),
+                &bincode::serialize(&memo_storage).unwrap(),
+            )
+            .unwrap();
+        });
+        inner_snap_threadpool.execute(move || {
+            // take snapshot of state type utxo
+            let state_db_upload_status = leveldb_custom_put(
+                state_path,
+                &bincode::serialize(&new_snapshot_id).unwrap(),
+                &bincode::serialize(&state_storage).unwrap(),
+            )
+            .unwrap();
+        });
+        inner_snap_threadpool.execute(move || {
+            let snapmap_update_status = leveldb_custom_put(
+                snap_path,
+                &bincode::serialize(&new_snapshot_id).unwrap(),
+                &bincode::serialize(&last_block).unwrap(),
+            );
+        });
 
         self.snaps.block_height = last_block;
         self.snaps.lastsnapid = self.snaps.currentsnapid;
@@ -230,12 +258,14 @@ impl UTXOStorage {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_micros();
-        let snapmap_update_status = leveldb_custom_put(
-            format!("{}-snapmap", snapshot_path),
-            &bincode::serialize(&String::from("utxosnapshot")).unwrap(),
-            &bincode::serialize(&self.snaps.clone()).unwrap(),
-        );
-
+        let snap_storage = self.snaps.clone();
+        inner_snap_threadpool.execute(move || {
+            let snapmap_update_status = leveldb_custom_put(
+                snap_path1,
+                &bincode::serialize(&String::from("utxosnapshot")).unwrap(),
+                &bincode::serialize(&snap_storage).unwrap(),
+            );
+        });
         Ok(())
     }
 
