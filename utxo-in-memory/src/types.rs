@@ -92,15 +92,19 @@ mod test {
         );
         utxo_storage.load_from_snapshot();
     }
-    pub fn uninstall_delete_utxo_for_test() {
+    pub fn uninstall_delete_db_utxo_for_test() {
         temp_env::with_var(
             "SNAPSHOT_FILE_LOCATION",
             Some("./snapshot_storage/test/map"),
             || {
-                let path = std::env::var("SNAPSHOT_FILE_LOCATION")
-                    .expect("missing environment variable SNAPSHOT_FILE_LOCATION");
-                let _ = fs::remove_dir_all(path);
-                // println!("{}", path);
+                let static_files = format!(
+                    "{}{}",
+                    std::env::var("CARGO_MANIFEST_DIR")
+                        .expect("missing environment variable CARGO_MANIFEST_DIR"),
+                    "/snapshot_storage/test"
+                );
+                // Removes a directory at this path, after removing all its contents. Use carefully!
+                fs::remove_dir_all(static_files);
             },
         );
     }
@@ -111,6 +115,6 @@ mod test {
         init_utxo_for_test();
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
         println!("db: {:#?}", utxo_storage);
-        uninstall_delete_utxo_for_test();
+        uninstall_delete_db_utxo_for_test();
     }
 }
