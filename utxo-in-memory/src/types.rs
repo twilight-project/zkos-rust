@@ -78,3 +78,39 @@ impl ZkosBlockResult {
 
 pub type ZkBlock = ZkosBlock;
 pub type ZkBlockResult = ZkosBlockResult;
+
+#[cfg(test)]
+mod test {
+    // use super::*;
+    use crate::*;
+    use std::fs;
+    pub fn init_utxo_for_test() {
+        let mut utxo_storage = temp_env::with_var(
+            "SNAPSHOT_FILE_LOCATION",
+            Some("./snapshot_storage/test/map"),
+            || UTXO_STORAGE.lock().unwrap(),
+        );
+        utxo_storage.load_from_snapshot();
+    }
+    pub fn uninstall_delete_utxo_for_test() {
+        temp_env::with_var(
+            "SNAPSHOT_FILE_LOCATION",
+            Some("./snapshot_storage/test/map"),
+            || {
+                let path = std::env::var("SNAPSHOT_FILE_LOCATION")
+                    .expect("missing environment variable SNAPSHOT_FILE_LOCATION");
+                let _ = fs::remove_dir_all(path);
+                // println!("{}", path);
+            },
+        );
+    }
+
+    // cargo test -- --nocapture --test create_mk_snapshot_test --test-threads 5
+    #[test]
+    fn create_mk_snapshot_test() {
+        init_utxo_for_test();
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        println!("db: {:#?}", utxo_storage);
+        uninstall_delete_utxo_for_test();
+    }
+}
