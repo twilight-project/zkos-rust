@@ -11,4 +11,5 @@ pub use self::persistdb::*;
 // pub use self::server::*;
 pub use self::commands::UTXO_OP;
 pub use self::leveldbrep::*;
+pub use self::persistdb::SnapShot;
 pub use self::utxostore::{init_utxo, UTXOStorage, UTXO_STORAGE};
