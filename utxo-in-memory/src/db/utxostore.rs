@@ -214,7 +214,6 @@ impl UTXOStorage {
         let state_storage = self.state_storage.clone();
 
         let inner_snap_threadpool = ThreadPool::new(3, String::from("inner_snap_threadpool"));
-
         inner_snap_threadpool.execute(move || {
             // take snapshot of coin type utxo
             let coin_db_upload_status = leveldb_custom_put(
@@ -242,13 +241,6 @@ impl UTXOStorage {
             )
             .unwrap();
         });
-        inner_snap_threadpool.execute(move || {
-            let snapmap_update_status = leveldb_custom_put(
-                snap_path,
-                &bincode::serialize(&new_snapshot_id).unwrap(),
-                &bincode::serialize(&last_block).unwrap(),
-            );
-        });
 
         self.snaps.block_height = last_block;
         self.snaps.lastsnapid = self.snaps.currentsnapid;
@@ -260,6 +252,11 @@ impl UTXOStorage {
             .as_micros();
         let snap_storage = self.snaps.clone();
         inner_snap_threadpool.execute(move || {
+            let snapmap_update_status = leveldb_custom_put(
+                snap_path,
+                &bincode::serialize(&new_snapshot_id).unwrap(),
+                &bincode::serialize(&last_block).unwrap(),
+            );
             let snapmap_update_status = leveldb_custom_put(
                 snap_path1,
                 &bincode::serialize(&String::from("utxosnapshot")).unwrap(),

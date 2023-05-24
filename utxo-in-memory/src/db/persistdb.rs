@@ -44,6 +44,31 @@ impl SnapShot {
             },
         }
     }
+
+    pub fn load(path: &str) -> SnapShot {
+        let mut snap_rules = SnapRules::env();
+        snap_rules.path = path.to_string();
+        let snapshot_backup = leveldb_get_snapshot_metadata(
+            format!("{}-snapmap", snap_rules.path),
+            &bincode::serialize(&String::from("utxosnapshot")).unwrap(),
+        );
+
+        match snapshot_backup {
+            Ok(snap) => {
+                let mut snapshot = snap;
+                snapshot.snap_rules = snap_rules;
+                snapshot
+            }
+            Err(_) => SnapShot {
+                currentsnapid: 0,
+                lastsnapid: 0,
+                lastsnaptimestamp: 0,
+                block_height: 0,
+                aggrigate_log_sequence: 0,
+                snap_rules: snap_rules,
+            },
+        }
+    }
 }
 
 pub fn leveldb_custom_put(path: String, key: &[u8], value: &[u8]) -> Result<(), std::io::Error> {
