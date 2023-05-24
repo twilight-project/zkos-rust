@@ -23,11 +23,11 @@ pub struct SnapShot {
 impl SnapShot {
     pub fn new() -> SnapShot {
         let snap_rules = SnapRules::env();
-        let snapmap_path = format!("{}-snapmap", snap_rules.path);
         let snapshot_backup = leveldb_get_snapshot_metadata(
-            format!("{}-snapmap", snapmap_path),
+            format!("{}-snapmap", snap_rules.path),
             &bincode::serialize(&String::from("utxosnapshot")).unwrap(),
         );
+
         match snapshot_backup {
             Ok(snap) => {
                 let mut snapshot = snap;

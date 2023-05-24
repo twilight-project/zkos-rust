@@ -270,10 +270,9 @@ impl UTXOStorage {
     }
 
     pub fn load_from_snapshot(&mut self) {
-        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-        let last_updated_block = utxo_storage.snaps.block_height;
-        let snapshot_id = utxo_storage.snaps.currentsnapid;
-        let snapshot_path = utxo_storage.snaps.snap_rules.path.clone();
+        let last_updated_block = self.snaps.block_height;
+        let snapshot_id = self.snaps.currentsnapid;
+        let snapshot_path = self.snaps.snap_rules.path.clone();
         let coin_map = leveldb_get_utxo_hashmap(
             format!("{}-coin", snapshot_path),
             &bincode::serialize(&snapshot_id).unwrap(),
@@ -288,24 +287,24 @@ impl UTXOStorage {
         );
         match coin_map {
             Ok(coin) => {
-                utxo_storage.coin_storage = coin;
+                self.coin_storage = coin;
             }
             Err(_) => {}
         }
         match memo_map {
             Ok(coin) => {
-                utxo_storage.memo_storage = coin;
+                self.memo_storage = coin;
             }
             Err(_) => {}
         }
         match state_map {
             Ok(coin) => {
-                utxo_storage.state_storage = coin;
+                self.state_storage = coin;
             }
             Err(_) => {}
         }
-        utxo_storage.block_height = utxo_storage.snaps.block_height;
-        utxo_storage.aggrigate_log_sequence = utxo_storage.snaps.aggrigate_log_sequence;
+        self.block_height = self.snaps.block_height;
+        self.aggrigate_log_sequence = self.snaps.aggrigate_log_sequence;
 
         // check remaining blocks from chain and update the utxo set properly
     }
