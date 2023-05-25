@@ -1,11 +1,13 @@
 #![allow(non_snake_case)]
 //#![deny(missing_docs)]
 
+
 use crate::tx::{Transaction, TransactionData, TransferTransaction, ScriptTransaction};
 use crate::types::{
-    Input, InputData, Output, OutputData, TransactionType, TxEntry, TxId, TxLog, Utxo, Witness, CData, Coin, Memo, State
+    Input, InputData, Output, OutputData, TransactionType, TxEntry, TxId, TxLog, Utxo, Witness, CData, Coin, Memo, State, OutputType
 };
 use crate::util::{Address, Network};
+use quisquislib::elgamal::ElGamalCommitment;
 // use serde_derive::{Deserialize, Serialize};
 use serde::{Deserialize, Serialize};
 
@@ -45,10 +47,10 @@ pub struct RecordUtxo {
     pub value: Output,
 }
 
-#[derive(Debug, Clone)]
-pub struct UtxoSet {
-    pub set: Vec<RecordUtxo>,
-}
+//#[derive(Debug, Clone)]
+// pub struct UtxoSet {
+//     pub set: Vec<RecordUtxo>,
+// }
 
 impl Sender {
     pub fn generate_value_and_account_vector(
@@ -297,7 +299,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
 
 //Should be called first. Will only create a random set of outputs 
 //with random txIDs to kickstart the system
-pub fn create_genesis_block(total_outputs: u64, num_tx: u64)-> UtxoSet{
+pub fn create_genesis_block(total_outputs: u64, num_tx: u64)-> Vec<RecordUtxo>{
     //100000 outputs divided among 10000 txs
     let mut outputs:Vec<RecordUtxo> = Vec::with_capacity(total_outputs as usize);
     let mut rng = rand::thread_rng();
@@ -336,16 +338,17 @@ pub fn create_genesis_block(total_outputs: u64, num_tx: u64)-> UtxoSet{
             }
         }
     }
-    UtxoSet{set: outputs }
+    outputs 
 }
+
 pub struct Block{
     pub height: u64,
     pub txs: Vec<Transaction>,
 }
-pub fn create_utxo_test_block(set: UtxoSet, prev_height: u64) -> (Block, UtxoSet) {
+pub fn create_utxo_test_block(set: &mut Vec<RecordUtxo>, prev_height: u64) -> Block {
     // for the time being we will only build Script txs
     let mut rng = rand::thread_rng();
-    let set_size = set.set.len();
+    //let mut set_size = set.len();
     let mut txs: Vec<Transaction> = Vec::new();
     let mut new_set: Vec<RecordUtxo> = Vec::new();
 
@@ -361,13 +364,13 @@ pub fn create_utxo_test_block(set: UtxoSet, prev_height: u64) -> (Block, UtxoSet
         //select random inputs
         let mut inputs: Vec<Input> = Vec::new();
         for _ in 0..num_inputs_per_tx {
-            let random_number: u32 = rng.gen_range(0u32, set_size as u32);
-            let record: RecordUtxo = set.set[random_number as usize].clone();
-
-            let inp = convert_output_to_input(record.clone());
-            inputs.push(inp);
+            let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
+            let record: RecordUtxo = set[random_number as usize].clone();
+          
+            let inp = convert_output_to_input(record.clone()).unwrap();
+            inputs.push(inp.clone());
             //remove input from set
-            set.set.remove(random_number as usize);
+            set.remove(random_number as usize);
         }
         //select random outputs
         let mut outputs: Vec<Output> = Vec::new();
@@ -410,34 +413,63 @@ pub fn create_utxo_test_block(set: UtxoSet, prev_height: u64) -> (Block, UtxoSet
         // Generate random values and fill the array
         rand::thread_rng().fill(&mut id);
         let script_tx:ScriptTransaction = ScriptTransaction::create_utxo_script_transaction(&inputs, &outputs);
-        let tx: Transaction = Transaction::transaction_script(id, TransactionData::Script(script_tx));
+        let tx: Transaction = Transaction::transaction_script(TxId(id), TransactionData::Script(script_tx));
 
         txs.push(tx);
     }
-    let block = Block{height: prev_height + 1, txs: txs}; 
+    let block = Block{height: prev_height + 1, txs}; 
     //append new utxo set with old one to update the recent outputs
-    set.set.append(&mut new_set);  
-    (block, set)
+    set.append(&mut new_set);  
+    block
 
 
 }
 
-pub fn convert_output_to_input(rec: RecordUtxo)-> Input{
+pub fn convert_output_to_input(rec: RecordUtxo)-> Option<Input>{
     let utx = rec.utx;
     let out = rec.value;
-    if out.out_type.is_coin(){
-        let add = out.output.get_owner_address().unwrap().to_owned();
-        let inp = Input::coin(InputData::coin(utx, out.output.get_owner_address().to_owned(), o.encrypt, 0));
-            inp
+    let mut inp: Input;
+    match out.out_type {
+        OutputType::Coin => {
+            let add = out.output.get_owner_address().unwrap().to_owned();
+            let enc: ElGamalCommitment = out.output.get_encryption().unwrap().to_owned();
+            inp = Input::coin(InputData::coin(utx, add, enc, 0));
+            Some(inp)
+        }
+        OutputType::Memo => {
+            let add = out.output.get_owner_address().unwrap().to_owned();
+            let com: CompressedRistretto = out.output.get_commitment().unwrap().to_owned();
+            inp = Input::memo(InputData::memo(utx, add.clone(), add.clone(), com, None, 0));
+            Some(inp)
+        }
+        OutputType::State => {
+            let add = out.output.get_owner_address().unwrap().to_owned();
+            let com: CompressedRistretto = out.output.get_commitment().unwrap().to_owned();
+            inp = Input::state(InputData::state(utx, 0, add.clone(), add.clone(), com, None, 0, 0));
+            Some(inp)
+        }
+        _ => None,
     }
-    if out.out_type.is_memo(){
-            let inp = Input::memo(InputData::memo(utx, o.contract.script_address, o.contract.owner, o.contract.commitment, o.data, 0));
-            inp
-        }
-        if out.out_type.is_state(){
-            let inp = Input::state(InputData::state(utx, o.nonce, o.contract, o.script_data, 0));
-            inp
-        }
+
+    // if out.out_type.is_coin(){
+    //     let add = out.output.get_owner_address().unwrap().to_owned();
+    //     let enc: ElGamalCommitment = out.output.get_encryption().unwrap().to_owned();
+    //     inp = Input::coin(InputData::coin(utx, add, enc, 0));
+    //     Some(inp)
+    // }
+    // if out.out_type.is_memo(){
+    //     let add = out.output.get_owner_address().unwrap().to_owned();
+    //     let com: CompressedRistretto = out.output.get_commitment().unwrap().to_owned();
+    //         inp = Input::memo(InputData::memo(utx, add.clone(), add.clone(), com, None, 0));
+    //         Some(inp)
+    //     }
+    //     if out.out_type.is_state(){
+    //         let add = out.output.get_owner_address().unwrap().to_owned();
+    //         let com: CompressedRistretto = out.output.get_commitment().unwrap().to_owned();
+    //         inp = Input::state(InputData::state(utx, 0, add.clone(), add, com,None,0,0));
+    //         Some(inp)
+    //     }
+    //     return inp;
     
 }
 // pub fn verify_transaction(tx: Transaction)-> Result<(), &'static str> {
@@ -478,5 +510,13 @@ mod test {
     fn create_genesis_block_test(){
         let utxo_set = create_genesis_block(1000, 100);
         println!("{:?}", utxo_set);
+    }
+
+    #[test]
+    fn create_utxo_block_test(){
+        let mut utxo_set = create_genesis_block(1000, 100);
+        let block = create_utxo_test_block(&mut utxo_set, 1);
+        println!("Block Height{:?} ", block.height);
+        println!("Block Txs{:?} ", block.txs);
     }
 }
