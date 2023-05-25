@@ -1490,6 +1490,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bytes"
+version = "0.11.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "416bda436f9aab92e02c8e10d49a15ddd339cea90b6e340fe51ed97abb548294"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.156"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1804,6 +1813,7 @@ dependencies = [
  "quisquis-rust",
  "rand",
  "serde",
+ "serde_bytes",
  "serde_json",
  "sha3",
  "subtle",
@@ -1815,6 +1825,7 @@ dependencies = [
 name = "transactionapi"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "bulletproofs",
  "curve25519-dalek",
  "dotenv",
@@ -1832,6 +1843,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "transaction",
+ "uuid",
 ]
 
 [[package]]
@@ -1897,6 +1909,16 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+]
+
+[[package]]
+name = "uuid"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+dependencies = [
+ "getrandom 0.2.8",
+ "serde",
 ]
 
 [[package]]

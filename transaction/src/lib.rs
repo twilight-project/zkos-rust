@@ -18,10 +18,10 @@ pub mod reference_tx;
 
 pub use self::errors::TxError;
 pub use self::proof::{DarkTxProof, ShuffleTxProof};
-pub use self::tx::{Transaction, TransferTransaction};
+pub use self::tx::{Transaction, TransferTransaction, ScriptTransaction};
 
 pub use self::types::{
-    Input, InputType, Output, OutputType, TransactionType, TxId, TxPointer, Utxo, Witness,
+    Input, InputType, Output, OutputType, TransactionType, TxId, Utxo, Witness, Coin, Memo, State, CData
 };
 
 pub use self::util::{Address, Network};
