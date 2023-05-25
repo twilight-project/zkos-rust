@@ -46,6 +46,3 @@ rusty-leveldb = "1.0.6"
 # default = []
 # nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
 
-[workspace]
-
-members = []

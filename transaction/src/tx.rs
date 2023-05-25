@@ -2,7 +2,7 @@
 //#![deny(missing_docs)]
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
-use crate::types::{Input, Output, OutputData, TransactionType, TxEntry, TxLog, Witness};
+use crate::types::{Input, Output, OutputData, TransactionType, Witness, Coin, TxId};
 use crate::util::{Address, Network};
 use merlin::Transcript;
 // use serde_derive::{Deserialize, Serialize};
@@ -17,10 +17,12 @@ use quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
     shuffle::Shuffle,
 };
-
+use bulletproofs::r1cs::R1CSProof;
 /// A complete twilight Transactiont valid for a specific network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
+    ///Transaction ID 
+    pub txid: TxId,
     /// Defines the Tx type.
     pub tx_type: TransactionType,
     /// The Tx data corresponding to the Tx type.
@@ -29,9 +31,25 @@ pub struct Transaction {
 
 impl Transaction {
     /// Create a input of Dark Coin which is valid on the given network.
-    pub fn transaction_transfer(data: TransactionData) -> Transaction {
+    pub fn transaction_transfer(id: TxId, data: TransactionData) -> Transaction {
         Transaction {
+            txid: id,
             tx_type: TransactionType::default(),
+            tx: data,
+        }
+    }
+
+    pub fn transaction_script(id:  TxId, data: TransactionData) -> Transaction {
+        Transaction {
+            txid: id,
+            tx_type: TransactionType::Script,
+            tx: data,
+        }
+    }
+    pub fn transaction_vault(id:  TxId, data: TransactionData) -> Transaction {
+        Transaction {
+            txid: id,
+            tx_type: TransactionType::Vault,
             tx: data,
         }
     }
@@ -59,10 +77,37 @@ pub struct TransferTransaction {
     pub(crate) witness: Option<Vec<Witness>>,
 }
 
+/// Store for ScriptTransfer
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptTransaction {
+    //transaction header
+    pub(crate) version: u64,
+    pub(crate) maturity: u64,
+    //lengths of vectors to come
+    pub(crate) input_count: u8,
+    pub(crate) output_count: u8,
+    pub(crate) witness_count: u8,
+
+    //List of inputs and outputs
+    pub(crate) inputs: Vec<Input>,
+    pub(crate) outputs: Vec<Output>,
+    pub(crate) proof: Option<DummyProof>,
+    //Proof TBD
+    pub(crate) witness: Option<Vec<Witness>>,
+
+
+}
+
+/// Store for ScriptTransfer
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DummyProof {
+    pub(crate) dummy: u64,
+    pub(crate) proof: R1CSProof,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransactionData {
     TransactionTransfer(TransferTransaction),
-    //TransactionTransition,
+    Script(ScriptTransaction),
     //TransactionCreate,
     //TransactionVault,
 }
@@ -73,6 +118,13 @@ impl TransactionData {
         match self {
             TransactionData::TransactionTransfer(x) => Ok(x),
             _ => Err("Invalid Transfer Transaction"),
+        }
+    }
+
+    pub fn to_script(self) -> Result<ScriptTransaction, &'static str> {
+        match self {
+            TransactionData::Script(x) => Ok(x),
+            _ => Err("Invalid Script Transaction"),
         }
     }
 }
@@ -124,7 +176,7 @@ impl TransferTransaction {
         senders_count: usize,
         receivers_count: usize,
         //tx_log: &mut TxLog,
-    ) -> Result<(TransferTransaction), &'static str> {
+    ) -> Result<TransferTransaction, &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
         for v in value_vector.iter() {
@@ -175,10 +227,8 @@ impl TransferTransaction {
         for i in senders_count..senders_count + receivers_count {
             //create address
             let (pk, comm) = updated_delta_accounts[i].get_account();
-            let out = Output::coin(OutputData::coin(
-                Address::standard(Network::default(), pk),
-                comm,
-            ));
+            let c: Coin = Coin{address: Address::standard(Network::default(), pk),encrypt:comm};
+            let out = Output::coin(OutputData::coin(c));
             outputs.push(out.clone());
         }
 
@@ -306,11 +356,9 @@ impl TransferTransaction {
         for out in output_final.iter() {
             //create address
             let (pk, comm) = out.get_account();
-            let output = Output::coin(OutputData::coin(
-                Address::standard(Network::default(), pk),
-                comm,
-            ));
-            outputs.push(output.clone());
+            let c: Coin = Coin{address: Address::standard(Network::default(), pk),encrypt:comm};
+            let out = Output::coin(OutputData::coin(c));
+            outputs.push(out.clone());
             //tx_log.push(TxEntry::Output(output));
         }
 
@@ -353,6 +401,65 @@ impl TransferTransaction {
         let anonymity_index = self.proof.range_proof.len();
         //verify the shuffle proof
         shuffle_proof.verify(&mut verifier, &inputs, &outputs, anonymity_index)?;
+
+        Ok(())
+    }
+}
+
+
+impl ScriptTransaction {
+    pub fn set_script_transaction(
+        version: u64,
+        maturity: u64,
+        input_count: u8,
+        output_count: u8,
+        witness_count: u8,
+        inputs: Vec<Input>,
+        outputs: Vec<Output>,
+        proof: Option<DummyProof>,
+        witness: Option<Vec<Witness>>,
+    ) -> ScriptTransaction {
+        ScriptTransaction {
+            version,
+            maturity,
+            input_count,
+            output_count,
+            witness_count,
+            inputs,
+            outputs,
+            proof,
+            witness,
+        }
+    }
+    pub fn create_utxo_script_transaction(
+        inputs: &[Input],
+        outputs: &[Output],
+    ) -> ScriptTransaction {
+         
+        ScriptTransaction::set_script_transaction(
+            0u64,
+            0u64,
+            inputs.len() as u8,
+            outputs.len() as u8,
+            0u8,
+            inputs.to_vec(),
+            outputs.to_vec(),
+            None,
+            None,
+        )
+    }
+
+    pub fn verify_script_tx(
+        &self,
+        inputs: &[Account],
+        outputs: &[Account],
+    ) -> Result<(), &'static str> {
+        //create QuisQUisTx Prover merlin transcript
+        let mut transcript = Transcript::new(b"TxProof");
+        let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
+
+        //verify the Dark Proof first
+        //self.script_sig.verify(&mut verifier, &inputs, &outputs)?;
 
         Ok(())
     }
