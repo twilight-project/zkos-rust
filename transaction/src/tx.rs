@@ -2,12 +2,13 @@
 //#![deny(missing_docs)]
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
-use crate::types::{Input, Output, OutputData, TransactionType, Witness, Coin, TxId};
+use crate::types::{Coin, Input, Output, OutputData, TransactionType, TxId, Witness};
 use crate::util::{Address, Network};
 use merlin::Transcript;
 // use serde_derive::{Deserialize, Serialize};
 use serde::{Deserialize, Serialize};
 
+use bulletproofs::r1cs::R1CSProof;
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::{
     accounts::prover::Prover,
@@ -17,11 +18,10 @@ use quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
     shuffle::Shuffle,
 };
-use bulletproofs::r1cs::R1CSProof;
 /// A complete twilight Transactiont valid for a specific network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
-    ///Transaction ID 
+    ///Transaction ID
     pub txid: TxId,
     /// Defines the Tx type.
     pub tx_type: TransactionType,
@@ -39,14 +39,14 @@ impl Transaction {
         }
     }
 
-    pub fn transaction_script(id:  TxId, data: TransactionData) -> Transaction {
+    pub fn transaction_script(id: TxId, data: TransactionData) -> Transaction {
         Transaction {
             txid: id,
             tx_type: TransactionType::Script,
             tx: data,
         }
     }
-    pub fn transaction_vault(id:  TxId, data: TransactionData) -> Transaction {
+    pub fn transaction_vault(id: TxId, data: TransactionData) -> Transaction {
         Transaction {
             txid: id,
             tx_type: TransactionType::Vault,
@@ -94,8 +94,6 @@ pub struct ScriptTransaction {
     pub(crate) proof: Option<DummyProof>,
     //Proof TBD
     pub(crate) witness: Option<Vec<Witness>>,
-
-
 }
 
 /// Store for ScriptTransfer
@@ -227,7 +225,10 @@ impl TransferTransaction {
         for i in senders_count..senders_count + receivers_count {
             //create address
             let (pk, comm) = updated_delta_accounts[i].get_account();
-            let c: Coin = Coin{address: Address::standard(Network::default(), pk),encrypt:comm};
+            let c: Coin = Coin {
+                address: Address::standard(Network::default(), pk),
+                encrypt: comm,
+            };
             let out = Output::coin(OutputData::coin(c));
             outputs.push(out.clone());
         }
@@ -332,7 +333,10 @@ impl TransferTransaction {
         );
 
         let anonymity_index = 9 - anonymity_account_diff;
-        println!("anon index {:?}  diff{:?}",anonymity_index,anonymity_account_diff );
+        println!(
+            "anon index {:?}  diff{:?}",
+            anonymity_index, anonymity_account_diff
+        );
         let updated_accounts_slice = &updated_accounts[anonymity_index..9];
         let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
         let rscalars_slice = &delta_rscalar[anonymity_index..9];
@@ -356,7 +360,10 @@ impl TransferTransaction {
         for out in output_final.iter() {
             //create address
             let (pk, comm) = out.get_account();
-            let c: Coin = Coin{address: Address::standard(Network::default(), pk),encrypt:comm};
+            let c: Coin = Coin {
+                address: Address::standard(Network::default(), pk),
+                encrypt: comm,
+            };
             let out = Output::coin(OutputData::coin(c));
             outputs.push(out.clone());
             //tx_log.push(TxEntry::Output(output));
@@ -404,8 +411,15 @@ impl TransferTransaction {
 
         Ok(())
     }
-}
 
+    //created for utxo-in-memory
+    pub fn get_input_values(&self) -> Vec<Input> {
+        self.inputs.clone()
+    }
+    pub fn get_output_values(&self) -> Vec<Output> {
+        self.outputs.clone()
+    }
+}
 
 impl ScriptTransaction {
     pub fn set_script_transaction(
@@ -435,7 +449,6 @@ impl ScriptTransaction {
         inputs: &[Input],
         outputs: &[Output],
     ) -> ScriptTransaction {
-         
         ScriptTransaction::set_script_transaction(
             0u64,
             0u64,
@@ -463,7 +476,12 @@ impl ScriptTransaction {
 
         Ok(())
     }
+
+    //created for utxo-in-memory
+    pub fn get_input_values(&self) -> Vec<Input> {
+        self.inputs.clone()
+    }
+    pub fn get_output_values(&self) -> Vec<Output> {
+        self.outputs.clone()
+    }
 }
-
-
-
