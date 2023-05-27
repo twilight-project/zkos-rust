@@ -297,7 +297,7 @@ mod test {
             utxo_input_type.clone(),
         );
         assert_eq!(utxo.unwrap(), utxo_set);
-        let search_bool = utxo_storage.search_key(utxo_key, utxo_input_type);
+        let search_bool = utxo_storage.search_key(&utxo_key, &utxo_input_type);
         assert_eq!(search_bool, true);
         uninstall_delete_db_utxo_for_test(test_path);
         println!("db_search: {:#?}", utxo_storage);
@@ -440,14 +440,24 @@ mod test {
         println!("db_load_snapshot: {:#?}", utxo_storage);
     }
 
-    // // cargo test -- --nocapture --test process_real_block_in_utxostore_test --test-threads 5
-    // #[test]
-    // fn process_real_block_in_utxostore_test() {
-    //     let test_path = "test8";
-    //     init_utxo_for_test(test_path);
-    //     let mut utxo_array = transaction::reference_tx::create_genesis_block(10, 3);
-    //     let block = transaction::reference_tx::create_utxo_test_block(&mut utxo_array, 1);
-    //     uninstall_delete_db_utxo_for_test(test_path);
-    //     // println!("db_load_snapshot: {:#?}", utxo_storage);
-    // }
+    // cargo test -- --nocapture --test process_real_block_in_utxostore_test --test-threads 5
+    #[test]
+    fn process_real_block_in_utxostore_test() {
+        let test_path = "test9";
+        init_utxo_for_test(test_path);
+        let mut utxo_array = transaction::reference_tx::create_genesis_block(100, 2);
+        let block = transaction::reference_tx::create_utxo_test_block(&mut utxo_array, 1);
+        let zkblock = ZkosBlock::get_block_details(block);
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        //check for any invalid key
+        // println!("block:{:#?}", zkblock);
+        match utxo_storage.before_process_block(&zkblock) {
+            Ok(_) => {
+                utxo_storage.process_block(zkblock);
+            }
+            Err(arg) => panic!(),
+        }
+        uninstall_delete_db_utxo_for_test(test_path);
+        // println!("db_load_snapshot: {:#?}", utxo_storage);
+    }
 }
