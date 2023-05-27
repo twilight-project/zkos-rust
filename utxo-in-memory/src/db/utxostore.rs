@@ -7,7 +7,6 @@ use crate::ThreadPool;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::SystemTime;
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<UTXOStorage>> = Arc::new(Mutex::new(UTXOStorage::new()));
@@ -123,11 +122,11 @@ impl UTXOStorage {
         }
     }
 
-    pub fn search_key(&mut self, id: UtxoKey, input_type: TxInputOutputType) -> bool {
+    pub fn search_key(&mut self, id: &UtxoKey, input_type: &TxInputOutputType) -> bool {
         match input_type {
-            TxInputOutputType::Coin => self.coin_storage.contains_key(&id),
-            TxInputOutputType::Memo => self.memo_storage.contains_key(&id),
-            TxInputOutputType::State => self.state_storage.contains_key(&id),
+            TxInputOutputType::Coin => self.coin_storage.contains_key(id),
+            TxInputOutputType::Memo => self.memo_storage.contains_key(id),
+            TxInputOutputType::State => self.state_storage.contains_key(id),
         }
     }
     pub fn get_utxo_by_id(
@@ -308,6 +307,19 @@ impl UTXOStorage {
         self.aggrigate_log_sequence = self.snaps.aggrigate_log_sequence;
 
         // check remaining blocks from chain and update the utxo set properly
+    }
+
+    pub fn before_process_block(&mut self, block: &ZkBlock) -> Result<(), std::io::Error> {
+        for utxo_remove in &block.remove_block {
+            if self.search_key(&utxo_remove.key, &utxo_remove.input_type) {
+            } else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("utxo:{:?} not found", utxo_remove),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
