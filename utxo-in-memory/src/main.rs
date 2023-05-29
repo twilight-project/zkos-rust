@@ -1,5 +1,8 @@
 // #[macro_use]
+
+use utxo_in_memory::utxo_set;
 extern crate lazy_static;
+use utxo_in_memory::*;
 
 fn main() {
     // init utxo
@@ -8,6 +11,8 @@ fn main() {
     println!("first:{:#?}", keyst);
     keyst.check();
     println!("updated:{:#?}", keyst);
+
+    println!("{:#?}", utxo_set::load_genesis_sets());
 }
 
 #[derive(Debug, Clone)]
