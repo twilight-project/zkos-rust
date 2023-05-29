@@ -7,7 +7,6 @@ use crate::ThreadPool;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::SystemTime;
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<UTXOStorage>> = Arc::new(Mutex::new(UTXOStorage::new()));
@@ -42,10 +41,10 @@ impl UTXOStorage {
         &mut self,
         id: UtxoKey,
         value: UtxoValue,
-        input_type: TxInputType,
+        input_type: TxInputOutputType,
     ) -> Result<UTXO, std::io::Error> {
         match input_type {
-            TxInputType::Coin => {
+            TxInputOutputType::Coin => {
                 if self.coin_storage.contains_key(&id) {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
@@ -56,7 +55,7 @@ impl UTXOStorage {
                     Ok(UTXO::new(id, value, input_type))
                 }
             }
-            TxInputType::Memo => {
+            TxInputOutputType::Memo => {
                 if self.memo_storage.contains_key(&id) {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
@@ -67,7 +66,7 @@ impl UTXOStorage {
                     Ok(UTXO::new(id, value, input_type))
                 }
             }
-            TxInputType::State => {
+            TxInputOutputType::State => {
                 if self.state_storage.contains_key(&id) {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
@@ -81,9 +80,13 @@ impl UTXOStorage {
         }
     }
 
-    pub fn remove(&mut self, id: UtxoKey, input_type: TxInputType) -> Result<UTXO, std::io::Error> {
+    pub fn remove(
+        &mut self,
+        id: UtxoKey,
+        input_type: TxInputOutputType,
+    ) -> Result<UTXO, std::io::Error> {
         match input_type {
-            TxInputType::Coin => match self.coin_storage.remove(&id) {
+            TxInputOutputType::Coin => match self.coin_storage.remove(&id) {
                 Some(value) => {
                     return Ok(UTXO::new(id, value.clone(), input_type));
                 }
@@ -94,7 +97,7 @@ impl UTXOStorage {
                     ))
                 }
             },
-            TxInputType::Memo => match self.memo_storage.remove(&id) {
+            TxInputOutputType::Memo => match self.memo_storage.remove(&id) {
                 Some(value) => {
                     return Ok(UTXO::new(id, value.clone(), input_type));
                 }
@@ -105,7 +108,7 @@ impl UTXOStorage {
                     ))
                 }
             },
-            TxInputType::State => match self.state_storage.remove(&id) {
+            TxInputOutputType::State => match self.state_storage.remove(&id) {
                 Some(value) => {
                     return Ok(UTXO::new(id, value.clone(), input_type));
                 }
@@ -119,20 +122,20 @@ impl UTXOStorage {
         }
     }
 
-    pub fn search_key(&mut self, id: String, input_type: TxInputType) -> bool {
+    pub fn search_key(&mut self, id: &UtxoKey, input_type: &TxInputOutputType) -> bool {
         match input_type {
-            TxInputType::Coin => self.coin_storage.contains_key(&id),
-            TxInputType::Memo => self.memo_storage.contains_key(&id),
-            TxInputType::State => self.state_storage.contains_key(&id),
+            TxInputOutputType::Coin => self.coin_storage.contains_key(id),
+            TxInputOutputType::Memo => self.memo_storage.contains_key(id),
+            TxInputOutputType::State => self.state_storage.contains_key(id),
         }
     }
     pub fn get_utxo_by_id(
         &mut self,
         id: UtxoKey,
-        input_type: TxInputType,
+        input_type: TxInputOutputType,
     ) -> Result<UTXO, std::io::Error> {
         match input_type {
-            TxInputType::Coin => match self.coin_storage.get(&id) {
+            TxInputOutputType::Coin => match self.coin_storage.get(&id) {
                 Some(value) => {
                     return Ok(UTXO::new(id, value.clone(), input_type));
                 }
@@ -143,7 +146,7 @@ impl UTXOStorage {
                     ))
                 }
             },
-            TxInputType::Memo => match self.memo_storage.get(&id) {
+            TxInputOutputType::Memo => match self.memo_storage.get(&id) {
                 Some(value) => {
                     return Ok(UTXO::new(id, value.clone(), input_type));
                 }
@@ -154,7 +157,7 @@ impl UTXOStorage {
                     ))
                 }
             },
-            TxInputType::State => match self.state_storage.get(&id) {
+            TxInputOutputType::State => match self.state_storage.get(&id) {
                 Some(value) => {
                     return Ok(UTXO::new(id, value.clone(), input_type));
                 }
@@ -289,14 +292,14 @@ impl UTXOStorage {
             Err(_) => {}
         }
         match memo_map {
-            Ok(coin) => {
-                self.memo_storage = coin;
+            Ok(memo) => {
+                self.memo_storage = memo;
             }
             Err(_) => {}
         }
         match state_map {
-            Ok(coin) => {
-                self.state_storage = coin;
+            Ok(state) => {
+                self.state_storage = state;
             }
             Err(_) => {}
         }
@@ -304,6 +307,19 @@ impl UTXOStorage {
         self.aggrigate_log_sequence = self.snaps.aggrigate_log_sequence;
 
         // check remaining blocks from chain and update the utxo set properly
+    }
+
+    pub fn before_process_block(&mut self, block: &ZkBlock) -> Result<(), std::io::Error> {
+        for utxo_remove in &block.remove_block {
+            if self.search_key(&utxo_remove.key, &utxo_remove.input_type) {
+            } else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("utxo:{:?} not found", utxo_remove),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
