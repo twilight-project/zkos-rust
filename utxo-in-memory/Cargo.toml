@@ -28,7 +28,7 @@ rusty-leveldb = "1.0.6"
 
 temp-env = "0.3.4"
 # [dependencies.quisquis-rust]
-# path = "../../../quisquis-rust"
+# path = "../../../"
 # # [dependencies.quisquis-rust]
 # # git = "ssh://github.com/twilight-project/quisquis-rust.git"
 # # branch = "qqtxapi"
