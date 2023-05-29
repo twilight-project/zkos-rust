@@ -1,36 +1,91 @@
 use serde_derive::{Deserialize, Serialize};
 pub type SequenceNumber = usize;
-pub type UtxoKey = String;
-pub type UtxoValue = String;
+
+// bincode::serialize(&value).unwrap()
+pub type UtxoKey = Vec<u8>; //pub struct Utxo {txid: TxId,output_index: u8,}
+pub type UtxoValue = Vec<u8>; // pub struct Output {pub out_type: OutputType, pub output: OutputData,}
+use transaction::reference_tx::{Block, RecordUtxo};
+use transaction::{TransactionData, TxId, Utxo};
+
+// impl UtxoKey {
+//     pub fn serialize(utxo_key: transaction::Utxo) -> Vec<u8> {
+//         bincode::serialize(&utxo_key).unwrap()
+//     }
+//     pub fn deserialize(json: &String) -> Self {
+//         let deserialized: TraderOrder = serde_json::from_str(json).unwrap();
+//         deserialized
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum TxInputType {
-    Coin = 0,  //uint8
-    Memo = 1,  //uint8
+pub enum TxInputOutputType {
+    Coin = 0, //uint8
+    Memo = 1, //uint8
     State = 2, //uint8
+              // Genesis = 3, //uint8
+}
+impl TxInputOutputType {
+    pub fn convert_input_type(input_type: transaction::InputType) -> Self {
+        match input_type {
+            transaction::InputType::Coin => TxInputOutputType::Coin,
+            transaction::InputType::State => TxInputOutputType::State,
+            transaction::InputType::Memo => TxInputOutputType::Memo,
+        }
+    }
+    pub fn convert_output_type(output_type: transaction::OutputType) -> Self {
+        match output_type {
+            transaction::OutputType::Coin => TxInputOutputType::Coin,
+            transaction::OutputType::State => TxInputOutputType::State,
+            transaction::OutputType::Memo => TxInputOutputType::Memo,
+        }
+    }
+    pub fn convert_uint8(&self) -> u8 {
+        self.clone() as u8
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct UTXO {
     pub key: UtxoKey,
     pub value: UtxoValue,
-    pub input_type: TxInputType,
+    pub input_type: TxInputOutputType,
 }
 
 impl UTXO {
     pub fn default() -> Self {
         UTXO {
-            key: "".to_string(),
-            value: "".to_string(),
-            input_type: TxInputType::Coin,
+            key: bincode::serialize(&"".to_string()).unwrap(),
+            value: bincode::serialize(&"".to_string()).unwrap(),
+            input_type: TxInputOutputType::Coin,
         }
     }
-    pub fn new(key: UtxoKey, value: UtxoValue, input_type: TxInputType) -> Self {
+    pub fn new(key: UtxoKey, value: UtxoValue, input_type: TxInputOutputType) -> Self {
         UTXO {
             key,
             value,
             input_type,
         }
+    }
+
+    pub fn get_utxokey_from_input_block(input: transaction::Input) -> Self {
+        UTXO::new(
+            bincode::serialize(input.input.as_utxo_id().unwrap()).unwrap(),
+            bincode::serialize(&"".to_string()).unwrap(),
+            TxInputOutputType::convert_input_type(input.in_type),
+        )
+        // UTXO::default()
+    }
+
+    pub fn get_utxo_from_output_block(
+        output: &transaction::Output,
+        txid: transaction::TxId,
+        output_index: usize,
+    ) -> Self {
+        UTXO::new(
+            bincode::serialize(&transaction::Utxo::new(txid, output_index as u8)).unwrap(),
+            bincode::serialize(&output).unwrap(),
+            TxInputOutputType::convert_output_type(output.out_type),
+        )
     }
 }
 
@@ -59,7 +114,52 @@ impl ZkosBlock {
             block_height: block_height,
         }
     }
+
+    pub fn get_block_details(block: Block) -> Self {
+        let block_height: usize = block.height as usize;
+        let mut input_utxo_set: Vec<UTXO> = Vec::new();
+        let mut output_utxo_set: Vec<UTXO> = Vec::new();
+        for tx in block.txs {
+            let tx_id = tx.txid;
+            match tx.tx {
+                TransactionData::TransactionTransfer(transfer_transaction) => {
+                    for input_set in transfer_transaction.get_input_values() {
+                        input_utxo_set.push(UTXO::get_utxokey_from_input_block(input_set));
+                    }
+                    for (output_index, output_set) in
+                        transfer_transaction.get_output_values().iter().enumerate()
+                    {
+                        output_utxo_set.push(UTXO::get_utxo_from_output_block(
+                            output_set,
+                            tx_id,
+                            output_index,
+                        ));
+                    }
+                }
+                TransactionData::Script(script_transaction) => {
+                    for input_set in script_transaction.get_input_values() {
+                        input_utxo_set.push(UTXO::get_utxokey_from_input_block(input_set));
+                    }
+                    for (output_index, output_set) in
+                        script_transaction.get_output_values().iter().enumerate()
+                    {
+                        output_utxo_set.push(UTXO::get_utxo_from_output_block(
+                            output_set,
+                            tx_id,
+                            output_index,
+                        ));
+                    }
+                }
+            }
+        }
+        ZkosBlock {
+            add_utxo: output_utxo_set,
+            remove_block: input_utxo_set,
+            block_height: block_height,
+        }
+    }
 }
+
 #[derive(Debug)]
 pub struct ZkosBlockResult {
     pub utxo_added: Vec<UTXO>,
@@ -86,6 +186,8 @@ mod test {
     // use super::*;
     use crate::{db::UTXOStorage, *};
     use std::fs;
+
+    use transaction::reference_tx::RecordUtxo;
     pub fn init_utxo_for_test(test_path: &str) {
         let mut utxo_storage = temp_env::with_var(
             "SNAPSHOT_FILE_LOCATION",
@@ -107,6 +209,7 @@ mod test {
         *utxo_storage = utxostore;
         // utxo_storage.load_from_snapshot();
     }
+
     pub fn uninstall_delete_db_utxo_for_test(test_path: &str) {
         let static_files = format!(
             "{}{}",
@@ -133,9 +236,9 @@ mod test {
     fn add_utxoset_test() {
         let test_path = "test2";
         init_utxo_for_test(test_path);
-        let utxo_key: UtxoKey = String::from("utxo_key");
-        let utxo_value: UtxoValue = String::from("utxo_value");
-        let utxo_input_type = TxInputType::Coin;
+        let utxo_key: UtxoKey = bincode::serialize(&String::from("utxo_key")).unwrap();
+        let utxo_value: UtxoValue = bincode::serialize(&String::from("utxo_value")).unwrap();
+        let utxo_input_type = TxInputOutputType::Coin;
         let utxo_set = UTXO::new(
             utxo_key.clone(),
             utxo_value.clone(),
@@ -154,9 +257,9 @@ mod test {
     fn remove_utxoset_test() {
         let test_path = "test3";
         init_utxo_for_test(test_path);
-        let utxo_key: UtxoKey = String::from("utxo_key");
-        let utxo_value: UtxoValue = String::from("utxo_value");
-        let utxo_input_type = TxInputType::Coin;
+        let utxo_key: UtxoKey = bincode::serialize(&String::from("utxo_key")).unwrap();
+        let utxo_value: UtxoValue = bincode::serialize(&String::from("utxo_value")).unwrap();
+        let utxo_input_type = TxInputOutputType::Coin;
         let utxo_set = UTXO::new(
             utxo_key.clone(),
             utxo_value.clone(),
@@ -180,9 +283,9 @@ mod test {
     fn search_utxoset_test() {
         let test_path = "test4";
         init_utxo_for_test(test_path);
-        let utxo_key: UtxoKey = String::from("utxo_key");
-        let utxo_value: UtxoValue = String::from("utxo_value");
-        let utxo_input_type = TxInputType::Coin;
+        let utxo_key: UtxoKey = bincode::serialize(&String::from("utxo_key")).unwrap();
+        let utxo_value: UtxoValue = bincode::serialize(&String::from("utxo_value")).unwrap();
+        let utxo_input_type = TxInputOutputType::Coin;
         let utxo_set = UTXO::new(
             utxo_key.clone(),
             utxo_value.clone(),
@@ -195,7 +298,7 @@ mod test {
             utxo_input_type.clone(),
         );
         assert_eq!(utxo.unwrap(), utxo_set);
-        let search_bool = utxo_storage.search_key(utxo_key, utxo_input_type);
+        let search_bool = utxo_storage.search_key(&utxo_key, &utxo_input_type);
         assert_eq!(search_bool, true);
         uninstall_delete_db_utxo_for_test(test_path);
         println!("db_search: {:#?}", utxo_storage);
@@ -206,9 +309,9 @@ mod test {
     fn get_utxoset_test() {
         let test_path = "test5";
         init_utxo_for_test(test_path);
-        let utxo_key: UtxoKey = String::from("utxo_key");
-        let utxo_value: UtxoValue = String::from("utxo_value");
-        let utxo_input_type = TxInputType::Coin;
+        let utxo_key: UtxoKey = bincode::serialize(&String::from("utxo_key")).unwrap();
+        let utxo_value: UtxoValue = bincode::serialize(&String::from("utxo_value")).unwrap();
+        let utxo_input_type = TxInputOutputType::Coin;
         let utxo_set = UTXO::new(
             utxo_key.clone(),
             utxo_value.clone(),
@@ -229,9 +332,9 @@ mod test {
     fn take_snapshot_utxoset_test() {
         let test_path = "test6";
         init_utxo_for_test(test_path);
-        let utxo_key: UtxoKey = String::from("utxo_key");
-        let utxo_value: UtxoValue = String::from("utxo_value");
-        let utxo_input_type = TxInputType::Coin;
+        let utxo_key: UtxoKey = bincode::serialize(&String::from("utxo_key")).unwrap();
+        let utxo_value: UtxoValue = bincode::serialize(&String::from("utxo_value")).unwrap();
+        let utxo_input_type = TxInputOutputType::Coin;
         let utxo_set = UTXO::new(
             utxo_key.clone(),
             utxo_value.clone(),
@@ -252,9 +355,9 @@ mod test {
     fn load_snapshot_utxoset_test() {
         let test_path = "test7";
         init_utxo_for_test(test_path);
-        let utxo_key: UtxoKey = String::from("utxo_key");
-        let utxo_value: UtxoValue = String::from("utxo_value");
-        let utxo_input_type = TxInputType::Coin;
+        let utxo_key: UtxoKey = bincode::serialize(&String::from("utxo_key")).unwrap();
+        let utxo_value: UtxoValue = bincode::serialize(&String::from("utxo_value")).unwrap();
+        let utxo_input_type = TxInputOutputType::Coin;
         let utxo_set = UTXO::new(
             utxo_key.clone(),
             utxo_value.clone(),
@@ -289,37 +392,37 @@ mod test {
     // then I will add 2 more utxo set in utxostore and remove 2 utxo sets from intialling added sets
     #[test]
     fn process_block_in_utxostore_test() {
-        let test_path = "test7";
+        let test_path = "test8";
         init_utxo_for_test(test_path);
         let utxo_set1 = UTXO::new(
-            String::from("utxo_key1"),
-            String::from("utxo_value1"),
-            TxInputType::Coin,
+            bincode::serialize(&String::from("utxo_key1")).unwrap(),
+            bincode::serialize(&String::from("utxo_value1")).unwrap(),
+            TxInputOutputType::Coin,
         );
         let utxo_set2 = UTXO::new(
-            String::from("utxo_key2"),
-            String::from("utxo_value2"),
-            TxInputType::Memo,
+            bincode::serialize(&String::from("utxo_key2")).unwrap(),
+            bincode::serialize(&String::from("utxo_value2")).unwrap(),
+            TxInputOutputType::Memo,
         );
         let utxo_set3 = UTXO::new(
-            String::from("utxo_key3"),
-            String::from("utxo_value3"),
-            TxInputType::Coin,
+            bincode::serialize(&String::from("utxo_key3")).unwrap(),
+            bincode::serialize(&String::from("utxo_value3")).unwrap(),
+            TxInputOutputType::Coin,
         );
         let utxo_set4 = UTXO::new(
-            String::from("utxo_key4"),
-            String::from("utxo_value4"),
-            TxInputType::State,
+            bincode::serialize(&String::from("utxo_key4")).unwrap(),
+            bincode::serialize(&String::from("utxo_value4")).unwrap(),
+            TxInputOutputType::State,
         );
         let utxo_set5 = UTXO::new(
-            String::from("utxo_key5"),
-            String::from("utxo_value5"),
-            TxInputType::State,
+            bincode::serialize(&String::from("utxo_key5")).unwrap(),
+            bincode::serialize(&String::from("utxo_value5")).unwrap(),
+            TxInputOutputType::State,
         );
         let utxo_set6 = UTXO::new(
-            String::from("utxo_key6"),
-            String::from("utxo_value6"),
-            TxInputType::Memo,
+            bincode::serialize(&String::from("utxo_key6")).unwrap(),
+            bincode::serialize(&String::from("utxo_value6")).unwrap(),
+            TxInputOutputType::Memo,
         );
 
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
@@ -333,7 +436,34 @@ mod test {
         let second_remove_utxo = vec![utxo_set1, utxo_set2];
         let block2 = ZkBlock::new(second_add_utxo, second_remove_utxo, 2);
         utxo_storage.process_block(block2);
+        utxo_storage.take_snapshot();
         uninstall_delete_db_utxo_for_test(test_path);
         println!("db_load_snapshot: {:#?}", utxo_storage);
+    }
+
+    // cargo test -- --nocapture --test process_real_block_in_utxostore_test --test-threads 5
+    #[test]
+    fn process_real_block_in_utxostore_test() {
+        let test_path = "test9";
+        init_utxo_for_test(test_path);
+
+        let mut utxo_array = utxo_set::load_genesis_sets();
+        let block = transaction::reference_tx::create_utxo_test_block(&mut utxo_array, 1);
+        let zkblock = ZkosBlock::get_block_details(block);
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        //check for any invalid key
+        // println!("block:{:#?}", zkblock);
+
+        // match utxo_storage.before_process_block(&zkblock) {
+        //     Ok(_) => {
+        //         utxo_storage.process_block(zkblock);
+        //     }
+        //     Err(arg) => {
+        //         println!("utxo key not found to remove");
+        //         panic!()
+        //     }
+        // }
+        uninstall_delete_db_utxo_for_test(test_path);
+        // println!("db_load_snapshot: {:#?}", utxo_storage);
     }
 }
