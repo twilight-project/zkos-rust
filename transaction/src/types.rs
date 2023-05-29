@@ -491,6 +491,7 @@ impl Output {
             output: data,
         }
     }
+    
 
 }
 // impl Default for Output {
