@@ -12,7 +12,7 @@ fn main() {
     keyst.check();
     println!("updated:{:#?}", keyst);
 
-    println!("{:#?}", utxo_set::load_genesis_sets());
+    // println!("{:#?}", utxo_set::load_genesis_sets().len());
 }
 
 #[derive(Debug, Clone)]
