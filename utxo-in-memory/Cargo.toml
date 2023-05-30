@@ -27,8 +27,8 @@ bincode = "1.3.3"
 rusty-leveldb = "1.0.6"
 
 temp-env = "0.3.4"
-# [dependencies.quisquis-rust]
-# path = "../../../"
+[dependencies.quisquis-rust]
+path = "../../../quisquis-rust"
 # # [dependencies.quisquis-rust]
 # # git = "ssh://github.com/twilight-project/quisquis-rust.git"
 # # branch = "qqtxapi"
