@@ -45,7 +45,6 @@ pub struct Sender {
 pub struct RecordUtxo {
     pub utx: Utxo,
     pub value: Output,
-    pub txinputouttype: u8,
 }
 
 //#[derive(Debug, Clone)]
@@ -339,7 +338,6 @@ pub fn create_genesis_block(
                 outputs.push(RecordUtxo {
                     utx: utx,
                     value: output,
-                    txinputouttype: 0,
                 });
             }
 
@@ -363,7 +361,6 @@ pub fn create_genesis_block(
                 outputs.push(RecordUtxo {
                     utx: utx,
                     value: out,
-                    txinputouttype: 1,
                 });
             }
             if random_number == 2 {
@@ -386,7 +383,6 @@ pub fn create_genesis_block(
                 outputs.push(RecordUtxo {
                     utx: utx,
                     value: out,
-                    txinputouttype: 2,
                 });
             }
         }
@@ -449,7 +445,6 @@ pub fn create_utxo_test_block(
                 new_set.push(RecordUtxo {
                     utx: utx,
                     value: out,
-                    txinputouttype: 0,
                 });
             }
             if random_number == 1 {
@@ -473,7 +468,6 @@ pub fn create_utxo_test_block(
                 new_set.push(RecordUtxo {
                     utx: utx,
                     value: out,
-                    txinputouttype: 1,
                 });
             }
             if random_number == 2 {
@@ -498,7 +492,6 @@ pub fn create_utxo_test_block(
                 new_set.push(RecordUtxo {
                     utx: utx,
                     value: out,
-                    txinputouttype: 2,
                 });
             }
         }
@@ -542,7 +535,6 @@ pub fn create_utxo_test_block(
             new_set.push(RecordUtxo {
                 utx: utx,
                 value: outp[ii].clone(),
-                txinputouttype: 0,
             });
         }
         txs.push(txx);
