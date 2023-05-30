@@ -87,6 +87,18 @@ impl UTXO {
             TxInputOutputType::convert_output_type(output.out_type),
         )
     }
+
+    pub fn get_utxo_from_record_utxo_output(record_utxo_vec: Vec<RecordUtxo>) -> Vec<UTXO> {
+        let mut utxo_out: Vec<UTXO> = Vec::new();
+        for record_utxo in record_utxo_vec {
+            utxo_out.push(UTXO::new(
+                bincode::serialize(&record_utxo.utx).unwrap(),
+                bincode::serialize(&record_utxo.value).unwrap(),
+                TxInputOutputType::convert_output_type(record_utxo.value.out_type),
+            ));
+        }
+        return utxo_out;
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
