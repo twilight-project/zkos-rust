@@ -461,14 +461,14 @@ mod test {
         init_utxo_for_test(test_path);
         let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
         let sk_sender = vec![prv];
-        let mut utxo_array = transaction::reference_tx::create_genesis_block(100, 10, acc);
+        let mut utxo_array = transaction::reference_tx::create_genesis_block(1000, 100, acc);
 
         // let mut utxo_array = utxo_set::load_genesis_sets();
         let block =
             transaction::reference_tx::create_utxo_test_block(&mut utxo_array, 1, &sk_sender);
-        // let mut file = std::fs::File::create("foo.txt").unwrap();
-        // file.write_all(&serde_json::to_vec_pretty(&block.clone()).unwrap())
-        //     .unwrap();
+        let mut file = std::fs::File::create("foo.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&block.clone()).unwrap())
+            .unwrap();
 
         let zkblock = ZkosBlock::get_block_details(block);
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
