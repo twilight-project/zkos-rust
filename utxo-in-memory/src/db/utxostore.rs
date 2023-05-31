@@ -202,13 +202,33 @@ impl UTXOStorage {
         Ok(block_result)
     }
 
+    pub fn before_process_block(&mut self, block: &ZkBlock) -> Result<(), std::io::Error> {
+        for utxo_remove in &block.remove_block {
+            if self.search_key(&utxo_remove.key, &utxo_remove.input_type) {
+            } else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("utxo:{:?} not found", utxo_remove),
+                ));
+            }
+        }
+        for utxo_add in &block.add_utxo {
+            if self.search_key(&utxo_add.key, &utxo_add.input_type) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("utxo:{:?} address already exist", utxo_add),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn take_snapshot(&mut self) -> Result<(), std::io::Error> {
         let snapshot_path = self.snaps.snap_rules.path.clone();
         let coin_path = format!("{}-coin", snapshot_path.clone());
         let memo_path = format!("{}-memo", snapshot_path.clone());
         let state_path = format!("{}-state", snapshot_path.clone());
         let snap_path = format!("{}-snapmap", snapshot_path.clone());
-        let snap_path1 = format!("{}-snapmap", snapshot_path.clone());
         let last_block = self.block_height.clone();
         let new_snapshot_id = self.snaps.lastsnapid + 1;
 
@@ -254,14 +274,15 @@ impl UTXOStorage {
             .unwrap()
             .as_micros();
         let snap_storage = self.snaps.clone();
+        //storing snapshot state with keyname "utxosnapshot"
         inner_snap_threadpool.execute(move || {
             let snapmap_update_status = leveldb_custom_put(
-                snap_path,
+                snap_path.clone(),
                 &bincode::serialize(&new_snapshot_id).unwrap(),
                 &bincode::serialize(&last_block).unwrap(),
             );
             let snapmap_update_status = leveldb_custom_put(
-                snap_path1,
+                snap_path,
                 &bincode::serialize(&String::from("utxosnapshot")).unwrap(),
                 &bincode::serialize(&snap_storage).unwrap(),
             );
@@ -307,23 +328,20 @@ impl UTXOStorage {
         self.aggrigate_log_sequence = self.snaps.aggrigate_log_sequence;
 
         // check remaining blocks from chain and update the utxo set properly
-    }
-
-    pub fn before_process_block(&mut self, block: &ZkBlock) -> Result<(), std::io::Error> {
-        for utxo_remove in &block.remove_block {
-            if self.search_key(&utxo_remove.key, &utxo_remove.input_type) {
-            } else {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("utxo:{:?} not found", utxo_remove),
-                ));
-            }
-        }
-        Ok(())
+        //get current block from the chain and update the remaining data from chain
     }
 }
 
 pub fn init_utxo() {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     utxo_storage.load_from_snapshot();
+    //load data from intial block from chain
+    if utxo_storage.block_height == 0 {
+        let recordutxo = crate::dbcurd::load_genesis_sets();
+        let add_utxo = UTXO::get_utxo_from_record_utxo_output(recordutxo);
+        for utxo in add_utxo {
+            let _ = utxo_storage.add(utxo.key, utxo.value, utxo.input_type);
+        }
+        utxo_storage.block_height = 1;
+    }
 }

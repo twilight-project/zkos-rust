@@ -305,8 +305,8 @@ pub fn create_dark_reference_transaction() -> Transaction {
 //Should be called first. Will only create a random set of outputs
 //with random txIDs to kickstart the system
 pub fn create_genesis_block(
-    total_outputs: u64,
-    num_tx: u64,
+    total_outputs: u32,
+    num_tx: u32,
     base_account: Account,
 ) -> Vec<RecordUtxo> {
     //100000 outputs divided among 10000 txs
@@ -315,7 +315,10 @@ pub fn create_genesis_block(
     let tot_outs_per_tx = total_outputs / num_tx;
 
     for i in 0..num_tx {
-        let id: [u8; 32] = [i.try_into().unwrap(); 32];
+        // let id: [u8; 32] = [i.try_into().unwrap(); 32];
+        let mut id: [u8; 32] = [0; 32];
+        // Generate random values and fill the array
+        rand::thread_rng().fill(&mut id);
         for j in 0..tot_outs_per_tx {
             let random_number: u32 = rng.gen_range(0u32, 3u32);
             if random_number == 0 {
@@ -415,9 +418,16 @@ pub fn create_utxo_test_block(
     //create Script Transactions
     let trans_tx = num_txs / 10;
     for _ in 0..(num_txs - trans_tx) {
+        let mut id: [u8; 32] = [0; 32];
+        // Generate random values and fill the array
+        rand::thread_rng().fill(&mut id);
         //select random inputs
         let mut inputs: Vec<Input> = Vec::new();
         for _ in 0..num_inputs_per_tx {
+            // println!("set len:{:#?}", set.len());
+            if set.len() == 0 {
+                break;
+            }
             let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
             let record: RecordUtxo = set[random_number as usize].clone();
 
@@ -441,7 +451,7 @@ pub fn create_utxo_test_block(
                 }));
                 outputs.push(out.clone());
                 //add to new set
-                let utx = Utxo::new(TxId([0u8; 32]), i.try_into().unwrap());
+                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
                 new_set.push(RecordUtxo {
                     utx: utx,
                     value: out,
@@ -464,7 +474,7 @@ pub fn create_utxo_test_block(
                 }));
                 outputs.push(out.clone());
                 //add to new set
-                let utx = Utxo::new(TxId([0u8; 32]), i.try_into().unwrap());
+                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
                 new_set.push(RecordUtxo {
                     utx: utx,
                     value: out,
@@ -488,7 +498,7 @@ pub fn create_utxo_test_block(
                 }));
                 outputs.push(out.clone());
                 //add to new set
-                let utx = Utxo::new(TxId([0u8; 32]), i.try_into().unwrap());
+                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
                 new_set.push(RecordUtxo {
                     utx: utx,
                     value: out,
@@ -497,9 +507,9 @@ pub fn create_utxo_test_block(
         }
 
         //create tx
-        let mut id: [u8; 32] = [0; 32];
-        // Generate random values and fill the array
-        rand::thread_rng().fill(&mut id);
+        // let mut id: [u8; 32] = [0; 32];
+        // // Generate random values and fill the array
+        // rand::thread_rng().fill(&mut id);
         let script_tx: ScriptTransaction =
             ScriptTransaction::create_utxo_script_transaction(&inputs, &outputs);
         let tx: Transaction =
@@ -513,6 +523,9 @@ pub fn create_utxo_test_block(
         //select random inputs
         let mut input: Input;
         loop {
+            // if set.len() == 0 {
+            //     break;
+            // }
             let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
             let record: RecordUtxo = set[random_number as usize].clone();
             match record.value.out_type {
@@ -650,7 +663,7 @@ pub fn create_dark_reference_tx_for_utxo_test(
 
     let (value_vector, account_vector, _, _, sender_count, receiver_count) =
         Sender::generate_value_and_account_vector(tx_vector).unwrap();
-    println!("S = {:?}, R = {:?}", sender_count, receiver_count);
+    // println!("S = {:?}, R = {:?}", sender_count, receiver_count);
     //Create sender updated account vector for the verification of sk and bl-v
     //let bl_first_sender = 10 - 5; //bl-v
     //let bl_second_sender = 20 - 3; //bl-v
