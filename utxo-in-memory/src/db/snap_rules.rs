@@ -1,4 +1,4 @@
-use crate::SequenceNumber;
+use crate::db::SequenceNumber;
 use serde_derive::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SnapRules {
