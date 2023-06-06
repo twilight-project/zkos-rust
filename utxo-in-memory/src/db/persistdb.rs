@@ -1,6 +1,6 @@
 use super::snap_rules::SnapRules;
+use crate::db::SequenceNumber;
 use crate::types::*;
-use crate::SequenceNumber;
 use rusty_leveldb::{
     CompressionType,
     //  DBIterator, LdbIterator,
@@ -107,6 +107,22 @@ pub fn leveldb_get_utxo_hashmap(
     let mut db = DB::open(path, opt).unwrap();
     match db.get(key) {
         Some(value) => return Ok(bincode::deserialize(&value).unwrap()),
+        None => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("snapshot does not exist"),
+            ))
+        }
+    }
+}
+
+pub fn leveldb_get_utxo_hashmap1(path: String, key: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+    let mut opt = Options::default();
+    opt.create_if_missing = true;
+    opt.compression_type = CompressionType::CompressionSnappy;
+    let mut db = DB::open(path, opt).unwrap();
+    match db.get(key) {
+        Some(value) => return Ok(value),
         None => {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
