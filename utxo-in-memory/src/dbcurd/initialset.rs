@@ -1,12 +1,14 @@
+use curve25519_dalek::scalar::Scalar;
+use quisquislib::accounts::Account;
 use std::fs;
+use std::io::prelude::*;
 use transaction::reference_tx::RecordUtxo;
-
 pub fn load_genesis_sets() -> Vec<RecordUtxo> {
     let read_data = fs::read("../utxo-in-memory\\src\\dbcurd\\genesis_sets.txt");
     let mut record_utxo: Vec<RecordUtxo> = Vec::new();
     match read_data {
         Ok(data) => {
-            record_utxo = serde_json::from_slice(&data).unwrap();
+            record_utxo = bincode::deserialize(&data).unwrap();
         }
         Err(arg) => {
             println!("File not found:{:#?}", arg);
@@ -19,7 +21,7 @@ pub fn load_genesis_sets_test() -> Vec<RecordUtxo> {
     let mut record_utxo: Vec<RecordUtxo> = Vec::new();
     match read_data {
         Ok(data) => {
-            record_utxo = serde_json::from_slice(&data).unwrap();
+            record_utxo = bincode::deserialize(&data).unwrap();
         }
         Err(arg) => {
             println!("File not found:{:#?}", arg);
@@ -48,3 +50,12 @@ pub fn load_genesis_sets_test() -> Vec<RecordUtxo> {
 //         utxo_storage.block_height = 1;
 //     }
 // }
+
+pub fn set_genesis_sets() {
+    let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
+    let recordutxo = transaction::reference_tx::create_genesis_block(10000, 100, acc);
+    let mut file =
+        std::fs::File::create("../utxo-in-memory\\src\\dbcurd\\genesis_sets.txt").unwrap();
+    file.write_all(&bincode::serialize(&recordutxo.clone()).unwrap())
+        .unwrap();
+}
