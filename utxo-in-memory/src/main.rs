@@ -1,15 +1,15 @@
 // #[macro_use]
+use utxo_in_memory::blockoperations;
 use utxo_in_memory::db::LocalDBtrait;
-use utxo_in_memory::dbcurd;
 extern crate lazy_static;
 use utxo_in_memory::*;
 
 fn main() {
-    // dbcurd::set_genesis_sets();
-    // let sw = Stopwatch::start_new();
+    // blockoperations::set_genesis_sets();
+    let sw = Stopwatch::start_new();
     init_utxo();
-    // let time1 = sw.elapsed();
-    // println!("init_utxo: {:#?}", time1);
+    let time1 = sw.elapsed();
+    println!("init_utxo: {:#?}", time1);
 
     // // init_utxo();
     // // for i in 0..10 {
@@ -18,6 +18,9 @@ fn main() {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     println!("get block height:{:#?}", utxo_storage.block_height);
     println!("get snap:{:#?}", utxo_storage.snaps);
+    for i in 0..utxo_storage.partition_size {
+        println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
+    }
     utxo_storage.take_snapshot();
 
     // println!("u64 value:{}", transaction::OutputType::Coin as usize);
