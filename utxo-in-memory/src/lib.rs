@@ -1,5 +1,5 @@
+pub mod blockoperations;
 pub mod db;
-pub mod dbcurd;
 mod threadpool;
 #[macro_use]
 extern crate lazy_static;
@@ -18,7 +18,7 @@ pub fn init_utxo() {
     let _ = utxo_storage.load_from_snapshot();
     //load data from intial block from chain
     if utxo_storage.block_height == 0 {
-        let recordutxo = crate::dbcurd::load_genesis_sets();
+        let recordutxo = crate::blockoperations::load_genesis_sets();
         for utxo in recordutxo {
             let _ = utxo_storage.add(
                 bincode::serialize(&utxo.utx).unwrap(),
