@@ -1,27 +1,30 @@
 // #[macro_use]
-
-use utxo_in_memory::db::LocalDB;
+use utxo_in_memory::db::LocalDBtrait;
 use utxo_in_memory::dbcurd;
 extern crate lazy_static;
 use utxo_in_memory::*;
 
 fn main() {
-    let sw = Stopwatch::start_new();
+    // dbcurd::set_genesis_sets();
+    // let sw = Stopwatch::start_new();
     init_utxo();
-    let time1 = sw.elapsed();
-    println!("init_utxo: {:#?}", time1);
+    // let time1 = sw.elapsed();
+    // println!("init_utxo: {:#?}", time1);
 
-    // init_utxo();
-    // for i in 0..10 {
-    //     load_utxo();
-    // }
+    // // init_utxo();
+    // // for i in 0..10 {
+    // //     load_utxo();
+    // // }
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     println!("get block height:{:#?}", utxo_storage.block_height);
-    println!("get coin_storage:{:#?}", utxo_storage.coin_storage.len());
-    println!("get memo_storage:{:#?}", utxo_storage.memo_storage.len());
-    println!("get state_storage:{:#?}", utxo_storage.state_storage.len());
     println!("get snap:{:#?}", utxo_storage.snaps);
     utxo_storage.take_snapshot();
+
+    // println!("u64 value:{}", transaction::OutputType::Coin as usize);
+
+    // for i in 0..3 {
+    //     println!("i: {}", i);
+    // }
 }
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::Account;
