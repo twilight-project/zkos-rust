@@ -31,6 +31,14 @@ pub struct Receiver {
     amount: i64,
     acc: Account,
 }
+impl Receiver {
+    pub fn set_receiver(amount: i64, acc: Account) -> Receiver {
+        Receiver {
+            amount: amount,
+            acc: acc,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Sender {
@@ -191,6 +199,13 @@ impl Sender {
             updated_balance_sender,
         ))
     }
+    pub fn set_sender(total_amount: i64, account: Account, receivers: Vec<Receiver>) -> Sender {
+        Sender {
+            total_amount: total_amount,
+            account: account,
+            receivers: receivers,
+        }
+    }
 }
 
 pub fn create_qq_reference_transaction() -> Transaction {
@@ -280,8 +295,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
 }
 
 // pub fn verify_transaction(tx: Transaction)-> Result<(), &'static str> {
-    
-    
+
 //     match tx.tx_type {
 //         TransactionType::Transfer => {
 //             let tx_data = TransactionData::to_transfer(tx.tx).unwrap();
@@ -297,7 +311,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
 //                     tx_data.verify_dark_tx(inputs, outputs)
 //                 }
 //             }
-//         } 
+//         }
 //             _  => Err("Not found"),
 //     }
 // }
