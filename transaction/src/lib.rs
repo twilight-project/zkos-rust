@@ -10,12 +10,12 @@ pub extern crate quisquislib;
 mod constants;
 mod errors;
 mod proof;
-mod serialization;
-mod tx;
-mod types;
-mod util;
 pub mod reference_tx;
-
+mod serialization;
+// mod tx;
+pub mod tx;
+pub mod types;
+mod util;
 pub use self::errors::TxError;
 pub use self::proof::{DarkTxProof, ShuffleTxProof};
 pub use self::tx::{Transaction, TransferTransaction};
@@ -26,4 +26,4 @@ pub use self::types::{
 
 pub use self::util::{Address, Network};
 
-pub use self::reference_tx::{Sender};
+pub use self::reference_tx::Sender;
