@@ -23,10 +23,10 @@ bs58 = "0.4.0"
 serde_bytes = "0.11.9"
 
 [dependencies.quisquis-rust]
-path = "../../../quisquis-rust"
+# path = "../../../quisquis-rust"
 # [dependencies.quisquis-rust]
-# git = "ssh://github.com/twilight-project/quisquis-rust.git"
-# branch = "qqtxapi"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "wasm-updated-0.1"
 
 [dependencies.elgamalsign]
 path = "../elgamalsign"
