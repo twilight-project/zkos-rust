@@ -53,6 +53,25 @@ impl Transaction {
             tx: data,
         }
     }
+
+    pub fn get_input_values(&self) -> Vec<Input> {
+        match self.tx.clone() {
+            TransactionData::TransactionTransfer(transfer_transaction) => {
+                transfer_transaction.get_input_values().clone()
+            }
+            TransactionData::Script(script_transaction) => {
+                script_transaction.get_input_values().clone()
+            }
+        }
+    }
+    pub fn get_output_values(&self) -> Vec<Output> {
+        match self.tx.clone() {
+            TransactionData::TransactionTransfer(transfer_transaction) => {
+                transfer_transaction.get_output_values()
+            }
+            TransactionData::Script(script_transaction) => script_transaction.get_output_values(),
+        }
+    }
 }
 
 ///
