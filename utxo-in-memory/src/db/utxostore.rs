@@ -14,7 +14,7 @@ pub trait LocalDBtrait<T> {
     fn new(partition: usize) -> Self;
     fn add(&mut self, id: KeyId, value: T, input_type: usize) -> Result<T, std::io::Error>;
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
-    fn search_key(&mut self, id: &KeyId, input_type: &usize) -> bool;
+    fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool;
     fn get_utxo_by_id(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
     fn take_snapshot(&mut self) -> Result<(), std::io::Error>;
     fn load_from_snapshot(&mut self) -> Result<(), std::io::Error>;
@@ -75,7 +75,7 @@ where
         }
     }
 
-    fn search_key(&mut self, id: &KeyId, input_type: &usize) -> bool {
+    fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool {
         self.data.get_mut(&input_type).unwrap().contains_key(id)
     }
     fn get_utxo_by_id(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
