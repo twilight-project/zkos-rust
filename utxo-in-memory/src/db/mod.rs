@@ -1,12 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
-mod persistdb;
 mod snap_rules;
-pub use self::persistdb::*;
-mod types;
+mod snapshot;
+pub use self::snapshot::*;
 
-pub use self::persistdb::SnapShot;
-pub use self::types::*;
+pub use self::snapshot::SnapShot;
 mod utxostore;
 pub use self::utxostore::LocalDBtrait;
 pub use self::utxostore::LocalStorage;
+pub use self::utxostore::SequenceNumber;

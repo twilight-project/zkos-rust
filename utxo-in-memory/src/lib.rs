@@ -5,7 +5,7 @@ mod threadpool;
 extern crate lazy_static;
 pub use self::db::SnapShot;
 pub use self::threadpool::ThreadPool;
-use db::{LocalDBtrait, LocalStorage, TxInputOutputType};
+use db::{LocalDBtrait, LocalStorage};
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
