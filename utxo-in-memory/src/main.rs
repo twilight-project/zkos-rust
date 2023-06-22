@@ -22,12 +22,6 @@ fn main() {
         println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
     }
     utxo_storage.take_snapshot();
-
-    // println!("u64 value:{}", transaction::OutputType::Coin as usize);
-
-    // for i in 0..3 {
-    //     println!("i: {}", i);
-    // }
 }
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::Account;
