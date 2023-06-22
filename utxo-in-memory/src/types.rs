@@ -207,7 +207,8 @@ mod test {
             Some(format!("./snapshot_storage_test/{}/map", test_path)),
             || UTXO_STORAGE.lock().unwrap(),
         );
-        let snapshot_load = SnapShot::load(&format!("./snapshot_storage_test/{}/map", test_path));
+        let snapshot_load =
+            SnapShot::load(3, &format!("./snapshot_storage_test/{}/map", test_path));
         // utxostore.snaps = snapshot_load;
         let utxostore = UTXOStorage {
             coin_storage: std::collections::HashMap::new(),

@@ -1,14 +1,7 @@
 use super::snap_rules::SnapRules;
-use crate::db::types::SequenceNumber;
-use rusty_leveldb::{
-    CompressionType,
-    //  DBIterator, LdbIterator,
-    Options,
-    DB,
-};
+use crate::db::SequenceNumber;
+use rusty_leveldb::{CompressionType, Options, DB};
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
-// use std::sync::{mpsc, Arc, Mutex, RwLock};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SnapShot {
     // pub map: HashMap<u64, SequenceNumber>,
@@ -46,7 +39,7 @@ impl SnapShot {
         }
     }
 
-    pub fn load(path: &str) -> SnapShot {
+    pub fn load(partition_size: usize, path: &str) -> SnapShot {
         let mut snap_rules = SnapRules::env();
         snap_rules.path = path.to_string();
         let snapshot_backup = leveldb_get_snapshot_metadata(
@@ -58,6 +51,7 @@ impl SnapShot {
             Ok(snap) => {
                 let mut snapshot = snap;
                 snapshot.snap_rules = snap_rules;
+                snapshot.partition_size = partition_size;
                 snapshot
             }
             Err(_) => SnapShot {
@@ -67,7 +61,7 @@ impl SnapShot {
                 block_height: 0,
                 aggrigate_log_sequence: 0,
                 snap_rules: snap_rules,
-                partition_size: 1,
+                partition_size: partition_size,
             },
         }
     }

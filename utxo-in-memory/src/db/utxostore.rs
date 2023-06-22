@@ -4,11 +4,11 @@
 use crate::db::*;
 pub type KeyId = Vec<u8>;
 pub type InputType = usize;
-use crate::db::SequenceNumber;
 use crate::ThreadPool;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::SystemTime;
+pub type SequenceNumber = usize;
 
 pub trait LocalDBtrait<T> {
     fn new(partition: usize) -> Self;
@@ -18,6 +18,7 @@ pub trait LocalDBtrait<T> {
     fn get_utxo_by_id(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
     fn take_snapshot(&mut self) -> Result<(), std::io::Error>;
     fn load_from_snapshot(&mut self) -> Result<(), std::io::Error>;
+    fn data_meta_update(&mut self, blockheight: usize) -> bool;
     // bulk add and bulk remove functions needed
 }
 
@@ -180,5 +181,16 @@ where
         Ok(())
         // check remaining blocks from chain and update the utxo set properly
         //get current block from the chain and update the remaining data from chain
+    }
+
+    fn data_meta_update(&mut self, blockheight: usize) -> bool {
+        self.block_height = blockheight as usize;
+        self.aggrigate_log_sequence += 1;
+        if self.block_height
+            >= self.snaps.snap_rules.block_size_threshold * (self.snaps.currentsnapid + 1)
+        {
+            let _ = self.take_snapshot();
+        }
+        true
     }
 }
