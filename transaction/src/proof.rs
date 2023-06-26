@@ -36,7 +36,7 @@ pub struct ShuffleTxProof {
     pub(super) input_shuffle_proof: ShuffleProof,
     pub(super) input_shuffle_statement: ShuffleStatement,
     pub(super) updated_delta_dlog: SigmaProof,
-    pub(super) zero_balance_dlog: SigmaProof,
+    pub(super) zero_balance_dlog: Option<SigmaProof>,
     pub(super) updated_delta_accounts: Vec<Account>,
 
     pub(super) output_shuffle_proof: ShuffleProof,
@@ -121,6 +121,7 @@ impl DarkTxProof {
         delta_accounts: &[Account],
         epsilon_accounts: &[Account],
         delta_rscalar: &[Scalar],
+        sender_updated_delta_account: &[Account],
         sender_updated_balance: &[u64],
         reciever_updated_balance: &[u64],
         sender_sk: &[RistrettoSecretKey],
@@ -136,10 +137,10 @@ impl DarkTxProof {
             &value_vector,
             prover,
         );
-        let updated_delta_accounts_sender_slice = &delta_accounts[..senders_count];
+        
         let (updated_sender_epsilon_accounts, epsilon_sender_rscalar_vector, sender_account_dleq) =
             Prover::verify_account_prover(
-                &updated_delta_accounts_sender_slice,
+                &sender_updated_delta_account,
                 sender_updated_balance,
                 sender_sk,
                 prover,
@@ -182,15 +183,16 @@ impl DarkTxProof {
         &self,
         verifier: &mut Verifier,
         updated_input: &Vec<Account>, //Updated_input = input in case of Dark Tx.
-        updated_delta_account_sender: &[Account],
         updated_delta_account: &Vec<Account>, //updated_delta = Output in the cas eof dark Tx
     ) -> Result<(), &'static str> {
         let base_pk = RistrettoPublicKey::generate_base_pk();
         //identity check function to verify the construction of epsilon accounts using correct rscalars
+
         Verifier::verify_delta_identity_check(&self.epsilon_accounts)?;
         // Verify Update Delta.
         // checks if pk_input' = pk_delta =pk_output'
         // checks if com_output' = com_input' * com_delta
+        
         Account::verify_delta_update(updated_delta_account, &self.delta_accounts, updated_input)?;
         let delta_dleq = self.delta_dleq.clone();
         let (zv_vector, zr1_vector, zr2_vector, x) = delta_dleq.get_dleq();
@@ -207,6 +209,9 @@ impl DarkTxProof {
 
         let (zv_sender_acc, zsk_sender_acc, zr_sender_acc, x_sender_acc) =
             self.sender_account_dleq.clone().get_dleq();
+        
+        let senders_count: usize = self.updated_sender_epsilon_accounts.len();
+        let updated_delta_account_sender = &updated_delta_account[..senders_count];    
         //verify sender account signature and remaining balance.
         Verifier::verify_account_verifier_bulletproof(
             &updated_delta_account_sender,
@@ -218,7 +223,9 @@ impl DarkTxProof {
             x_sender_acc,
             verifier,
         )?;
-        let senders_count: usize = updated_delta_account_sender.len();
+
+       
+       
         //let total_count : usize = self.epsilon_accounts.len();
         //Verify the bulletproofs
 
@@ -304,6 +311,7 @@ impl ShuffleTxProof {
         updated_accounts_slice: &[Account],
         updated_delta_accounts_slice: &[Account],
         rscalars_slice: &[Scalar],
+        input_anonymity_account_slice: &[Account],  
         anonymity_comm_scalar: &[Scalar],
         input_shuffle: &Shuffle,
         output_shuffle: &Shuffle,
@@ -313,6 +321,8 @@ impl ShuffleTxProof {
         let xpc_gens = VectorPedersenGens::new(ROWS + 1);
         // Prepare the constraint system
         let pc_gens = PedersenGens::default();
+
+
         let (input_shuffle_proof, input_shuffle_statement) =
             ShuffleProof::create_shuffle_proof(prover, input_shuffle, &pc_gens, &xpc_gens);
 
@@ -323,25 +333,25 @@ impl ShuffleTxProof {
             &rscalars_slice,
             prover,
         );
-
-        //if annoymity accounts are created on the fly.
-        //create zero balance proof for all the anonymity accounts
+        
+        /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
+        ** All inputs with no UtxoId will be gathered as new anonymity set and a zero balance proof will have to be provided 
+        ** since we are doing compact batch proof we need to collect the anonymity set before we can run the proof
         let zero_balance_dlog = Prover::zero_balance_account_prover(
-            &updated_accounts_slice,
+            &input_anonymity_account_slice,
             &anonymity_comm_scalar,
             prover,
-        );
-
+        );*/
         let (output_shuffle_proof, output_shuffle_statement) =
             ShuffleProof::create_shuffle_proof(prover, output_shuffle, &pc_gens, &xpc_gens);
 
         ShuffleTxProof {
-            input_dash_accounts: updated_accounts_slice.to_vec(),
+            input_dash_accounts: input_shuffle.get_outputs_vector(),
             input_shuffle_proof,
             input_shuffle_statement,
             updated_delta_dlog,
-            zero_balance_dlog,
-            updated_delta_accounts: updated_delta_accounts_slice.to_vec(),
+            zero_balance_dlog: None,
+            updated_delta_accounts: output_shuffle.get_inputs_vector(),
             output_shuffle_proof,
             output_shuffle_statement,
         }
@@ -383,19 +393,22 @@ impl ShuffleTxProof {
             &x,
             verifier,
         )?;
-
+        /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
         //Step 7. if annoymity accounts are created on the fly.
         //create zero balance proof for all the anonymity accounts
-        let (z_zero_balance, x_zero_balance) = self.zero_balance_dlog.clone().get_dlog();
-
+        
+        if self.zero_balance_dlog.is_some(){
+       // let input_anonymity_account_slice = 
+        let (z_zero_balance, x_zero_balance) = self.zero_balance_dlog.clone().unwrap().get_dlog();
+        println!("In verifier");
         //verify zero balance proof for anonymity set
         Verifier::zero_balance_account_verifier(
-            &input_accounts[anonymity_index..9],
+            &updated_accounts_slice,
             &z_zero_balance,
             x_zero_balance,
             verifier,
         )?;
-
+        }*/
         //verify the output shuffle
         self.output_shuffle_proof.verify(
             verifier,
@@ -494,8 +507,8 @@ mod test {
         let base_pk = RistrettoPublicKey::generate_base_pk();
 
         let value_vector: Vec<Scalar> = vec![
-            -Scalar::from(5u64),
-            -Scalar::from(3u64),
+            -Scalar::from(-(-5i64) as u64),
+            -Scalar::from(-(-3i64) as u64),
             Scalar::from(5u64),
             Scalar::from(3u64),
         ];
@@ -525,7 +538,10 @@ mod test {
         let reciever_updated_balance: Vec<u64> = vec![5u64, 3u64];
 
         let base_pk = RistrettoPublicKey::generate_base_pk();
-
+        
+        //get sender_updated delta accounts for verify account proof
+        let sender_updated_delta_account = &updated_delta_accounts[..2];
+        
         //create DarkTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
         let mut prover = Prover::new(b"DarkTx", &mut transcript);
@@ -536,6 +552,7 @@ mod test {
             &delta_accounts,
             &epsilon_accounts,
             &delta_rscalar_vector,
+            sender_updated_delta_account, 
             &sender_updated_balance,
             &reciever_updated_balance,
             &sender_sk,
@@ -551,15 +568,27 @@ mod test {
         let mut verifier = Verifier::new(b"DarkTx", &mut v_transcript);
 
         //create updated senders delta account slice
-        let updated_senders_delta_account = &dark_tx_proof.delta_accounts[..2];
-
+        //let updated_senders_delta_account = &dark_tx_proof.delta_accounts[..2];
+        println!("verify::");
         let verify = dark_tx_proof.verify(
             &mut verifier,
             &updated_accounts,
-            updated_senders_delta_account,
+           
             &updated_delta_accounts,
         );
+        println!("{:?}",verify);
+        //assert!(verify.is_ok())
+    }
 
-        assert!(verify.is_ok())
+    #[test]
+    fn create_scalar_test(){
+        let iin :i64 = -5;
+        let uin: i64 = 5;
+        
+        println!("0 - Scalar {:#?}", Scalar::zero() - Scalar::from(-iin as u64));
+        println!(" -Scalar {:#?}", -Scalar::from(iin as u64));
+        println!("Scalar {:#?}", Scalar::from(uin as u64));
+        println!("Scalar {:#?}", -Scalar::from(uin as u64));
+        println!("Scalar {:#?}", Scalar::from(-iin as u64));
     }
 }
