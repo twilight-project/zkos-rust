@@ -30,7 +30,7 @@ bincode = "1"
 [dependencies.quisquis-rust]
 # path = "../../../quisquis-rust"
 # [dependencies.quisquis-rust]
-git = "https://github.com/twilight-project/quisquis-rust.git"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
 branch = "wasm-updated-0.1"
 
 [dependencies.transaction]
@@ -47,7 +47,3 @@ features = ["yoloproofs"]
 [features]
 default = []
 nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
-
-[workspace]
-
-members = []
