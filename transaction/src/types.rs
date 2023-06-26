@@ -195,16 +195,16 @@ impl OutputData {
         Self::Coin { address, comm }
     }
 
-    pub const fn adress(&self) -> Option<&Address> {
+    pub const fn adress(&self) -> Option<Address> {
         match self {
-            Self::Coin { address, .. } => Some(address),
+            Self::Coin { address, .. } => Some(*address),
             _ => None,
         }
     }
 
-    pub const fn commitment(&self) -> Option<&ElGamalCommitment> {
+    pub const fn commitment(&self) -> Option<ElGamalCommitment> {
         match self {
-            Self::Coin { comm, .. } => Some(comm),
+            Self::Coin { comm, .. } => Some(*comm),
             _ => None,
         }
     }
