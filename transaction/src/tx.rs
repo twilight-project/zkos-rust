@@ -369,7 +369,8 @@ impl TransferTransaction {
             
             &shuffle_proof.updated_delta_accounts,
         )?;
-        let anonymity_index = self.proof.range_proof.len();
+       // let anonymity_index = self.proof.range_proof.len();
+       let anonymity_index = self.proof.updated_sender_epsilon_accounts.len() + self.proof.receivers_count;
         //verify the shuffle proof
         shuffle_proof.verify(&mut verifier, &inputs, &outputs, anonymity_index)?;
 
