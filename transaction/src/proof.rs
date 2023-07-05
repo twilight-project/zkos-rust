@@ -26,6 +26,8 @@ pub struct DarkTxProof {
     pub(super) updated_sender_epsilon_accounts: Vec<Account>,
     pub(super) sender_account_dleq: SigmaProof,
     pub(super) range_proof: Vec<RangeProof>,
+    //ONLY FOR TESTING PURPOSES
+    pub(super) receivers_count: usize, //SHOULD BE REMOVED LATER
 }
 
 ///
@@ -174,6 +176,8 @@ impl DarkTxProof {
             updated_sender_epsilon_accounts,
             sender_account_dleq,
             range_proof,
+            receivers_count, 
+
         }
     }
 
@@ -229,7 +233,7 @@ impl DarkTxProof {
         //let total_count : usize = self.epsilon_accounts.len();
         //Verify the bulletproofs
 
-        let reciever_epsilon_accounts_slice = &self.epsilon_accounts[senders_count..].to_vec();
+        let reciever_epsilon_accounts_slice = &self.epsilon_accounts[senders_count..senders_count + self.receivers_count].to_vec();
         //prepare epsilon account vector for sender + reciver
         let bp_epsilon_vec: Vec<Account> = self
             .updated_sender_epsilon_accounts
@@ -386,6 +390,7 @@ impl ShuffleTxProof {
         let updated_accounts_slice = &self.input_dash_accounts[anonymity_index..9];
         let updated_delta_accounts_slice = &self.updated_delta_accounts[anonymity_index..9];
         //verify dlog proof
+        println!("BEFORE Anony index {:?}", anonymity_index);
         Verifier::verify_update_account_verifier(
             &updated_accounts_slice,
             &updated_delta_accounts_slice,
@@ -393,6 +398,7 @@ impl ShuffleTxProof {
             &x,
             verifier,
         )?;
+        println!("AFTER");
         /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
         //Step 7. if annoymity accounts are created on the fly.
         //create zero balance proof for all the anonymity accounts

@@ -158,7 +158,7 @@ impl Sender {
                     acc: alice_account,
                 }],
             },
-            Sender {
+           Sender {
                 total_amount: -3,
                 account: bob_account_2,
                 receivers: vec![
@@ -228,7 +228,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
     let utxo = Utxo::new(TxId(id), 0);
     let utxo_vector:Vec<Utxo> = vec![utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone()];
 
-    let updated_balance_reciever: Vec<u64> = vec![5, 2, 1];
+    let updated_balance_reciever: Vec<u64> = vec![5];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransaction
     let transfer = TransferTransaction::create_quisquis_transaction(
