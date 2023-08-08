@@ -26,7 +26,7 @@ serde_bytes = "0.11.9"
 [dependencies.quisquis-rust]
 # path = "../../../quisquis-rust"
 # [dependencies.quisquis-rust]
-git = "https://github.com/twilight-project/quisquis-rust.git"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
 # branch = "wasm-updated-0.1"
 branch = "qqtxapi-merged"
 
