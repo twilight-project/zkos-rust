@@ -87,7 +87,7 @@ pub struct TransferTransaction {
     pub(crate) witness_count: u8,
     //List of inputs and outputs
     pub(crate) inputs: Vec<Input>,
-    pub(crate) outputs: Vec<Output>,
+    pub outputs: Vec<Output>,
     //Dark Tx proof
     pub(crate) proof: DarkTxProof,
     //input and output shuffle proof

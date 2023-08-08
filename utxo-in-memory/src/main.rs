@@ -3,6 +3,9 @@ use utxo_in_memory::blockoperations;
 use utxo_in_memory::db::LocalDBtrait;
 extern crate lazy_static;
 use utxo_in_memory::*;
+use serde::Deserialize;
+use tungstenite::{connect, Message};
+use url::Url;
 
 fn main() {
     // blockoperations::set_genesis_sets();
@@ -22,6 +25,29 @@ fn main() {
         println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
     }
     utxo_storage.take_snapshot();
+
+}
+
+
+
+fn socket_connection() {
+    let (mut socket, response) =
+        connect(Url::parse("wss://your-websocket-url.com").unwrap()).expect("Can't connect");
+
+    loop {
+        let msg = socket.read_message().expect("Error reading message");
+        match msg {
+            Message::Text(text) => {
+                let block: blockoperations::blockprocessing::Block = serde_json::from_str(&text).unwrap();
+                blockoperations::blockprocessing::process_block_for_utxo_insert(block);
+            }
+            Message::Close(_) => {
+                println!("Server disconnected");
+                break;
+            }
+            _ => (),
+        }
+    }
 }
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::Account;

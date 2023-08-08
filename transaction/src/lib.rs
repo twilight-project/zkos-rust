@@ -12,9 +12,9 @@ mod errors;
 mod proof;
 pub mod reference_tx;
 mod serialization;
-mod tx;
-mod types;
-mod util;
+pub mod tx;
+pub mod types;
+pub mod util;
 
 pub use self::errors::TxError;
 pub use self::proof::{DarkTxProof, ShuffleTxProof};

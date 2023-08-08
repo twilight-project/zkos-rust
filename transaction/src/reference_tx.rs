@@ -20,8 +20,10 @@ use quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
 use rand::rngs::OsRng;
+
 use rand::Rng;
 use sha3::Sha3_512;
+use bincode::serialize;
 
 ///Needed for Creating Reference transaction for Testing RPC
 ///
@@ -392,175 +394,6 @@ pub fn create_genesis_block(
     }
     outputs
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Block {
-    pub height: u64,
-    pub txs: Vec<Transaction>,
-}
-pub fn create_utxo_test_block(
-    set: &mut Vec<RecordUtxo>,
-    prev_height: u64,
-    sk_sender: &[RistrettoSecretKey],
-) -> Block {
-    // for the time being we will only build Script txs
-    let mut rng = rand::thread_rng();
-    //let mut set_size = set.len();
-    let mut txs: Vec<Transaction> = Vec::new();
-    let mut new_set: Vec<RecordUtxo> = Vec::new();
-
-    //select # of txs to be created. The numbers should be adjusted based on the size of the existing set
-    let num_txs = rng.gen_range(0u32, 100u32);
-    let num_inputs_per_tx = rng.gen_range(0u32, 9u32);
-    let num_outputs_per_tx = rng.gen_range(5u32, 15u32);
-
-    //let 10 % of these tx are transfer Txs
-
-    //create Script Transactions
-    let trans_tx = num_txs / 10;
-    for _ in 0..(num_txs - trans_tx) {
-        let mut id: [u8; 32] = [0; 32];
-        // Generate random values and fill the array
-        rand::thread_rng().fill(&mut id);
-        //select random inputs
-        let mut inputs: Vec<Input> = Vec::new();
-        for _ in 0..num_inputs_per_tx {
-            // println!("set len:{:#?}", set.len());
-            if set.len() == 0 {
-                break;
-            }
-            let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
-            let record: RecordUtxo = set[random_number as usize].clone();
-
-            let inp = convert_output_to_input(record.clone()).unwrap();
-            inputs.push(inp.clone());
-            //remove input from set
-            set.remove(random_number as usize);
-        }
-        //select random outputs
-        let mut outputs: Vec<Output> = Vec::new();
-        for i in 0..num_outputs_per_tx {
-            let random_number: u32 = rng.gen_range(0u32, 3u32);
-            if random_number == 0 {
-                //coin output
-                let (pk, enc) = Account::generate_random_account_with_value(Scalar::from(20u64))
-                    .0
-                    .get_account();
-                let out = Output::coin(OutputData::Coin(Coin {
-                    encrypt: enc,
-                    address: Address::standard(Network::default(), pk),
-                }));
-                outputs.push(out.clone());
-                //add to new set
-                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
-                new_set.push(RecordUtxo {
-                    utx: utx,
-                    value: out,
-                });
-            }
-            if random_number == 1 {
-                //memo output
-                let (pk, _) = Account::generate_random_account_with_value(Scalar::from(0u64))
-                    .0
-                    .get_account();
-                let add = Address::contract(Network::default(), pk);
-                let data: CData = CData {
-                    script_address: add,
-                    owner: add,
-                    commitment: CompressedRistretto::default(),
-                };
-                let out = Output::memo(OutputData::Memo(Memo {
-                    contract: data,
-                    data: None,
-                }));
-                outputs.push(out.clone());
-                //add to new set
-                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
-                new_set.push(RecordUtxo {
-                    utx: utx,
-                    value: out,
-                });
-            }
-            if random_number == 2 {
-                //state output
-                let (pk, _) = Account::generate_random_account_with_value(Scalar::from(0u64))
-                    .0
-                    .get_account();
-                let add = Address::contract(Network::default(), pk);
-                let data: CData = CData {
-                    script_address: add,
-                    owner: add,
-                    commitment: CompressedRistretto::default(),
-                };
-                let out = Output::state(OutputData::State(State {
-                    nonce: 0u32,
-                    contract: data,
-                    script_data: None,
-                }));
-                outputs.push(out.clone());
-                //add to new set
-                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
-                new_set.push(RecordUtxo {
-                    utx: utx,
-                    value: out,
-                });
-            }
-        }
-
-        //create tx
-        // let mut id: [u8; 32] = [0; 32];
-        // // Generate random values and fill the array
-        // rand::thread_rng().fill(&mut id);
-        let script_tx: ScriptTransaction =
-            ScriptTransaction::create_utxo_script_transaction(&inputs, &outputs);
-        let tx: Transaction =
-            Transaction::transaction_script(TxId(id), TransactionData::Script(script_tx));
-
-        txs.push(tx);
-    }
-    //create Transfer Txs
-    for _ in 0..trans_tx {
-        //let there be 1 input and 2 output combos
-        //select random inputs
-        let mut input: Input;
-        loop {
-            // if set.len() == 0 {
-            //     break;
-            // }
-            let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
-            let record: RecordUtxo = set[random_number as usize].clone();
-            match record.value.out_type {
-                OutputType::Coin => {
-                    input = convert_output_to_input(record.clone()).unwrap();
-
-                    //remove input from set
-                    set.remove(random_number as usize);
-                    break;
-                }
-                _ => continue,
-            }
-        }
-        // println!("creating dark tx");
-        let txx = create_dark_reference_tx_for_utxo_test(input, &sk_sender);
-        //extract outputs from tx for dummy set
-        let outp = txx.clone().tx.to_transfer().unwrap().outputs;
-        for ii in 0..outp.len() {
-            let utx = Utxo::new(txx.txid, ii.try_into().unwrap());
-            new_set.push(RecordUtxo {
-                utx: utx,
-                value: outp[ii].clone(),
-            });
-        }
-        txs.push(txx);
-    }
-
-    let block = Block {
-        height: prev_height + 1,
-        txs,
-    };
-    //append new utxo set with old one to update the recent outputs
-    set.append(&mut new_set);
-    block
-}
 
 pub fn convert_output_to_input(rec: RecordUtxo) -> Option<Input> {
     let utx = rec.utx;
@@ -730,20 +563,5 @@ mod test {
         let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
         let utxo_set = create_genesis_block(1000, 100, acc);
         println!("{:?}", utxo_set);
-    }
-
-    #[test]
-    fn create_utxo_block_test() {
-        //keep the private key safe
-
-        let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
-        let sk_sender = vec![prv];
-        //let (pk, _) = acc.get_account();
-        //let (inp_acc ,_)= Account::generate_account(pk);
-        //let accc: Account = Account::set_account();
-        let mut utxo_set = create_genesis_block(1000, 100, acc);
-        let block = create_utxo_test_block(&mut utxo_set, 1, &sk_sender);
-        println!("Block Height{:?} ", block.height);
-        println!("Block Txs{:?} ", block.txs);
     }
 }
