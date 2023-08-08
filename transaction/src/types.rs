@@ -14,6 +14,26 @@ use crate::util::Address;
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxId(pub [u8; 32]);
 
+impl TxId {
+    // Convert the TxId to a hexadecimal string
+    pub fn to_hex_string(&self) -> String {
+        let hex_chars: Vec<String> = self.0.iter().map(|byte| format!("{:02x}", byte)).collect();
+        hex_chars.join("")
+    }
+
+    pub fn from_vec(vec_u8: Vec<u8>) -> TxId {
+        let mut array_u8: [u8; 32] = [0; 32];
+        if vec_u8.len() == 32 {
+            array_u8.copy_from_slice(&vec_u8);
+        } else {
+            panic!("The Vec<u8> must contain exactly 32 bytes");
+        }
+        TxId(array_u8)
+    }
+
+}
+
+
 /// Transaction type: Transfer. Script, Vault
 ///
 /// TransactionType implements [`Default`] and returns [`TransactionType::Transfer`].
