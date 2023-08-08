@@ -1,7 +1,23 @@
 use crate::db::*;
 use crate::UTXO_STORAGE;
+use hex;
 use serde_derive::{Deserialize, Serialize};
-use transaction::reference_tx::Block;
+use transaction::Transaction;
+
+use transaction::reference_tx::{convert_output_to_input, RecordUtxo, create_dark_reference_tx_for_utxo_test};
+use quisquislib::elgamal::elgamal::ElGamalCommitment;
+use transaction::types::{InputData, InputType};
+use transaction::types::{CData, Coin, Input, Memo, Output, OutputData, OutputType, State, TxId, Utxo};
+use transaction::tx::{ScriptTransaction, TransactionData};
+use transaction::util::{Address, Network};
+use rand::Rng;
+
+use quisquislib::{
+    accounts::Account,
+    ristretto::RistrettoSecretKey,
+};
+use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::scalar::Scalar;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BlockResult {
@@ -17,58 +33,326 @@ impl BlockResult {
     }
 }
 
-pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    let mut tx_result: BlockResult = BlockResult::new();
-    for transaction in block.txs {
-        let tx_id = transaction.txid;
-        let mut success: bool = true;
-        let tx_input = transaction.get_input_values();
-        let tx_output = transaction.get_output_values();
+pub enum BlockResultType {
+    Transfer(transaction::TxId),
+    Trading(),
+}
 
-        for input in &tx_input {
-            let utxo_key = bincode::serialize(input.input.as_utxo_id().unwrap()).unwrap();
-            let utxo_input_type = input.in_type as usize;
-            let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
-            if bool {
-            } else {
-                success = false;
-            }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Block {
+    pub block_hash: String,
+    pub block_height: u64,
+    pub transactions: Vec<MessageType>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransactionMessageTransfer {
+    #[serde(rename = "@type")]
+    pub tx_type: String,
+    pub tx_id: String,
+    pub tx_byte_code: String,
+    pub zk_oracle_address: String,
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransactionMessageTrading {
+    #[serde(rename = "@type")]
+    pub tx_type: String,
+    pub mint_or_burn:      bool,
+	pub btc_value :       u32,
+	pub qq_account:       String,
+	pub encrypt_scalar:   u64,
+	pub twilight_address: String,
+    pub tx_id: String
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum MessageType {
+    Transfer(TransactionMessageTransfer),
+    Trading(TransactionMessageTrading),
+}
+
+pub fn process_transfer(transaction: TransactionMessageTransfer, height: u64, tx_result: &mut BlockResult){
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let tx_bytes = hex::decode(transaction.tx_byte_code).expect("Decoding failed");
+    let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
+    let tx_id = transaction_info.txid;
+    let mut success: bool = true;
+    let tx_input = transaction_info.get_input_values();
+    let tx_output = transaction_info.get_output_values();
+
+    for input in &tx_input {
+        let utxo_key = bincode::serialize(input.input.as_utxo_id().unwrap()).unwrap();
+        let utxo_input_type = input.in_type as usize;
+        let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
+        if bool {
+        } else {
+            success = false;
         }
+    }
+    for (output_index, output_set) in tx_output.iter().enumerate() {
+        let utxo_key =
+            bincode::serialize(&transaction::Utxo::new(tx_id, output_index as u8)).unwrap();
+        let utxo_output_type = output_set.out_type as usize;
+        let bool = utxo_storage.search_key(&utxo_key, utxo_output_type);
+        if bool {
+            success = false;
+        } else {
+        }
+    }
+    //proccess tx
+    if success {
+        //remove all input
+        for input in tx_input {
+            let utxo_key = bincode::serialize(&input.input.as_utxo_id().unwrap()).unwrap();
+            let utxo_input_type = input.in_type as usize;
+            let _result = utxo_storage.remove(utxo_key, utxo_input_type);
+        }
+        //Add all output
         for (output_index, output_set) in tx_output.iter().enumerate() {
             let utxo_key =
                 bincode::serialize(&transaction::Utxo::new(tx_id, output_index as u8)).unwrap();
             let utxo_output_type = output_set.out_type as usize;
-            let bool = utxo_storage.search_key(&utxo_key, utxo_output_type);
-            if bool {
-                success = false;
-            } else {
-            }
+            let _result = utxo_storage.add(utxo_key, output_set.clone(), utxo_output_type);
         }
-        //proccess tx
-        if success {
-            //remove all input
-            for input in tx_input {
-                let utxo_key = bincode::serialize(&input.input.as_utxo_id().unwrap()).unwrap();
-                let utxo_input_type = input.in_type as usize;
-                let _result = utxo_storage.remove(utxo_key, utxo_input_type);
-            }
-            //Add all output
-            for (output_index, output_set) in tx_output.iter().enumerate() {
-                let utxo_key =
-                    bincode::serialize(&transaction::Utxo::new(tx_id, output_index as u8)).unwrap();
-                let utxo_output_type = output_set.out_type as usize;
-                let _result = utxo_storage.add(utxo_key, output_set.clone(), utxo_output_type);
-            }
 
-            let _ = utxo_storage.data_meta_update(block.height as usize);
-            tx_result.suceess_tx.push(tx_id);
-        } else {
-            tx_result.failed_tx.push(tx_id);
-        }
+        let _ = utxo_storage.data_meta_update(height as usize);
+        tx_result.suceess_tx.push(tx_id);
+    } else {
+        tx_result.failed_tx.push(tx_id);
+    }
+
+}
+
+
+pub fn process_trade(transaction: TransactionMessageTrading, height: u64, tx_result: &mut BlockResult){
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let tx_id = hex::decode(transaction.tx_id).expect("error decoding tx id");
+    let tx_id = TxId::from_vec(tx_id);
+    let utxo_key =
+    bincode::serialize(&transaction::Utxo::new(tx_id, 0 as u8)).unwrap();
+
+    if transaction.mint_or_burn == true {
+        let mut bytes = hex::decode(transaction.qq_account).expect("Decoding failed");
+        let elgamal = bytes.split_off(bytes.len() - 64);
+        let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
+        let address = Address::from_bytes(&bytes[0..69]).unwrap();
+        let output = OutputData::Coin(Coin{encrypt: elgamal, address:address});
+        let output = Output{out_type: OutputType::Coin, output: output};
+        utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
+        tx_result.suceess_tx.push(tx_id);
+    }
+    else { 
+        utxo_storage.remove(utxo_key, InputType::Coin as usize);
+        tx_result.suceess_tx.push(tx_id);
+    }
+}
+
+pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
+    let mut tx_result: BlockResult = BlockResult::new();
+    for transaction in block.transactions {
+
+
+        match transaction {
+            MessageType::Transfer(message) => process_transfer(message, block.block_height, &mut tx_result),
+            MessageType::Trading(message) => process_trade(message, block.block_height, &mut tx_result),
+        };
     }
     tx_result
 }
+
+
+pub fn create_utxo_test_block<>(
+    set: &mut Vec<RecordUtxo>,
+    prev_height: u64,
+    sk_sender: &[RistrettoSecretKey],
+) -> Block {
+    // for the time being we will only build Script txs
+    let mut rng = rand::thread_rng();
+    //let mut set_size = set.len();
+    let mut txs= Vec::<MessageType>::new();
+    let mut new_set: Vec<RecordUtxo> =  Vec::new();
+
+    //select # of txs to be created. The numbers should be adjusted based on the size of the existing set
+    let num_txs = rng.gen_range(0u32, 100u32);
+    let num_inputs_per_tx = rng.gen_range(0u32, 9u32);
+    let num_outputs_per_tx = rng.gen_range(5u32, 15u32);
+
+    //let 10 % of these tx are transfer Txs
+
+    //create Script Transactions
+    let trans_tx = num_txs / 10;
+    for _ in 0..(num_txs - trans_tx) {
+        let mut id: [u8; 32] = [0; 32];
+        // Generate random values and fill the array
+        rand::thread_rng().fill(&mut id);
+        //select random inputs
+        let mut inputs: Vec<Input> = Vec::new();
+        for _ in 0..num_inputs_per_tx {
+            // println!("set len:{:#?}", set.len());
+            if set.len() == 0 {
+                break;
+            }
+            let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
+            let record: RecordUtxo = set[random_number as usize].clone();
+
+            let inp = convert_output_to_input(record.clone()).unwrap();
+            inputs.push(inp.clone());
+            //remove input from set
+            set.remove(random_number as usize);
+        }
+        //select random outputs
+        let mut outputs: Vec<Output> = Vec::new();
+        for i in 0..num_outputs_per_tx {
+            let random_number: u32 = rng.gen_range(0u32, 3u32);
+            if random_number == 0 {
+                //coin output
+                let (pk, enc) = Account::generate_random_account_with_value(Scalar::from(20u64))
+                    .0
+                    .get_account();
+                let out = Output::coin(OutputData::Coin(Coin {
+                    encrypt: enc,
+                    address: Address::standard(Network::default(), pk),
+                }));
+                outputs.push(out.clone());
+                //add to new set
+                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
+                new_set.push(RecordUtxo {
+                    utx: utx,
+                    value: out,
+                });
+            }
+            if random_number == 1 {
+                //memo output
+                let (pk, _) = Account::generate_random_account_with_value(Scalar::from(0u64))
+                    .0
+                    .get_account();
+                let add = Address::contract(Network::default(), pk);
+                let data: CData = CData {
+                    script_address: add,
+                    owner: add,
+                    commitment: CompressedRistretto::default(),
+                };
+                let out = Output::memo(OutputData::Memo(Memo {
+                    contract: data,
+                    data: None,
+                }));
+                outputs.push(out.clone());
+                //add to new set
+                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
+                new_set.push(RecordUtxo {
+                    utx: utx,
+                    value: out,
+                });
+            }
+            if random_number == 2 {
+                //state output
+                let (pk, _) = Account::generate_random_account_with_value(Scalar::from(0u64))
+                    .0
+                    .get_account();
+                let add = Address::contract(Network::default(), pk);
+                let data: CData = CData {
+                    script_address: add,
+                    owner: add,
+                    commitment: CompressedRistretto::default(),
+                };
+                let out = Output::state(OutputData::State(State {
+                    nonce: 0u32,
+                    contract: data,
+                    script_data: None,
+                }));
+                outputs.push(out.clone());
+                //add to new set
+                let utx = Utxo::new(TxId(id), i.try_into().unwrap());
+                new_set.push(RecordUtxo {
+                    utx: utx,
+                    value: out,
+                });
+            }
+        }
+
+        //create tx
+        // let mut id: [u8; 32] = [0; 32];
+        // // Generate random values and fill the array
+        // rand::thread_rng().fill(&mut id);
+        let script_tx: ScriptTransaction =
+            ScriptTransaction::create_utxo_script_transaction(&inputs, &outputs);
+        let tx: Transaction =
+            Transaction::transaction_script(TxId(id), TransactionData::Script(script_tx));
+
+        let serialized: Vec<u8> = bincode::serialize(&tx).unwrap();
+        let hex = hex::encode(serialized);
+
+        let txx: TransactionMessageTransfer = TransactionMessageTransfer{
+            tx_type: "testtype".to_string(),
+            tx_id: "testid".to_string(),
+            tx_byte_code: hex,
+            zk_oracle_address: "test address".to_string(),
+        };
+
+        txs.push(MessageType::Transfer(txx));
+    }
+    //create Transfer Txs
+    for _ in 0..trans_tx {
+        //let there be 1 input and 2 output combos
+        //select random inputs
+        let input: Input;
+        loop {
+            // if set.len() == 0 {
+            //     break;
+            // }
+            let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
+            let record: RecordUtxo = set[random_number as usize].clone();
+            match record.value.out_type {
+                OutputType::Coin => {
+                    input = convert_output_to_input(record.clone()).unwrap();
+
+                    //remove input from set
+                    set.remove(random_number as usize);
+                    break;
+                }
+                _ => continue,
+            }
+        }
+        // println!("creating dark tx");
+        let tx = create_dark_reference_tx_for_utxo_test(input, &sk_sender);
+        //extract outputs from tx for dummy set
+        let outp = tx.clone().tx.to_transfer().unwrap().outputs;
+        for ii in 0..outp.len() {
+            let utx = Utxo::new(tx.txid, ii.try_into().unwrap());
+            new_set.push(RecordUtxo {
+                utx: utx,
+                value: outp[ii].clone(),
+            });
+        }
+
+        let serialized: Vec<u8> = bincode::serialize(&tx).unwrap();
+        let hex = hex::encode(serialized);
+
+        let txx: TransactionMessageTransfer = TransactionMessageTransfer{
+            tx_type: "testtype".to_string(),
+            tx_id: "testid".to_string(),
+            tx_byte_code: hex,
+            zk_oracle_address: "test address".to_string(),
+
+
+        };
+
+        txs.push(MessageType::Transfer(txx));
+    }
+
+    let block = Block {
+        block_hash: "abc123".to_string(),
+        block_height: prev_height + 1,
+        transactions: txs,
+    };
+    //append new utxo set with old one to update the recent outputs
+    set.append(&mut new_set);
+    block
+}
+
+
 
 #[cfg(test)]
 mod test {
@@ -76,9 +360,12 @@ mod test {
 
     use crate::db::*;
     use crate::{init_utxo, UTXO_STORAGE};
+    use crate::blockoperations::blockprocessing::create_utxo_test_block;
+    use transaction::reference_tx::create_genesis_block;
+    use crate::blockoperations::blockprocessing::process_block_for_utxo_insert;
     use curve25519_dalek::scalar::Scalar;
     use quisquislib::accounts::Account;
-    use std::io::prelude::*;
+
     // cargo test -- --nocapture --test check_block_test --test-threads 5
     #[test]
     fn check_block_test() {
@@ -90,14 +377,29 @@ mod test {
         let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
         let mut recordutxo = crate::blockoperations::load_genesis_sets();
 
-        let block1 = transaction::reference_tx::create_utxo_test_block(
+        let block1 = create_utxo_test_block(
             &mut recordutxo,
             block_height,
             &vec![prv],
         );
-        let result = super::process_block_for_utxo_insert(block1);
+        let result = process_block_for_utxo_insert(block1);
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
         println!("result block update:{:?}", result);
         utxo_storage.take_snapshot();
+    }
+
+    #[test]
+    fn create_utxo_block_test() {
+        //keep the private key safe
+
+        let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
+        let sk_sender = vec![prv];
+        //let (pk, _) = acc.get_account();
+        //let (inp_acc ,_)= Account::generate_account(pk);
+        //let accc: Account = Account::set_account();
+        let mut utxo_set = create_genesis_block(1000, 100, acc);
+        let block = create_utxo_test_block(&mut utxo_set, 1, &sk_sender);
+        println!("Block Height{:?} ", block.block_height);
+        println!("Block Txs{:?} ", block.transactions);
     }
 }

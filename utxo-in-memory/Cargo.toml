@@ -24,10 +24,14 @@ uuid = { version = "0.8.2", features = ["v4", "serde"] } #https://github.com/ser
 bincode = "1.3.3"
 stopwatch = "0.0.7"
 rusty-leveldb = "1.0.6"
+hex = "0.4"
+rand = "0.7"
+tungstenite = "0.15.0"
+url = "2.4.0"
 
 temp-env = "0.3.4"
 [dependencies.quisquis-rust]
-path = "../../../quisquis-rust"
+path = "../../quisquis-rust"
 # # [dependencies.quisquis-rust]
 # # git = "ssh://github.com/twilight-project/quisquis-rust.git"
 # # branch = "qqtxapi"
