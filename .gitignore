@@ -16,3 +16,5 @@ Cargo.lock
 #Ignore .DS_Store
 **/.DS_Store
 transactionapi/target/*
+**Cargo.lock
+Cargo.lock

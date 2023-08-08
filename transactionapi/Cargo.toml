@@ -27,11 +27,6 @@ bincode = "1"
 # tendermint-rpc = "0.28.0"
 # check bitcoin core rpc 
 
-[dependencies.quisquis-rust]
-# path = "../../../quisquis-rust"
-# [dependencies.quisquis-rust]
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "wasm-updated-0.1"
 
 [dependencies.transaction]
 path = "../transaction"
