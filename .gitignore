@@ -16,4 +16,9 @@ Cargo.lock
 #Ignore .DS_Store
 **/.DS_Store
 transactionapi/target/*
+<<<<<<< HEAD
 utxo-in-memory/target/*
+=======
+**Cargo.lock
+Cargo.lock
+>>>>>>> rpc-wasm

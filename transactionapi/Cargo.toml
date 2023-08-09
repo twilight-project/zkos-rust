@@ -35,6 +35,7 @@ path = "../../quisquis-rust"
 # git = "ssh://github.com/twilight-project/quisquis-rust.git"
 # branch = "qqtxapi"
 
+
 [dependencies.transaction]
 path = "../transaction"
 
@@ -49,3 +50,4 @@ features = ["yoloproofs"]
 [features]
 default = []
 nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
+

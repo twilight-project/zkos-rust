@@ -2,8 +2,8 @@
 //#![deny(missing_docs)]
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
-use crate::types::{Coin, Input, Output, OutputData, TransactionType, TxId, Witness};
-use crate::util::{Address, Network};
+use crate::types::{Input, InputData, Output, OutputData, TransactionType, Utxo, Witness, Coin, TxId};
+use crate::util::{Address, Network, AddressType};
 use merlin::Transcript;
 // use serde_derive::{Deserialize, Serialize};
 use serde::{Deserialize, Serialize};
@@ -203,6 +203,7 @@ impl TransferTransaction {
                 value_vector_scalar.push(-Scalar::from((-*v) as u64));
             }
         }
+        println!("valueScalar : {:#?}", value_vector_scalar);
         //create base pk for epsilon accounts
         let base_pk = RistrettoPublicKey::generate_base_pk();
 
@@ -225,12 +226,14 @@ impl TransferTransaction {
         //updated_delta_accounts = Output account for DarkTx
         let updated_delta_accounts =
             Account::update_delta_accounts(&account_vector, &delta_accounts)?;
+        let sender_updated_delta_account = &updated_delta_accounts[..senders_count];    
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
             &value_vector_scalar,
             &delta_accounts,
             &epsilon_accounts,
             &delta_rscalar,
+            sender_updated_delta_account,
             &sender_updated_balance,
             &reciever_updated_balance,
             &sender_sk,
@@ -241,7 +244,7 @@ impl TransferTransaction {
 
         //create vec of Outputs -- Recievers in this case
         let mut outputs: Vec<Output> = Vec::new();
-        for i in senders_count..senders_count + receivers_count {
+        for i in 0..senders_count + receivers_count {
             //create address
             let (pk, comm) = updated_delta_accounts[i].get_account();
             let c: Coin = Coin {
@@ -276,22 +279,21 @@ impl TransferTransaction {
         let mut verifier = Verifier::new(b"DarkTx", &mut transcript);
 
         //find the number of senders
-        let senders_count = self.proof.updated_sender_epsilon_accounts.len();
+        //let senders_count = self.proof.updated_sender_epsilon_accounts.len();
         //create updated senders delta account slice
-        let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
+        //let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
         //TODO::CONVERT INPUS AND OUTPUTS TO ACCOUNTS
         //verify the proof
         self.proof.verify(
             &mut verifier,
             &inputs.to_vec(),
-            &updated_senders_delta_account,
             &outputs.to_vec(),
         )?;
         Ok(())
     }
 
     pub fn create_quisquis_transaction(
-        input_vector: &[Input],
+        utxo_vector: &[Utxo],
         value_vector: &[i64],
         account_vector: &[Account],
         sender_updated_balance: &[u64],
@@ -316,6 +318,22 @@ impl TransferTransaction {
         //Step 1. update & shuffle input accounts
         let input_shuffle = Shuffle::input_shuffle(account_vector)?;
         let updated_accounts = input_shuffle.get_outputs_vector();
+        //create Inputs from shuffle
+        //create vec of Inputs
+        let input_account_vector = input_shuffle.get_inputs_vector();
+
+        //THE UTXO SHOULD BE SHUFFLED ACCORDINGLY LATER. USING UTXO as zero for the time being
+        let mut inputs: Vec<Input> = Vec::new();
+        for (i, input) in input_account_vector.iter().enumerate() {
+            //create inputs
+            let address = Address{
+                network: Network::Mainnet, 
+                addr_type: AddressType::Standard, 
+                public_key: input.pk};
+            let inp = Input::coin(InputData::coin(utxo_vector[i], address, input.comm, 0, *input));
+            inputs.push(inp.clone());
+        }
+
         //create QuisQuisTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
         let mut prover = Prover::new(b"QuisQuisTx", &mut transcript);
@@ -335,14 +353,17 @@ impl TransferTransaction {
         //updated_delta_accounts = Output account for DarkTx
         let updated_delta_accounts =
             Account::update_delta_accounts(&updated_accounts, &delta_accounts)?;
+        
+        let sender_updated_delta_account = &updated_delta_accounts[..senders_count];    
 
-        ///create Dark Proof
+        //create Dark Proof
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
             &value_vector_scalar,
             &delta_accounts,
             &epsilon_accounts,
             &delta_rscalar,
+            sender_updated_delta_account,
             &sender_updated_balance,
             &reciever_updated_balance,
             &sender_sk,
@@ -359,7 +380,8 @@ impl TransferTransaction {
         let updated_accounts_slice = &updated_accounts[anonymity_index..9];
         let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
         let rscalars_slice = &delta_rscalar[anonymity_index..9];
-
+        //for anonymity zero account proof
+        let input_anonymity_account_slice = &account_vector[anonymity_index..9];
         //Shuffle accounts
         let output_shuffle = Shuffle::output_shuffle(&updated_delta_accounts)?;
 
@@ -368,6 +390,7 @@ impl TransferTransaction {
             &updated_accounts_slice,
             &updated_delta_accounts_slice,
             &rscalars_slice,
+            &input_anonymity_account_slice,
             &anonymity_comm_scalar,
             &input_shuffle,
             &output_shuffle,
@@ -394,7 +417,7 @@ impl TransferTransaction {
             senders_count as u8,
             receivers_count as u8,
             0u8,
-            input_vector.to_vec(),
+            inputs,
             outputs,
             dark_tx_proof,
             Some(shuffle_proof),
@@ -412,19 +435,20 @@ impl TransferTransaction {
         let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
 
         //find the number of senders
-        let senders_count = self.proof.updated_sender_epsilon_accounts.len();
+       // let senders_count = self.proof.updated_sender_epsilon_accounts.len();
         //create updated senders delta account slice
-        let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
+        //let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
         //extract shuffle proof
         let shuffle_proof = self.shuffle_proof.as_ref().unwrap();
         //verify the Dark Proof first
         self.proof.verify(
             &mut verifier,
             &shuffle_proof.input_dash_accounts,
-            &updated_senders_delta_account,
+            
             &shuffle_proof.updated_delta_accounts,
         )?;
-        let anonymity_index = self.proof.range_proof.len();
+       // let anonymity_index = self.proof.range_proof.len();
+       let anonymity_index = self.proof.updated_sender_epsilon_accounts.len() + self.proof.receivers_count;
         //verify the shuffle proof
         shuffle_proof.verify(&mut verifier, &inputs, &outputs, anonymity_index)?;
 
