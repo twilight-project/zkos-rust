@@ -242,16 +242,16 @@ pub fn create_qq_reference_transaction() -> Transaction {
     let utxo = Utxo::new(TxId(id), 0);
 
     //create vec of Inouts
-    let mut inputs: Vec<Input> = Vec::new();
-    for input in account_vector.iter() {
-        //get account
-        let (pk, encrypt) = input.get_account();
-        //create address
-        let add: Address = Address::standard(Network::default(), pk);
-        let account = Account::set_account(pk, encrypt);
-        let inp = Input::coin(InputData::coin(utxo.clone(), add, encrypt, 0, account));
-        inputs.push(inp.clone());
-    }
+    // let mut inputs: Vec<Input> = Vec::new();
+    // for input in account_vector.iter() {
+    //     //get account
+    //     let (pk, encrypt) = input.get_account();
+    //     //create address
+    //     let add: Address = Address::standard(Network::default(), pk);
+    //     let account = Account::set_account(pk, encrypt);
+    //     let inp = Input::coin(InputData::coin(utxo.clone(), add, encrypt, 0, account));
+    //     inputs.push(inp.clone());
+    // }
 
     let utxo_vector:Vec<Utxo> = vec![utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone()];
 
@@ -579,9 +579,8 @@ pub fn verify_transaction(tx: Transaction)-> Result<(), &'static str> {
             //convert Inputs and Outputs to Just Accounts
             let out_data_address: Vec<RistrettoPublicKey> = tx_data.outputs.iter().map(|i| i.output.adress().unwrap().public_key).collect();
             let out_data_enc: Vec<ElGamalCommitment> = tx_data.outputs.iter().map(|i| i.output.commitment().unwrap()).collect();
-
             let inputs:Vec<Account> =  tx_data.inputs.iter().map(|i| i.input.account().unwrap().to_owned() ).collect();
-           let mut outputs: Vec<Account> = Vec::new();
+            let mut outputs: Vec<Account> = Vec::new();
             for i in 0..out_data_address.len(){
                 let acc: Account = Account::set_account(out_data_address[i],out_data_enc[i] );
                 outputs.push(acc); 
