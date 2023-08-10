@@ -7,7 +7,7 @@ edition = "2021"
 [[bin]]
 name = "api_server"
 [dependencies]
-serde = "1.0.131"
+serde = { version = "1.0.131", feature = ["derive"]}
 serde_derive = "1.0.131"
 serde_json = "1.0.68"
 dotenv = "0.15.0"
@@ -38,6 +38,9 @@ path = "../../quisquis-rust"
 
 [dependencies.transaction]
 path = "../transaction"
+
+[dependencies.utxo-in-memory]
+path = "../utxo-in-memory"
 
 [dependencies.elgamalsign]
 path = "../elgamalsign"

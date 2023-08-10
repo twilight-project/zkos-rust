@@ -326,11 +326,12 @@ impl TransferTransaction {
         let mut inputs: Vec<Input> = Vec::new();
         for (i, input) in input_account_vector.iter().enumerate() {
             //create inputs
+            let account = input.get_account();
             let address = Address{
                 network: Network::Mainnet, 
                 addr_type: AddressType::Standard, 
-                public_key: input.pk};
-            let inp = Input::coin(InputData::coin(utxo_vector[i], address, input.comm, 0, *input));
+                public_key: account.0};
+            let inp = Input::coin(InputData::coin(utxo_vector[i], address, account.1, 0, *input));
             inputs.push(inp.clone());
         }
 
