@@ -108,6 +108,15 @@ impl Utxo {
     pub fn replace_tx_id(&mut self, tx_id: TxId) {
         self.txid = tx_id;
     } 
+
+    pub fn tx_id_to_hex(&self) -> String {
+        hex::encode(self.txid.0)
+    }
+
+    pub fn tx_id_to_vec(&self) -> Vec<u8> {
+        self.txid.0.to_vec()
+    }
+
 }
 ///Default returns a Utxo with id = 0 and witness index = 0
 /// 
