@@ -6,6 +6,7 @@ use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
 use jsonrpc_http_server::{hyper, ServerBuilder};
+use utxo_in_memory::init_utxo;
 use std::collections::HashMap;
 use transaction::Transaction;
 use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_address};
@@ -113,5 +114,6 @@ pub fn rpcserver() {
         .start_http(&"0.0.0.0:3030".parse().unwrap())
         .unwrap();
     println!("started api server");
+    init_utxo();
     server.wait();
 }
