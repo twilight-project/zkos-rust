@@ -77,26 +77,8 @@ pub fn rpcserver() {
         };
     
         println!("Received hex string: {}", hex_str);
-    
-        // Convert the hex string to Vec<u8>
-        match hex::decode(&hex_str) {
-            Ok(data) => {
-                println!("inside match hex OK");
-                // Deserialize the Vec<u8> to RistrettoPublicKey
-                match bincode::deserialize(&data) {
-                    Ok(value) => {println!("inside match deserialize OK"); address = value;},
-                    Err(args) => {
-                        let err = JsonRpcError::invalid_params(format!("Deserialization error, {:?}", args));
-                        return Err(err);
-                    }
-                }
-            },
-            Err(args) => {
-                let err = JsonRpcError::invalid_params(format!("Hex decode error, {:?}", args));
-                return Err(err);
-            }
-        };
-    
+        let address: Address = Address::from_hex(&hex_str);
+        
         let utxos = search_coin_type_utxo_by_public_key(address);
         let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
         Ok(response_body)
