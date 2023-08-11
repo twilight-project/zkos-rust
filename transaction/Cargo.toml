@@ -27,7 +27,8 @@ bincode = "1.3.3"
 path = "../../quisquis-rust"
 # [dependencies.quisquis-rust]
 # git = "ssh://github.com/twilight-project/quisquis-rust.git"
-# branch = "qqtxapi"
+# branch = "wasm-updated-0.1"
+# branch = "qqtxapi-merged"
 
 [dependencies.elgamalsign]
 path = "../elgamalsign"

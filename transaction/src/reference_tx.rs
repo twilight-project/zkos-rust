@@ -35,6 +35,14 @@ pub struct Receiver {
     amount: i64,
     acc: Account,
 }
+impl Receiver {
+    pub fn set_receiver(amount: i64, acc: Account) -> Receiver {
+        Receiver {
+            amount: amount,
+            acc: acc,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Sender {
@@ -147,9 +155,9 @@ impl Sender {
             Account::generate_random_account_with_value(20u64.into());
 
         // lets create receiver accounts
-        let alice_account = Account::generate_random_account_with_value(10u64.into()).0;
-        let fay_account = Account::generate_random_account_with_value(20u64.into()).0;
-        let jay_account = Account::generate_random_account_with_value(20u64.into()).0;
+        let alice_account = Account::generate_random_account_with_value(0u64.into()).0;
+        let fay_account = Account::generate_random_account_with_value(0u64.into()).0;
+        let jay_account = Account::generate_random_account_with_value(0u64.into()).0;
 
         // so we have 2 senders and 3 receivers, rest will be the anonymity set
 
@@ -164,7 +172,7 @@ impl Sender {
                     acc: alice_account,
                 }],
             },
-            Sender {
+           Sender {
                 total_amount: -3,
                 account: bob_account_2,
                 receivers: vec![
@@ -188,6 +196,7 @@ impl Sender {
             sender_count,
             receiver_count,
         ) = Sender::generate_value_and_account_vector(tx_vector)?;
+       
         //Create sender updated account vector for the verification of sk and bl-v
         let bl_first_sender = 10 - 5; //bl-v
         let bl_second_sender = 20 - 3; //bl-v
@@ -206,6 +215,13 @@ impl Sender {
             updated_balance_sender,
         ))
     }
+    pub fn set_sender(total_amount: i64, account: Account, receivers: Vec<Receiver>) -> Sender {
+        Sender {
+            total_amount: total_amount,
+            account: account,
+            receivers: receivers,
+        }
+    }
 }
 
 pub fn create_qq_reference_transaction() -> Transaction {
@@ -222,24 +238,29 @@ pub fn create_qq_reference_transaction() -> Transaction {
     //create vector of inputs to be used in tx
     //random utxo IDS to be used in Inputs
     let id: [u8; 32] = [0; 32];
-
+    //SHOULD BE TAKEN FROM UTXO SET
     let utxo = Utxo::new(TxId(id), 0);
-    //create vec of Inouts
-    let mut inputs: Vec<Input> = Vec::new();
-    for input in account_vector.iter() {
-        //get account
-        let (pk, encrypt) = input.get_account();
-        //create address
-        let add: Address = Address::standard(Network::default(), pk);
-        let inp = Input::coin(InputData::coin(utxo.clone(), add, encrypt, 0));
-        inputs.push(inp.clone());
-    }
 
-    let updated_balance_reciever: Vec<u64> = vec![5, 2, 1];
+    //create vec of Inouts
+    // let mut inputs: Vec<Input> = Vec::new();
+    // for input in account_vector.iter() {
+    //     //get account
+    //     let (pk, encrypt) = input.get_account();
+    //     //create address
+    //     let add: Address = Address::standard(Network::default(), pk);
+    //     let account = Account::set_account(pk, encrypt);
+    //     let inp = Input::coin(InputData::coin(utxo.clone(), add, encrypt, 0, account));
+    //     inputs.push(inp.clone());
+    // }
+
+    let utxo_vector:Vec<Utxo> = vec![utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone(), utxo.clone()];
+
+
+    let updated_balance_reciever: Vec<u64> = vec![5];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransaction
     let transfer = TransferTransaction::create_quisquis_transaction(
-        &inputs,
+        &utxo_vector,
         &value_vector,
         &account_vector,
         &updated_sender_balance,
@@ -268,10 +289,12 @@ pub fn create_dark_reference_transaction() -> Transaction {
         sk_sender,
         updated_sender_balance,
     ) = Sender::create_reference_tx_data_for_zkos_test().unwrap();
+    println!("value {:#?}",value_vector);
     //create vector of inputs to be used in tx
     //random utxo IDS to be used in Inputs
     let id: [u8; 32] = [0; 32];
-    let accounts = &account_vector[..(sender_count + receiver_count)];
+    let accounts: &[Account] = &account_vector[..(sender_count + receiver_count)];
+    let values: &[i64] = &value_vector[..(sender_count + receiver_count)];
     let utxo = Utxo::new(TxId(id), 0);
     //create vec of Inouts
     let mut inputs: Vec<Input> = Vec::new();
@@ -280,15 +303,16 @@ pub fn create_dark_reference_transaction() -> Transaction {
         let (pk, encrypt) = input.get_account();
         //create address
         let add: Address = Address::standard(Network::default(), pk);
-        let inp = Input::coin(InputData::coin(utxo.clone(), add, encrypt, 0));
+        let account = Account::set_account(pk, encrypt);
+        let inp = Input::coin(InputData::coin(utxo.clone(), add, encrypt, 0, account));
         inputs.push(inp.clone());
     }
-
+   
     let updated_balance_reciever: Vec<u64> = vec![5, 2, 1];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransaction
     let transfer = TransferTransaction::create_dark_transaction(
-        &value_vector,
+        &values,
         &accounts,
         &updated_sender_balance,
         &updated_balance_reciever,
@@ -403,7 +427,8 @@ pub fn convert_output_to_input(rec: RecordUtxo) -> Option<Input> {
         OutputType::Coin => {
             let add = out.output.get_owner_address().unwrap().to_owned();
             let enc: ElGamalCommitment = out.output.get_encryption().unwrap().to_owned();
-            inp = Input::coin(InputData::coin(utx, add, enc, 0));
+            let account = Account::set_account(add.public_key, enc);
+            inp = Input::coin(InputData::coin(utx, add, enc, 0, account));
             Some(inp)
         }
         OutputType::Memo => {
@@ -545,6 +570,34 @@ pub fn create_dark_reference_tx_for_utxo_test(
 //             _  => Err("Not found"),
 //     }
 // }
+
+pub fn verify_transaction(tx: Transaction)-> Result<(), &'static str> {
+
+    match tx.tx_type {
+        TransactionType::Transfer => {
+            let tx_data = TransactionData::to_transfer(tx.tx).unwrap();
+            //convert Inputs and Outputs to Just Accounts
+            let out_data_address: Vec<RistrettoPublicKey> = tx_data.outputs.iter().map(|i| i.output.adress().unwrap().public_key).collect();
+            let out_data_enc: Vec<ElGamalCommitment> = tx_data.outputs.iter().map(|i| i.output.commitment().unwrap()).collect();
+            let inputs:Vec<Account> =  tx_data.inputs.iter().map(|i| i.input.account().unwrap().to_owned() ).collect();
+            let mut outputs: Vec<Account> = Vec::new();
+            for i in 0..out_data_address.len(){
+                let acc: Account = Account::set_account(out_data_address[i],out_data_enc[i] );
+                outputs.push(acc); 
+            }
+            
+            if tx_data.shuffle_proof.is_none(){
+                //verify Dark transaction
+                tx_data.verify_dark_tx(&inputs, &outputs)
+            }else{
+                //verify QQ Transaction
+                tx_data.verify_quisquis_tx(&inputs, &outputs)
+            }
+        }
+            _  => Err("Not found"),
+    }
+}
+
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------
@@ -552,10 +605,21 @@ pub fn create_dark_reference_tx_for_utxo_test(
 mod test {
     use super::*;
     #[test]
-    fn create_transaction_test() {
-        println!("IN TEST");
-        //println!("{:?}",create_dark_reference_transaction());
-        println!("{:?}", create_qq_reference_transaction())
+    fn create_dark_transaction_test() {
+        
+        let dark = create_dark_reference_transaction();
+        let verify_dark = verify_transaction(dark);
+       println!("{:?}", verify_dark);
+       
+       assert!(verify_dark.is_ok());
+    }
+    #[test]
+    fn create_qq_transaction_test() {
+        //println!("IN TEST");
+       
+       let tx = create_qq_reference_transaction();
+       let verify = verify_transaction(tx);
+       println!("{:?}", verify)
     }
     #[test]
     fn create_genesis_block_test() {

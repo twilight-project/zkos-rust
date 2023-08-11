@@ -8,6 +8,7 @@ use curve25519_dalek::scalar::Scalar;
 use quisquislib::elgamal::ElGamalCommitment;
 use serde::{Deserialize, Serialize};
 use crate::util::Address;
+use quisquislib::accounts::Account;
 
 
 /// Transaction ID is a unique 32-byte identifier of a transaction effects represented by `TxLog`.
@@ -107,6 +108,15 @@ impl Utxo {
     pub fn replace_tx_id(&mut self, tx_id: TxId) {
         self.txid = tx_id;
     } 
+
+    pub fn tx_id_to_hex(&self) -> String {
+        hex::encode(self.txid.0)
+    }
+
+    pub fn tx_id_to_vec(&self) -> Vec<u8> {
+        self.txid.0.to_vec()
+    }
+
 }
 ///Default returns a Utxo with id = 0 and witness index = 0
 /// 
@@ -178,6 +188,8 @@ pub enum InputData {
         ///Index of witness that authorizes spending the coin.
         witness: u8,
 
+        account: Account
+
       //  Pedersenproof	byte[]	pedersena and corresponsing sigma proof.
 //calldata	byte[]	call proof.
 //program	byte[]	Call data for state execution.
@@ -229,8 +241,8 @@ impl InputData {
     //pub const fn coin(utxo: Utxo, coin: Coin, witness: u8) -> Self {
       //  Self::Coin { utxo, coin, witness}
     //}
-    pub const fn coin(utxo: Utxo, owner: Address, encryption: ElGamalCommitment, witness: u8) -> Self {
-        Self::Coin { utxo, owner, encryption, witness}
+    pub const fn coin(utxo: Utxo, owner: Address, encryption: ElGamalCommitment, witness: u8, account: Account) -> Self {
+        Self::Coin { utxo, owner, encryption, witness, account}
     }
 
     pub const fn memo(utxo: Utxo, script_address: Address, owner: Address, commitment: CompressedRistretto, data: Option<u32>, witness: u8, ) -> Self {
@@ -258,6 +270,14 @@ impl InputData {
             _ => None,
         }
     }
+
+    pub const fn account(&self) -> Option<Account> {
+        match self {
+            Self::Coin {account , ..} => Some(*account),
+            _ => None,
+        }
+    }
+
     pub const fn as_encryption(&self) -> Option<&ElGamalCommitment> {
         match self {
             Self::Coin { encryption, .. } => Some(encryption),
@@ -450,7 +470,6 @@ impl OutputData {
         }
    }
 
-
     pub const fn get_commitment(&self) -> Option<&CompressedRistretto> {
         match self {
             Self::Memo(memo) => Some(&memo.contract.commitment),
@@ -459,9 +478,24 @@ impl OutputData {
         }
     }
 
+    pub const fn adress(&self) -> Option<Address> {
+        match self {
+            Self::Coin(coin) => Some(coin.address),
+            _ => None,
+        }
+    }
+
+
     pub const fn get_nonce(&self) -> Option<&u32> {
         match self {
             Self::State(state) => Some(&state.nonce),
+            _ => None,
+        }
+    }
+
+    pub const fn commitment(&self) -> Option<ElGamalCommitment> {
+        match self {
+            Self::Coin(coin) => Some(coin.encrypt),
             _ => None,
         }
     }
