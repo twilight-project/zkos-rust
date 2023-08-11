@@ -59,6 +59,7 @@ pub fn rpcserver() {
 
 
     io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
+        println!("inside getUtxo");
         let address: Address;
     
         // First, get the hex string from params
