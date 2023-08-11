@@ -67,9 +67,10 @@ pub fn rpcserver() {
                 // Convert the hex string to Vec<u8>
                 match hex::decode(&hex_str) {
                     Ok(data) => {
+                        println!("inside match OK");
                         // Deserialize the Vec<u8> to RistrettoPublicKey
                         match bincode::deserialize(&data) {
-                            Ok(value) => address = value,
+                            Ok(value) => {println!("inside match OK"); address = value;},
                             Err(args) => {
                                 let err = JsonRpcError::invalid_params(format!("Deserialization error, {:?}", args));
                                 return Err(err);
