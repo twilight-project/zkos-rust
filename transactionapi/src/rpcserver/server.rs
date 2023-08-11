@@ -62,31 +62,37 @@ pub fn rpcserver() {
         println!("inside getUtxo");
         let address: Address;
     
-        // First, get the hex string from params
-        match params.parse::<String>() {
-            Ok(hex_str) => {
-                println!("inside match String OK");
-                // Convert the hex string to Vec<u8>
-                match hex::decode(&hex_str) {
-                    Ok(data) => {
-                        println!("inside match hex OK");
-                        // Deserialize the Vec<u8> to RistrettoPublicKey
-                        match bincode::deserialize(&data) {
-                            Ok(value) => {println!("inside match deserialize OK"); address = value;},
-                            Err(args) => {
-                                let err = JsonRpcError::invalid_params(format!("Deserialization error, {:?}", args));
-                                return Err(err);
-                            }
-                        }
-                    },
+        let hex_str = match params.parse::<Vec<String>>() {
+            Ok(vec) => {
+                if vec.is_empty() {
+                    let err = JsonRpcError::invalid_params("Expected an array with at least one string.".to_string());
+                    return Err(err);
+                }
+                vec[0].clone()
+            },
+            Err(args) => {
+                let err = JsonRpcError::invalid_params(format!("Expected an array of strings, {:?}", args));
+                return Err(err);
+            }
+        };
+    
+        println!("Received hex string: {}", hex_str);
+    
+        // Convert the hex string to Vec<u8>
+        match hex::decode(&hex_str) {
+            Ok(data) => {
+                println!("inside match hex OK");
+                // Deserialize the Vec<u8> to RistrettoPublicKey
+                match bincode::deserialize(&data) {
+                    Ok(value) => {println!("inside match deserialize OK"); address = value;},
                     Err(args) => {
-                        let err = JsonRpcError::invalid_params(format!("Hex decode error, {:?}", args));
+                        let err = JsonRpcError::invalid_params(format!("Deserialization error, {:?}", args));
                         return Err(err);
                     }
                 }
             },
             Err(args) => {
-                let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                let err = JsonRpcError::invalid_params(format!("Hex decode error, {:?}", args));
                 return Err(err);
             }
         };
@@ -95,6 +101,7 @@ pub fn rpcserver() {
         let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
         Ok(response_body)
     });
+    
     
 
     eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
