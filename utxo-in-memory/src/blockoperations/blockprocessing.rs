@@ -49,6 +49,38 @@ pub struct Block {
     pub transactions: Vec<MessageType>,
 }
 
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct TransactionMessageTransfer {
+//     #[serde(rename = "@type")]
+//     pub tx_type: String,
+//     #[serde(rename = "TxId")]
+//     pub tx_id: String,
+//     #[serde(rename = "TxByteCode")]
+//     pub tx_byte_code: String,
+//     #[serde(rename = "ZkOracleAddress")]
+//     pub zk_oracle_address: String,
+// }
+
+
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct TransactionMessageTrading {
+//     #[serde(rename = "@type")]
+//     pub tx_type: String,
+//     #[serde(rename = "MintOrBurn")]
+//     pub mint_or_burn: bool,
+//     #[serde(rename = "BtcValue")]
+//     pub btc_value: u32,
+//     #[serde(rename = "QqAccount")]
+//     pub qq_account: String,
+//     #[serde(rename = "EncryptScalar")]
+//     pub encrypt_scalar: u64,
+//     #[serde(rename = "TwilightAddress")]
+//     pub twilight_address: String,
+//     #[serde(rename = "TxId")]
+//     pub tx_id: String,
+// }
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransactionMessageTransfer {
     #[serde(rename = "@type")]
@@ -59,13 +91,24 @@ pub struct TransactionMessageTransfer {
     pub tx_byte_code: String,
     #[serde(rename = "ZkOracleAddress")]
     pub zk_oracle_address: String,
+    #[serde(rename = "MintOrBurn")]
+    pub mint_or_burn: Option<bool>,
+    #[serde(rename = "BtcValue")]
+    pub btc_value: Option<u32>,
+    #[serde(rename = "QqAccount")]
+    pub qq_account: Option<String>, // Optional as indicated
+    #[serde(rename = "EncryptScalar")]
+    pub encrypt_scalar: Option<u64>,
+    #[serde(rename = "TwilightAddress")]
+    pub twilight_address: Option<String>,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransactionMessageTrading {
     #[serde(rename = "@type")]
     pub tx_type: String,
+    #[serde(rename = "TxId")]
+    pub tx_id: String,
     #[serde(rename = "MintOrBurn")]
     pub mint_or_burn: bool,
     #[serde(rename = "BtcValue")]
@@ -76,8 +119,6 @@ pub struct TransactionMessageTrading {
     pub encrypt_scalar: u64,
     #[serde(rename = "TwilightAddress")]
     pub twilight_address: String,
-    #[serde(rename = "TxId")]
-    pub tx_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -373,6 +414,12 @@ pub fn create_utxo_test_block<>(
             tx_id: "testid".to_string(),
             tx_byte_code: hex,
             zk_oracle_address: "test address".to_string(),
+            mint_or_burn: None,
+            btc_value: None,
+            qq_account: None,
+            encrypt_scalar: None,
+            twilight_address: None,
+
         };
 
         txs.push(MessageType::Transfer(txx));
@@ -419,8 +466,11 @@ pub fn create_utxo_test_block<>(
             tx_id: "testid".to_string(),
             tx_byte_code: hex,
             zk_oracle_address: "test address".to_string(),
-
-
+            mint_or_burn: None,
+            btc_value: None,
+            qq_account: None,
+            encrypt_scalar: None,
+            twilight_address: None,
         };
 
         txs.push(MessageType::Transfer(txx));
