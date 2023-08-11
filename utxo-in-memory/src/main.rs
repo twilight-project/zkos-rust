@@ -40,7 +40,10 @@ fn socket_connection() {
             Message::Text(text) => {
                 println!("{}", text);
                 let block: blockoperations::blockprocessing::Block = serde_json::from_str(&text).unwrap();
-                blockoperations::blockprocessing::process_block_for_utxo_insert(block);
+                let result = blockoperations::blockprocessing::process_block_for_utxo_insert(block);
+                if result.suceess_tx.len() > 0{
+                    save_snapshot();
+                }
             }
             Message::Close(_) => {
                 println!("Server disconnected");
@@ -48,7 +51,6 @@ fn socket_connection() {
             }
             _ => (),
         }
-        save_snapshot();
     }
 }
 use curve25519_dalek::scalar::Scalar;
