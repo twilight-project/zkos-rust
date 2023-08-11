@@ -184,6 +184,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
 }
 
 pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
+    println!("inside trade processing");
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let tx_id = hex::decode(transaction.tx_id).expect("error decoding tx id");
     let tx_id = TxId::from_vec(tx_id);
@@ -191,6 +192,7 @@ pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &m
     bincode::serialize(&transaction::Utxo::new(tx_id, 0 as u8)).unwrap();
 
     if transaction.mint_or_burn.unwrap() == true {
+        println!("inside true case");
         let mut bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
         let elgamal = bytes.split_off(bytes.len() - 64);
         let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
@@ -210,6 +212,7 @@ pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &m
 }
 
 pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
+    println!("inside block processing");
     let mut tx_result: BlockResult = BlockResult::new();
     for transaction in block.transactions {
 
