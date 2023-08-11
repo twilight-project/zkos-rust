@@ -46,7 +46,7 @@ pub struct Block {
     #[serde(rename = "Blockheight", deserialize_with = "string_to_u64")]
     pub block_height: u64,
     #[serde(rename = "Transactions")]
-    pub transactions: Vec<MessageType>,
+    pub transactions: Vec<TransactionMessage>,
 }
 
 // #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -80,54 +80,35 @@ pub struct Block {
 //     pub tx_id: String,
 // }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransactionMessageTransfer {
+pub struct TransactionMessage {
     #[serde(rename = "@type")]
     pub tx_type: String,
     #[serde(rename = "TxId")]
     pub tx_id: String,
     #[serde(rename = "TxByteCode")]
-    pub tx_byte_code: String,
+    pub tx_byte_code: Option<String>,
     #[serde(rename = "ZkOracleAddress")]
-    pub zk_oracle_address: String,
+    pub zk_oracle_address: Option<String>,
     #[serde(rename = "MintOrBurn")]
-    pub mint_or_burn: Option<bool>,
+    pub mint_or_burn: Option<bool>, // Optional because it's not present in all types.
     #[serde(rename = "BtcValue")]
     pub btc_value: Option<u32>,
     #[serde(rename = "QqAccount")]
-    pub qq_account: Option<String>, // Optional as indicated
+    pub qq_account: Option<String>,
     #[serde(rename = "EncryptScalar")]
     pub encrypt_scalar: Option<u64>,
     #[serde(rename = "TwilightAddress")]
     pub twilight_address: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransactionMessageTrading {
-    #[serde(rename = "@type")]
-    pub tx_type: String,
-    #[serde(rename = "TxId")]
-    pub tx_id: String,
-    #[serde(rename = "MintOrBurn")]
-    pub mint_or_burn: bool,
-    #[serde(rename = "BtcValue")]
-    pub btc_value: u32,
-    #[serde(rename = "QqAccount")]
-    pub qq_account: String,
-    #[serde(rename = "EncryptScalar")]
-    pub encrypt_scalar: u64,
-    #[serde(rename = "TwilightAddress")]
-    pub twilight_address: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum MessageType {
-    #[serde(rename = "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc")]
-    Trading(TransactionMessageTrading),
-    #[serde(rename = "/twilightproject.nyks.zkos.MsgTransferTx")]
-    Transfer(TransactionMessageTransfer),
-}
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub enum MessageType {
+//     #[serde(rename = "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc")]
+//     Trading(TransactionMessage),
+//     #[serde(rename = "/twilightproject.nyks.zkos.MsgTransferTx")]
+//     Transfer(TransactionMessage),
+// }
 
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
@@ -150,9 +131,9 @@ where
     deserializer.deserialize_str(StringVisitor)
 }
 
-pub fn process_transfer(transaction: TransactionMessageTransfer, height: u64, tx_result: &mut BlockResult){
+pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    let tx_bytes = hex::decode(transaction.tx_byte_code).expect("Decoding failed");
+    let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
     let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
     let tx_id = transaction_info.txid;
     let mut success: bool = true;
@@ -202,15 +183,15 @@ pub fn process_transfer(transaction: TransactionMessageTransfer, height: u64, tx
 
 }
 
-pub fn process_trade(transaction: TransactionMessageTrading, height: u64, tx_result: &mut BlockResult){
+pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let tx_id = hex::decode(transaction.tx_id).expect("error decoding tx id");
     let tx_id = TxId::from_vec(tx_id);
     let utxo_key =
     bincode::serialize(&transaction::Utxo::new(tx_id, 0 as u8)).unwrap();
 
-    if transaction.mint_or_burn == true {
-        let mut bytes = hex::decode(transaction.qq_account).expect("Decoding failed");
+    if transaction.mint_or_burn.unwrap() == true {
+        let mut bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
         let elgamal = bytes.split_off(bytes.len() - 64);
         let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
         let address = Address::from_bytes(&bytes[0..69]).unwrap();
@@ -232,9 +213,10 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
     let mut tx_result: BlockResult = BlockResult::new();
     for transaction in block.transactions {
 
-        match transaction {
-            MessageType::Transfer(message) => process_transfer(message, block.block_height, &mut tx_result),
-            MessageType::Trading(message) => process_trade(message, block.block_height, &mut tx_result),
+        match transaction.tx_type.as_str() {
+            "/twilightproject.nyks.zkos.MsgTransferTx" => process_transfer(transaction, block.block_height, &mut tx_result),
+            "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc" => process_trade(transaction, block.block_height, &mut tx_result),
+            _ => {}  // you might want to handle any other cases or just ignore them
         };
     }
     tx_result
@@ -296,7 +278,7 @@ pub fn create_utxo_test_block<>(
     // for the time being we will only build Script txs
     let mut rng = rand::thread_rng();
     //let mut set_size = set.len();
-    let mut txs= Vec::<MessageType>::new();
+    let mut txs= Vec::<TransactionMessage>::new();
     let mut new_set: Vec<RecordUtxo> =  Vec::new();
 
     //select # of txs to be created. The numbers should be adjusted based on the size of the existing set
@@ -409,11 +391,11 @@ pub fn create_utxo_test_block<>(
         let serialized: Vec<u8> = bincode::serialize(&tx).unwrap();
         let hex = hex::encode(serialized);
 
-        let txx: TransactionMessageTransfer = TransactionMessageTransfer{
+        let txx: TransactionMessage = TransactionMessage{
             tx_type: "testtype".to_string(),
             tx_id: "testid".to_string(),
-            tx_byte_code: hex,
-            zk_oracle_address: "test address".to_string(),
+            tx_byte_code: Some(hex),
+            zk_oracle_address: Some("test address".to_string()),
             mint_or_burn: None,
             btc_value: None,
             qq_account: None,
@@ -422,7 +404,7 @@ pub fn create_utxo_test_block<>(
 
         };
 
-        txs.push(MessageType::Transfer(txx));
+        txs.push(txx);
     }
     //create Transfer Txs
     for _ in 0..trans_tx {
@@ -461,11 +443,11 @@ pub fn create_utxo_test_block<>(
         let serialized: Vec<u8> = bincode::serialize(&tx).unwrap();
         let hex = hex::encode(serialized);
 
-        let txx: TransactionMessageTransfer = TransactionMessageTransfer{
+        let txx: TransactionMessage = TransactionMessage{
             tx_type: "testtype".to_string(),
             tx_id: "testid".to_string(),
-            tx_byte_code: hex,
-            zk_oracle_address: "test address".to_string(),
+            tx_byte_code: Some(hex),
+            zk_oracle_address: Some("test address".to_string()),
             mint_or_burn: None,
             btc_value: None,
             qq_account: None,
@@ -473,7 +455,7 @@ pub fn create_utxo_test_block<>(
             twilight_address: None,
         };
 
-        txs.push(MessageType::Transfer(txx));
+        txs.push(txx);
     }
 
     let block = Block {
