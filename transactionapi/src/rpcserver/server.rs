@@ -8,7 +8,7 @@ use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
 use jsonrpc_http_server::{hyper, ServerBuilder};
 use std::collections::HashMap;
 use transaction::Transaction;
-use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_public_key};
+use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_address};
 use transaction::reference_tx::verify_transaction;
 use quisquislib::ristretto::RistrettoPublicKey;
 use transaction::util::Address;
@@ -81,7 +81,7 @@ pub fn rpcserver() {
 
         println!("{:?}", address);
 
-        let utxos = search_coin_type_utxo_by_public_key(address);
+        let utxos = search_coin_type_utxo_by_address(address);
         let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
         Ok(response_body)
     });
