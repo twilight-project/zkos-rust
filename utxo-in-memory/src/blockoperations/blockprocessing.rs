@@ -166,6 +166,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             let utxo_key = bincode::serialize(&input.input.as_utxo_id().unwrap()).unwrap();
             let utxo_input_type = input.in_type as usize;
             let _result = utxo_storage.remove(utxo_key, utxo_input_type);
+            println!("UTXO REMOVED TRANSFER")
         }
         //Add all output
         for (output_index, output_set) in tx_output.iter().enumerate() {
@@ -173,6 +174,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                 bincode::serialize(&transaction::Utxo::new(tx_id, output_index as u8)).unwrap();
             let utxo_output_type = output_set.out_type as usize;
             let _result = utxo_storage.add(utxo_key, output_set.clone(), utxo_output_type);
+            println!("UTXO ADDED TRANSFER")
         }
 
         let _ = utxo_storage.data_meta_update(height as usize);
@@ -184,19 +186,14 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
 }
 
 pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
-    println!("inside trade processing");
     println!("{:?}", transaction);
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    println!("got utxo storage");
     let tx_id = hex::decode(transaction.tx_id).expect("error decoding tx id");
-    println!("tx id {}", hex::encode(&tx_id));
     let tx_id = TxId::from_vec(tx_id);
     let utxo_key =
     bincode::serialize(&transaction::Utxo::new(tx_id, 0 as u8)).unwrap();
-    println!("got utxo");
 
     if transaction.mint_or_burn.unwrap() == true {
-        println!("inside true case");
         let mut bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
         let elgamal = bytes.split_off(bytes.len() - 64);
         let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
@@ -205,18 +202,17 @@ pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &m
         let output = Output{out_type: OutputType::Coin, output: output};
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
         tx_result.suceess_tx.push(tx_id);
-        print!("UTXO ADDED")
+        println!("UTXO ADDED TRADE")
     }
     else { 
         utxo_storage.remove(utxo_key, InputType::Coin as usize);
         tx_result.suceess_tx.push(tx_id);
-        print!("UTXO REMOVED")
+        println!("UTXO REMOVED TRADE")
     }
 
 }
 
 pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
-    println!("inside block processing");
     let mut tx_result: BlockResult = BlockResult::new();
     for transaction in block.transactions {
 
