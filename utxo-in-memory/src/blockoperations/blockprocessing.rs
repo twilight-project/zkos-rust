@@ -13,6 +13,8 @@ use transaction::util::{Address, Network};
 use quisquislib::ristretto::RistrettoPublicKey;
 use rand::Rng;
 use std::collections::HashMap;
+use serde::de::{self, Deserializer, Visitor};
+use std::fmt;
 
 
 use quisquislib::{
@@ -36,15 +38,14 @@ impl BlockResult {
     }
 }
 
-pub enum BlockResultType {
-    Transfer(transaction::TxId),
-    Trading(),
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
+    #[serde(rename = "Blockhash")]
     pub block_hash: String,
+    #[serde(rename = "Blockheight", deserialize_with = "string_to_u64")]
     pub block_height: u64,
+    #[serde(rename = "Transactions")]
     pub transactions: Vec<MessageType>,
 }
 
@@ -52,8 +53,11 @@ pub struct Block {
 pub struct TransactionMessageTransfer {
     #[serde(rename = "@type")]
     pub tx_type: String,
+    #[serde(rename = "TxId")]
     pub tx_id: String,
+    #[serde(rename = "TxByteCode")]
     pub tx_byte_code: String,
+    #[serde(rename = "ZkOracleAddress")]
     pub zk_oracle_address: String,
 }
 
@@ -62,18 +66,44 @@ pub struct TransactionMessageTransfer {
 pub struct TransactionMessageTrading {
     #[serde(rename = "@type")]
     pub tx_type: String,
-    pub mint_or_burn:      bool,
-	pub btc_value :       u32,
-	pub qq_account:       String,
-	pub encrypt_scalar:   u64,
-	pub twilight_address: String,
-    pub tx_id: String
+    #[serde(rename = "MintOrBurn")]
+    pub mint_or_burn: bool,
+    #[serde(rename = "BtcValue")]
+    pub btc_value: u32,
+    #[serde(rename = "QqAccount")]
+    pub qq_account: String,
+    #[serde(rename = "EncryptScalar")]
+    pub encrypt_scalar: u64,
+    #[serde(rename = "TwilightAddress")]
+    pub twilight_address: String,
+    #[serde(rename = "TxId")]
+    pub tx_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MessageType {
     Transfer(TransactionMessageTransfer),
     Trading(TransactionMessageTrading),
+}
+
+fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct StringVisitor;
+
+    impl<'de> Visitor<'de> for StringVisitor {
+        type Value = u64;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a string representation for u64")
+        }
+
+        fn visit_str<E: de::Error>(self, value: &str) -> Result<u64, E> {
+            value.parse::<u64>().map_err(E::custom)
+        }
+    }
+    deserializer.deserialize_str(StringVisitor)
 }
 
 pub fn process_transfer(transaction: TransactionMessageTransfer, height: u64, tx_result: &mut BlockResult){
