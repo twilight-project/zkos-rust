@@ -78,7 +78,9 @@ pub fn rpcserver() {
     
         println!("Received hex string: {}", hex_str);
         let address: Address = Address::from_hex(&hex_str);
-        
+
+        println!("{:?}", address);
+
         let utxos = search_coin_type_utxo_by_public_key(address);
         let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
         Ok(response_body)
