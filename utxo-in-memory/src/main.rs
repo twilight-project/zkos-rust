@@ -13,46 +13,9 @@ fn main() {
     init_utxo();
     let time1 = sw.elapsed();
     println!("init_utxo: {:#?}", time1);
-
-    save_snapshot();
-    socket_connection();
-
-}
-
-fn save_snapshot(){
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    println!("get block height:{:#?}", utxo_storage.block_height);
-    println!("get snap:{:#?}", utxo_storage.snaps);
-    for i in 0..utxo_storage.partition_size {
-        println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
-    }
-    utxo_storage.take_snapshot();
 }
 
 
-fn socket_connection() {
-    let (mut socket, response) =
-        connect(Url::parse("ws://165.232.134.41:7001/latestblock").unwrap()).expect("Can't connect");
-
-    loop {
-        let msg = socket.read_message().expect("Error reading message");
-        match msg {
-            Message::Text(text) => {
-                println!("{}", text);
-                let block: blockoperations::blockprocessing::Block = serde_json::from_str(&text).unwrap();
-                let result = blockoperations::blockprocessing::process_block_for_utxo_insert(block);
-                if result.suceess_tx.len() > 0{
-                    save_snapshot();
-                }
-            }
-            Message::Close(_) => {
-                println!("Server disconnected");
-                break;
-            }
-            _ => (),
-        }
-    }
-}
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::Account;
 use std::io::prelude::*;
