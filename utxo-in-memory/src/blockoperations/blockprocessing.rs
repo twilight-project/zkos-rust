@@ -236,16 +236,11 @@ pub fn search_coin_type_utxo_by_address(address: Address) -> Vec<String>  {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = InputType::Coin as usize;
     let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
-
-    println!("utxos : ");
-    println!("{:?}", utxos);
     let mut utxo: Utxo;
 
     for (key, output_data) in utxos{
-        println!("inside utxo loop : ");
         let addr =  output_data.output.get_owner_address().unwrap();
         if addr.public_key == address.public_key{
-            println!("inside if");
             match bincode::deserialize(&key) {
                 Ok(value) => utxo = value,
                 Err(args) => {

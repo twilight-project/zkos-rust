@@ -4,11 +4,14 @@ use rpcserver::*;
 use transaction::Transaction;
 use transactionapi::TransactionStatusId;
 use transactionapi::{rpcclient, rpcserver};
+use std::thread;
+use std::time::Duration;
 #[macro_use]
 extern crate lazy_static;
 use transaction::reference_tx::{
     create_dark_reference_transaction, create_qq_reference_transaction,
 };
+use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 fn main() {
     // let handle = std::thread::Builder::new()
     //     .name(String::from("rpc request"))
@@ -48,6 +51,10 @@ fn main() {
     //         }
     //     })
     //     .unwrap();
+    init_utxo();
+
+    let handle = thread::spawn(|| zk_oracle_subscriber);
     rpcserver();
+    handle.join().unwrap();
     // handle.join().unwrap();
 }
