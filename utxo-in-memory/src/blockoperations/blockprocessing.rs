@@ -195,15 +195,15 @@ pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &m
     bincode::serialize(&transaction::Utxo::new(tx_id, 0 as u8)).unwrap();
 
     if transaction.mint_or_burn.unwrap() == true {
-        let mut bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
-        let elgamal = bytes.split_off(bytes.len() - 64);
+        let mut qq_account_bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
+        let elgamal = qq_account_bytes.split_off(qq_account_bytes.len() - 64);
         let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
-        let address = Address::from_bytes(&bytes[0..69]).unwrap();
+        let address = Address::from_bytes(&qq_account_bytes[0..69]).unwrap();
         let output = OutputData::Coin(Coin{encrypt: elgamal, address:address});
         let output = Output{out_type: OutputType::Coin, output: output};
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
 
-        let pk = hex::encode(output.output.adress().unwrap().public_key.as_bytes());
+        let pk = hex::encode(output.output.adress().unwrap().as_hex());
         println!("{}", pk);
         tx_result.suceess_tx.push(tx_id);
 
