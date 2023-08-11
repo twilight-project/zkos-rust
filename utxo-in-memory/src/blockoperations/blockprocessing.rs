@@ -82,9 +82,12 @@ pub struct TransactionMessageTrading {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MessageType {
-    Transfer(TransactionMessageTransfer),
+    #[serde(rename = "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc")]
     Trading(TransactionMessageTrading),
+    #[serde(rename = "/twilightproject.nyks.zkos.MsgTransferTx")]
+    Transfer(TransactionMessageTransfer),
 }
+
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
