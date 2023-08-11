@@ -174,11 +174,14 @@ pub fn process_trade(transaction: TransactionMessageTrading, height: u64, tx_res
         let output = Output{out_type: OutputType::Coin, output: output};
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
         tx_result.suceess_tx.push(tx_id);
+        print!("UTXO ADDED")
     }
     else { 
         utxo_storage.remove(utxo_key, InputType::Coin as usize);
         tx_result.suceess_tx.push(tx_id);
+        print!("UTXO REMOVED")
     }
+
 }
 
 pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
