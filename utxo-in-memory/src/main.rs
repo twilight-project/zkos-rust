@@ -25,14 +25,14 @@ fn main() {
         println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
     }
     utxo_storage.take_snapshot();
+    socket_connection()
 
 }
 
 
-
 fn socket_connection() {
     let (mut socket, response) =
-        connect(Url::parse("wss://your-websocket-url.com").unwrap()).expect("Can't connect");
+        connect(Url::parse("ws://165.232.134.41:7001/latestblock").unwrap()).expect("Can't connect");
 
     loop {
         let msg = socket.read_message().expect("Error reading message");
