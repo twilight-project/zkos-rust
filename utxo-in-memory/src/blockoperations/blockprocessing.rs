@@ -185,11 +185,15 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
 
 pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
     println!("inside trade processing");
+    println!("{:?}", transaction);
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    println!("got utxo storage");
     let tx_id = hex::decode(transaction.tx_id).expect("error decoding tx id");
+    println!("tx id {}", hex::encode(&tx_id));
     let tx_id = TxId::from_vec(tx_id);
     let utxo_key =
     bincode::serialize(&transaction::Utxo::new(tx_id, 0 as u8)).unwrap();
+    println!("got utxo");
 
     if transaction.mint_or_burn.unwrap() == true {
         println!("inside true case");
