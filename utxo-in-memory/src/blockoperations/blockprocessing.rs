@@ -155,7 +155,6 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
     let mut tx_result: BlockResult = BlockResult::new();
     for transaction in block.transactions {
 
-
         match transaction {
             MessageType::Transfer(message) => process_transfer(message, block.block_height, &mut tx_result),
             MessageType::Trading(message) => process_trade(message, block.block_height, &mut tx_result),
