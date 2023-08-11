@@ -203,7 +203,7 @@ pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &m
         let output = Output{out_type: OutputType::Coin, output: output};
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
 
-        let pk = output.output.adress().unwrap().as_hex();
+        let pk = address.as_hex();
         println!("{}", pk);
         tx_result.suceess_tx.push(tx_id);
 
