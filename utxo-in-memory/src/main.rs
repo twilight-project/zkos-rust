@@ -38,7 +38,7 @@ fn socket_connection() {
         let msg = socket.read_message().expect("Error reading message");
         match msg {
             Message::Text(text) => {
-                print!("{}", text);
+                println!("{}", text);
                 let block: blockoperations::blockprocessing::Block = serde_json::from_str(&text).unwrap();
                 blockoperations::blockprocessing::process_block_for_utxo_insert(block);
             }
