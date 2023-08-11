@@ -17,3 +17,6 @@ Cargo.lock
 **/.DS_Store
 transactionapi/target/*
 utxo-in-memory/target/*
+
+**Cargo.lock
+Cargo.lock

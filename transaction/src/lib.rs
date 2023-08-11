@@ -27,4 +27,4 @@ pub use self::types::{
 
 pub use self::util::{Address, Network};
 
-pub use self::reference_tx::Sender;
+pub use self::reference_tx::{Sender, Receiver};
