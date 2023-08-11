@@ -8,25 +8,25 @@ use tungstenite::{connect, Message};
 use url::Url;
 
 fn main() {
-    // blockoperations::set_genesis_sets();
-    // let sw = Stopwatch::start_new();
+
+    let sw = Stopwatch::start_new();
     init_utxo();
-    // let time1 = sw.elapsed();
-    // println!("init_utxo: {:#?}", time1);
+    let time1 = sw.elapsed();
+    println!("init_utxo: {:#?}", time1);
 
-    // // // init_utxo();
-    // // // for i in 0..10 {
-    // // //     load_utxo();
-    // // // }
-    // let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    // println!("get block height:{:#?}", utxo_storage.block_height);
-    // println!("get snap:{:#?}", utxo_storage.snaps);
-    // for i in 0..utxo_storage.partition_size {
-    //     println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
-    // }
-    // utxo_storage.take_snapshot();
-    socket_connection()
+    save_snapshot();
+    socket_connection();
 
+}
+
+fn save_snapshot(){
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    println!("get block height:{:#?}", utxo_storage.block_height);
+    println!("get snap:{:#?}", utxo_storage.snaps);
+    for i in 0..utxo_storage.partition_size {
+        println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
+    }
+    utxo_storage.take_snapshot();
 }
 
 
@@ -48,6 +48,7 @@ fn socket_connection() {
             }
             _ => (),
         }
+        save_snapshot();
     }
 }
 use curve25519_dalek::scalar::Scalar;

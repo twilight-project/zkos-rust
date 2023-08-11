@@ -94,57 +94,6 @@ pub fn rpcserver() {
     });
     
 
-    // io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
-    //     let public_key: RistrettoPublicKey;
-    //     public_key = match params.parse::<Vec<u8>>() {
-    //         Ok(data) => match bincode::deserialize(&data) {
-    //             Ok(value) => value,
-    //             Err(args) => {
-    //                 let err =
-    //                     JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
-    //                 return Err(err);
-    //             }
-    //         },
-    //         Err(args) => {
-    //             let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
-    //             return Err(err);
-    //         }
-    //     };
-
-    //     let utxos = search_coin_type_utxo_by_public_key(public_key);
-    //     let response_body = serde_json::Value::String(response_body);
-    //     Ok(response_body)
-    // });
-    // io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
-    //     let tx: transaction::Transaction;
-    //     match params.parse::<Vec<u8>>() {
-    //         Ok(txx) => tx = bincode::deserialize(&txx).unwrap(),
-    //         Err(args) => {
-    //             let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
-    //             return Err(err);
-    //         }
-    //     }
-    //     service::tx_commit(tx);
-    //     // Ok(serde_json::to_value("please wait while we proccess your request").unwrap())
-    //     Ok(serde_json::to_value(&TxResponse::new(
-    //         "please wait while we proccess your request".to_string(),
-    //     ))
-    //     .unwrap())
-    // });
-    // io.add_method_with_meta("TxStatus", move |params: Params, _meta: Meta| async move {
-    //     match params.parse::<TransactionStatusId>() {
-    //         Ok(txx) => service::tx_status(txx),
-    //         Err(args) => {
-    //             let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
-    //             return Err(err);
-    //         }
-    //     }
-    //     Ok(serde_json::to_value(&TxResponse::new(
-    //         "Checking for status.. Your order updated successfully".to_string(),
-    //     ))
-    //     .unwrap())
-    // });
-
     eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
     let server = ServerBuilder::new(io)
         .threads(5)
@@ -169,8 +118,6 @@ pub fn rpcserver() {
         })
         .start_http(&"0.0.0.0:3030".parse().unwrap())
         .unwrap();
+    println!("started api server");
     server.wait();
 }
-
-use std::fs::File;
-use std::io::prelude::*;
