@@ -1,6 +1,7 @@
 use crate::db::*;
 use crate::UTXO_STORAGE;
 use hex;
+use quisquislib::keys::PublicKey;
 use serde_derive::{Deserialize, Serialize};
 use transaction::Transaction;
 
@@ -201,7 +202,11 @@ pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &m
         let output = OutputData::Coin(Coin{encrypt: elgamal, address:address});
         let output = Output{out_type: OutputType::Coin, output: output};
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
+
+        let pk = hex::encode(output.output.adress().unwrap().public_key.as_bytes());
+        println!("{}", pk);
         tx_result.suceess_tx.push(tx_id);
+
         println!("UTXO ADDED TRADE")
     }
     else { 
