@@ -58,7 +58,6 @@ pub fn rpcserver() {
         Ok(response_body)
     });
 
-
     io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
         println!("inside getUtxo");
         let address: Address;
