@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../quisquis-rust"
+		}
+	],
+	"settings": {
+		"editor.formatOnSave": true
+	}
+}

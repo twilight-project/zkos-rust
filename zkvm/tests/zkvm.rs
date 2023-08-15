@@ -1,18 +1,26 @@
+use address::{Address, Network};
 use bulletproofs::{BulletproofGens, PedersenGens};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED;
 use curve25519_dalek::scalar::Scalar;
+use elgamalsign::{SigningKey, VerificationKey};
 use merlin::Transcript;
-use mulmsgsig::{Multisignature, Signature, VerificationKey};
-use rand::Rng;
-use transaction::{Network, Utxo};
-use std::{fmt, ops::Add};
-use::transaction::{Input, Output, InputData, OutputData, Address, Coin};
+use quisquislib::accounts::Account;
 use quisquislib::elgamal::ElGamalCommitment;
-use quisquislib::{ristretto::{RistrettoSecretKey, RistrettoPublicKey}, keys::{SecretKey, PublicKey}};
+use quisquislib::{
+    keys::{PublicKey, SecretKey},
+    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+};
+use rand::Rng;
+use starsig::Signature;
+use std::{fmt, ops::Add};
+use zkvm::zkos_types::{
+    Input, InputData, Output, OutputCoin, OutputData, OutputState, StateWitness, Utxo,
+    ValueWitness, Witness,
+};
 
 use zkvm::{
-    Anchor, Commitment, Contract, PortableItem, Predicate, PredicateTree, Program, Prover, String,
-    TxHeader, TxID, TxLog, VMError, Value, UnsignedTx, VerifiedTx, Tx, 
+    Anchor, Commitment, CommitmentWitness, Contract, PortableItem, Predicate, PredicateTree,
+    Program, Prover, String, Tx, TxHeader, TxID, TxLog, UnsignedTx, VMError, Value, VerifiedTx,
 };
 
 // TODO(vniu): move builder convenience functions into separate crate,
@@ -70,7 +78,7 @@ impl ProgramHelper for Program {
 /// Generates a secret Scalar / key Predicate pair
 fn generate_predicate() -> (Predicate, Scalar) {
     let scalar = Scalar::from(0u64);
-    let pred = Predicate::Key(VerificationKey::from_secret(&scalar));
+    let pred = Predicate::Key(starsig::VerificationKey::from_secret(&scalar));
     (pred, scalar)
 }
 
@@ -96,7 +104,7 @@ fn generate_predicates(pred_num: usize) -> (Vec<Predicate>, Vec<Scalar>) {
 /// a flavor, along with the flavor Scalar.
 fn make_flavor() -> (Scalar, Predicate, Scalar) {
     let scalar = Scalar::from(100u64);
-    let predicate = Predicate::Key(VerificationKey::from_secret(&scalar));
+    let predicate = Predicate::Key(starsig::VerificationKey::from_secret(&scalar));
     let flavor = Value::issue_flavor(&predicate, String::default());
     (scalar, predicate, flavor)
 }
@@ -113,7 +121,12 @@ fn make_output(qty: u64, flv: Scalar, predicate: Predicate) -> Contract {
     }
 }
 
-fn build_and_verify(program: Program, keys: &Vec<Scalar>, inputs: &[Input], outputs: &[Output]) -> Result<VerifiedTx, VMError> {
+fn build_and_verify(
+    program: Program,
+    keys: &Vec<Scalar>,
+    inputs: &[Input],
+    outputs: &[Output],
+) -> Result<VerifiedTx, VMError> {
     let (txlog, tx) = {
         // Build tx
         let bp_gens = BulletproofGens::new(256, 1);
@@ -147,7 +160,7 @@ fn build_and_verify(program: Program, keys: &Vec<Scalar>, inputs: &[Input], outp
 
             let mut signtx_transcript = Transcript::new(b"ZkVM.signtx");
             signtx_transcript.append_message(b"txid", &utx.txid.0);
-            Signature::sign_multi(
+            <mulmsgsig::Signature as mulmsgsig::Multisignature>::sign_multi(
                 privkeys,
                 utx.signing_instructions.clone(),
                 &mut signtx_transcript,
@@ -159,41 +172,44 @@ fn build_and_verify(program: Program, keys: &Vec<Scalar>, inputs: &[Input], outp
     };
 
     // Verify tx
-     let bp_gens = BulletproofGens::new(256, 1);
+    let bp_gens = BulletproofGens::new(256, 1);
 
-     let vtx = tx.verify(&bp_gens, inputs, outputs)?;
-     Ok(vtx)
+    let vtx = tx.verify(&bp_gens, inputs, outputs)?;
+    Ok(vtx)
 }
 
+// fn build_and_verify_without_signature(
+//     program: Program,
+//     inputs: &[Input],
+//     outputs: &[Output],
+// ) -> Result<(), VMError> {
+//     // Build tx
+//     let bp_gens = BulletproofGens::new(256, 1);
+//     let header = TxHeader {
+//         version: 0u64,
+//         mintime_ms: 0u64,
+//         maxtime_ms: 0u64,
+//     };
+//     let gens = PedersenGens::default();
 
-fn build_and_verify_without_signature(program: Program, inputs: &[Input], outputs: &[Output]) -> Result<(), VMError> {
-     // Build tx
-        let bp_gens = BulletproofGens::new(256, 1);
-        let header = TxHeader {
-            version: 0u64,
-            mintime_ms: 0u64,
-            maxtime_ms: 0u64,
-        };
-        let gens = PedersenGens::default();
+//     //cretae unsigned Tx with program proof
+//     let (prog, proof) = Prover::build_tx_new(program, header, &bp_gens, inputs, outputs)?;
 
-        //cretae unsigned Tx with program proof
-        let (prog, proof) = Prover::build_tx_new(program, header, &bp_gens, inputs, outputs)?;
+//     // let sig =
+//     //     Signature {
+//     //         R: RISTRETTO_BASEPOINT_COMPRESSED,
+//     //         s: Scalar::zero(),
+//     //     };
+//     //     let tx: zkvm::Tx = utx.clone().sign(sig);
 
-        // let sig =  
-        //     Signature {
-        //         R: RISTRETTO_BASEPOINT_COMPRESSED,
-        //         s: Scalar::zero(),
-        //     };
-        //     let tx: zkvm::Tx = utx.clone().sign(sig);
+//     // Verify tx
+//     //let bp_gens = BulletproofGens::new(256, 1);
 
-    // Verify tx
-    //let bp_gens = BulletproofGens::new(256, 1);
-    
-    let verify_prog_proof = zkvm::Verifier::verify_proof_new(proof, header, prog, inputs, outputs);
-    println!("\n Verify Proof {:?}", verify_prog_proof.is_ok());
-    //let vtx = tx.verify(&bp_gens, inputs, outputs)?;
-     Ok(())
-}
+//     let verify_prog_proof = zkvm::Verifier::verify_proof_new(proof, header, prog, inputs, outputs);
+//     println!("\n Verify Proof {:?}", verify_prog_proof.is_ok());
+//     //let vtx = tx.verify(&bp_gens, inputs, outputs)?;
+//     Ok(())
+// }
 // fn spend_1_1_contract(
 //     input: u64,
 //     output: u64,
@@ -626,80 +642,222 @@ fn build_and_verify_without_signature(program: Program, inputs: &[Input], output
 //     build_and_verify(borrow_prog, &vec![scalars[1].clone()]).unwrap();
 // }
 
-fn order_message_prog(
-    balance: u64,
-    order_qty: u64) -> Program {
-        let order_prog = Program::build(|p| {
-            p.push(Commitment::blinded(balance)) 
-                .commit()
-                .expr()
-                .push(order_qty)
-                .scalar()
-                .neg()
-                .add()
-                .range()
-                .drop();
-            });
+fn order_message_prog(balance: u64, order_qty: u64) -> Program {
+    let order_prog = Program::build(|p| {
+        p.push(Commitment::blinded(balance))
+            .commit()
+            .expr()
+            .push(Commitment::blinded(order_qty))
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .range()
+            .drop();
+    });
     return order_prog;
 }
 
 fn order_message_prog_input_output(
     balance: u64,
-    order_qty: u64, in_index: usize, out_index: usize) -> Program {
-        let order_prog = Program::build(|p| {
-            p.push(Commitment::blinded(balance)) 
-                .commit()
-                .expr()
-                .push(order_qty)
-                .scalar()
-                .neg()
-                .add()
-                .range()
-                .drop()
-                .inputcoin(in_index)
-                .outputcoin(out_index)
-                .drop()
-                .drop();
-            });
+    order_qty: u64,
+    in_index: usize,
+    out_index: usize,
+) -> Program {
+    let order_prog = Program::build(|p| {
+        p.push(Commitment::blinded(balance))
+            .commit()
+            .expr()
+            .push(order_qty)
+            .scalar()
+            .neg()
+            .add()
+            .range()
+            .drop()
+            .inputcoin(in_index)
+            .outputcoin(out_index)
+            .drop()
+            .drop();
+    });
     return order_prog;
 }
 
-
 #[test]
 fn order_message() {
-   let correct_program = order_message_prog_input_output(16u64, 9u64, 0, 0);
-   //let correct_program = order_message_prog(16u64, 9u64);
-   
+    let correct_program = order_message_prog_input_output(16u64, 9u64, 0, 0);
+    // let correct_program = order_message_prog(16u64, 9u64);
+
     print!("\n Program \n{:?}", correct_program);
 
     //useless predicates
     //let (preds, scalars) = generate_predicates(3);
     //create input and output array
-    
-        let mut rng = rand::thread_rng();
-        let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
-        let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
-        let add: Address = Address::standard(Network::default(), pk_in);
-        let commit_in = ElGamalCommitment::generate_commitment(&pk_in, Scalar::random(&mut rng), Scalar::from(10u64));
-      
-        let in_data: InputData = InputData::coin(Utxo::default(),add, commit_in, 0);
-        let coin_in : Input = Input::coin(in_data);
-        let input: Vec<Input> =vec![coin_in]; 
-        let sk_out: RistrettoSecretKey = SecretKey::random(&mut rng);
-        let pk_out = RistrettoPublicKey::from_secret_key(&sk_out, &mut rng);
-        let add_out: Address = Address::standard(Network::default(), pk_out);
-        let commit_out = ElGamalCommitment::generate_commitment(&pk_out, Scalar::random(&mut rng), Scalar::from(5u64));
-        let coin_out = Coin{
-            encrypt: commit_out,
-            address: add_out,
-        };
-        let out_data = OutputData::Coin(coin_out);
-        let coin_out = Output::coin(out_data);
-        let output: Vec<Output> =vec![coin_out]; 
 
-    
-   let unsignedtx = build_and_verify_without_signature(correct_program, &input, &output).unwrap();
-    print!("{:?}", unsignedtx);
+    let mut rng = rand::thread_rng();
+    let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
+    let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+    let commit_in = ElGamalCommitment::generate_commitment(
+        &pk_in,
+        Scalar::random(&mut rng),
+        Scalar::from(10u64),
+    );
+    let add: Address = Address::coin_address(Network::default(), pk_in.clone());
+    let out_coin = OutputCoin {
+        encrypt: commit_in,
+        owner: add.as_hex(),
+    };
+    let in_data: InputData = InputData::coin(
+        Utxo::default(),
+        /*add.as_hex(), commit_in*/ out_coin,
+        0,
+    );
+    let coin_in: Input = Input::coin(in_data);
+    let input: Vec<Input> = vec![coin_in];
+    let sk_out: RistrettoSecretKey = SecretKey::random(&mut rng);
+    let pk_out = RistrettoPublicKey::from_secret_key(&sk_out, &mut rng);
+    let add_out: Address = Address::coin_address(Network::default(), pk_out);
+    let commit_out = ElGamalCommitment::generate_commitment(
+        &pk_out,
+        Scalar::random(&mut rng),
+        Scalar::from(5u64),
+    );
+    let coin_out = OutputCoin {
+        encrypt: commit_out,
+        owner: add_out.as_base58(),
+    };
+    let out_data = OutputData::Coin(coin_out);
+    let coin_out = Output::coin(out_data);
+    let output: Vec<Output> = vec![coin_out];
+
+    //let unsignedtx = build_and_verify_without_signature(correct_program, &input, &output).unwrap();
+    // print!("{:?}", unsignedtx);
 }
 
+#[test]
+fn order_message_old() {
+    let correct_program = order_message_prog(16u64, 9u64);
 
+    print!("\n Program \n{:?}", correct_program);
+    let input: Vec<Input> = vec![];
+    let output: Vec<Output> = vec![];
+    //useless predicates
+    let (preds, scalars) = generate_predicates(3);
+    let res =
+        build_and_verify(correct_program, &vec![scalars[1].clone()], &input, &output).unwrap();
+}
+
+#[test]
+fn state_witness_test() {
+    let mut rng = rand::thread_rng();
+    let sk_in: SigningKey = Scalar::random(&mut rng);
+    let r = Scalar::random(&mut rng);
+    let pk_in: VerificationKey = VerificationKey::from_secret(&sk_in, &r);
+    let (g, h) = pk_in.as_point();
+
+    let add: Address = Address::coin_address(
+        Network::default(),
+        RistrettoPublicKey::new_from_pk(g.clone(), h.clone()),
+    );
+    //create first Cimmtment Witness
+    let commit_1: Commitment = Commitment::blinded(0u64);
+    let commit_2: Commitment = Commitment::blinded(0u64);
+    let (_comit_1_value, comit_1_blind) = commit_1.witness().unwrap();
+    let (_comit_2_value, comit_2_blind) = commit_2.witness().unwrap();
+
+    let state_variables: Vec<String> = vec![
+        String::U32(1u32),
+        String::Commitment(Box::new(commit_1)),
+        String::U64(10u64),
+        String::Commitment(Box::new(commit_2)),
+        String::U64(10u64),
+    ];
+
+    let state_commitment_witness: Vec<Scalar> = vec![comit_1_blind.clone(), comit_2_blind.clone()];
+
+    let out_state = OutputState {
+        nonce: 1u32,
+        script_address: add.as_hex(),
+        owner: add.as_hex(),
+        commitment: Commitment::blinded(10u64),
+        state_variables: Some(state_variables),
+        timebounds: 0,
+    };
+    let in_data: InputData = InputData::state(
+        Utxo::default(),
+        /*add.as_hex(), commit_in*/ out_state,
+        None,
+        1,
+    );
+    let witness = Witness::State(StateWitness::create_state_witness(
+        in_data.clone(),
+        sk_in.clone(),
+        pk_in.clone(),
+        Some(state_commitment_witness.clone()),
+    ));
+
+    // verify the witness
+    let state_wit = witness.to_state_witness().unwrap();
+    let res = state_wit.verify_state_witness(in_data, pk_in.clone());
+    println!("res {:?}", res);
+}
+
+#[test]
+fn value_witness_test() {
+    let mut rng = rand::thread_rng();
+    let sk_in: SigningKey = Scalar::random(&mut rng);
+    let r = Scalar::random(&mut rng);
+    let pk_in: VerificationKey = VerificationKey::from_secret(&sk_in, &r);
+    let (g, h) = pk_in.as_point();
+    let ris_pk = RistrettoPublicKey::new_from_pk(g.clone(), h.clone());
+    let add: Address = Address::coin_address(Network::default(), ris_pk.clone());
+    let rscalar: Scalar = Scalar::random(&mut rng);
+    // create input coin
+    let commit_in = ElGamalCommitment::generate_commitment(&ris_pk, rscalar, Scalar::from(10u64));
+    let enc_acc = Account::set_account(ris_pk, commit_in);
+
+    let out_coin = OutputCoin {
+        encrypt: commit_in,
+        owner: add.as_hex(),
+    };
+    let in_data: InputData = InputData::coin(
+        Utxo::default(),
+        /*add.as_hex(), commit_in*/ out_coin,
+        0,
+    );
+    let coin_in: Input = Input::coin(in_data.clone());
+
+    //create first Commitment Witness
+    let commit_1: Commitment = Commitment::blinded_with_factor(10u64, rscalar);
+    let (_comit_1_value, _comit_1_blind) = commit_1.witness().unwrap();
+
+    //create OutputMemo
+
+    let out_memo = zkvm::zkos_types::OutputMemo {
+        script_address: add.as_hex(),
+        owner: add.as_hex(),
+        commitment: Commitment::blinded(10u64),
+        data: None,
+        timebounds: 0,
+    };
+
+    // create InputCoin Witness
+    let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
+        in_data.clone(),
+        sk_in.clone(),
+        enc_acc,
+        pk_in.clone(),
+        commit_1.to_point(),
+        10u64,
+        rscalar,
+    ));
+
+    // verify the witness
+    let value_wit = witness.to_value_witness().unwrap();
+    let res = value_wit.verify_value_witness(
+        in_data.clone(),
+        pk_in.clone(),
+        enc_acc,
+        commit_1.to_point(),
+    );
+    println!("res {:?}", res);
+}

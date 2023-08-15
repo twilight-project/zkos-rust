@@ -2,8 +2,8 @@
 
 use curve25519_dalek::scalar::Scalar;
 use merlin::Transcript;
-use serde::{Deserialize, Serialize};
 use rangeproof::{self, SignedInteger};
+use serde::{Deserialize, Serialize};
 
 use crate::constraints::{Commitment, Constraint, Expression, Variable};
 use crate::contract::{Contract, PortableItem};
@@ -13,8 +13,7 @@ use crate::predicate::Predicate;
 use crate::program::ProgramItem;
 use crate::scalar_witness::ScalarWitness;
 use crate::transcript::TranscriptProtocol;
-use quisquislib::elgamal::ElGamalCommitment;
-use transaction::util::Address;
+use crate::zkos_types::OutputCoin;
 
 /// An item on a VM stack.
 #[derive(Debug)]
@@ -44,7 +43,7 @@ pub enum Item {
     Constraint(Constraint),
 
     /// An OutputCoin.
-    Coin(OutputCoin)
+    Coin(OutputCoin),
 }
 
 /// An item on a VM stack that can be copied.
@@ -57,8 +56,7 @@ pub enum CopyableItem {
     Variable(Variable),
 
     /// A OutputCoin.
-    Coin(OutputCoin)
-    
+    Coin(OutputCoin),
 }
 
 /// An item on a VM stack that can be dropped.
@@ -80,7 +78,7 @@ pub enum DroppableItem {
     Constraint(Constraint),
 
     /// A OutputCoin.
-    Coin(OutputCoin)
+    Coin(OutputCoin),
 }
 
 /// A data item.
@@ -528,28 +526,27 @@ impl From<CopyableItem> for Item {
             CopyableItem::String(x) => Item::String(x),
             CopyableItem::Variable(x) => Item::Variable(x),
             CopyableItem::Coin(x) => Item::Coin(x),
-
         }
     }
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct OutputCoin {
-    /// Encryption to value's quantity
-    pub encrypt: ElGamalCommitment,
-    /// Owners Address
-    pub address: Address,
-}
+// #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+// pub struct OutputCoin {
+//     /// Encryption to value's quantity
+//     pub encrypt: ElGamalCommitment,
+//     /// Owners Address
+//     pub address: Address,
+// }
 
-impl Encodable for OutputCoin {
-    fn encode(&self, w: &mut impl Writer ) -> Result<(), WriteError> {
-        w.write_encryption(b"encrypt", &self.encrypt)?;
-        w.write_address(b"address", &self.address)?;
-        Ok(())
-    }
-}
+// impl Encodable for OutputCoin {
+//     fn encode(&self, w: &mut impl Writer) -> Result<(), WriteError> {
+//         w.write_encryption(b"encrypt", &self.encrypt)?;
+//         w.write_address(b"address", &self.address)?;
+//         Ok(())
+//     }
+// }
 
-impl ExactSizeEncodable for OutputCoin {
-    fn encoded_size(&self) -> usize {
-        64 + 69
-    }
-}
+// impl ExactSizeEncodable for OutputCoin {
+//     fn encoded_size(&self) -> usize {
+//         64 + 69
+//     }
+// }

@@ -1,8 +1,8 @@
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::scalar::Scalar;
-use serde::{de::Deserializer, de::Visitor, ser::Serializer, Deserialize, Serialize};
+//use curve25519_dalek::ristretto::CompressedRistretto;
+//use curve25519_dalek::scalar::Scalar;
+//use serde::{de::Deserializer, de::Visitor, ser::Serializer, Deserialize, Serialize};
 
-use super::TxError;
+//use super::TxError;
 //use super::Signature;
 
 // impl Transaction {

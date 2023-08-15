@@ -1,6 +1,7 @@
-#![deny(missing_docs)]
+#![allow(missing_docs)]
 
 //! API for operations on merkle binary trees.
+use address::ScriptAddress;
 use core::marker::PhantomData;
 use merlin::Transcript;
 use readerwriter::*;
@@ -480,11 +481,58 @@ impl<'de> serde::Deserialize<'de> for Hash {
     }
 }
 
+/// Call proof represents a proof that a certain program is committed via the merkle tree into the Script Address.
+/// Used by validator primarily to verify. The program is not the part of the proof.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CallProof {
+    // Script Address
+    pub script_address: String,
+
+    // Merkle path. The path is relative to the program's position in the tree.
+    pub path: Path,
+}
+
+impl CallProof {
+    /// Creates a new call proof.
+    pub fn new(script_address: String, path: Path) -> Self {
+        Self {
+            script_address,
+            path,
+        }
+    }
+    pub fn create_call_proof<M>(
+        list: &[M],
+        item_index: usize,
+        hasher: &Hasher<M>,
+        address: String,
+    ) -> Option<Self>
+    where
+        M: MerkleItem,
+    {
+        let path = Path::new(list, item_index, hasher).unwrap();
+        Some(CallProof::new(address, path))
+    }
+
+    pub fn verify_call_proof<M: MerkleItem>(
+        &self,
+        address: &ScriptAddress,
+        item: &M,
+        hasher: &Hasher<M>,
+    ) -> bool {
+        //check if root hash is same as the one in address
+        if address.as_hex() != self.script_address {
+            return false;
+        }
+        // Verify that the root hash matches the merkle path.
+        self.path.verify_root(&Hash(address.root), item, hasher)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct TestItem(u64);
 
     impl MerkleItem for TestItem {
@@ -506,10 +554,14 @@ mod tests {
             let hasher = Hasher::new(b"test");
             let (item, root, path) = {
                 let items = test_items(*$num as usize);
+                println!("items {:?}", items);
                 let path = Path::new(&items, *$idx as usize, &hasher).unwrap();
                 let root = path.compute_root(&items[*$idx], &hasher);
                 (items[*$idx as usize].clone(), root, path)
             };
+            println!("items: {:?}", item);
+            println!("root: {:?}", root);
+            println!("path: {:?}", path);
             assert!(path.verify_root(&root, &item, &hasher));
         };
     }
@@ -547,5 +599,20 @@ mod tests {
         for (num, idx, wrong_idx) in tests.iter() {
             assert_proof_err!(num, idx, wrong_idx);
         }
+    }
+    #[test]
+    fn tree_build_test() {
+        let num = 13;
+        let idx = 7;
+        let hasher = Hasher::new(b"test");
+
+        let items = test_items(num as usize);
+        println!("items {:?}", items);
+        let path = Path::new(&items, idx as usize, &hasher).unwrap();
+        let root = path.compute_root(&items[idx], &hasher);
+
+        println!("items: {:?}", (items[idx as usize].clone()));
+        println!("root: {:?}", root);
+        println!("path: {:?}", path);
     }
 }

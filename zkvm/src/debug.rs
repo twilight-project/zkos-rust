@@ -15,8 +15,8 @@ use crate::ops::Instruction;
 use crate::predicate::Predicate;
 use crate::program::Program;
 use crate::tx::{Tx, TxID, VerifiedTx};
-use crate::types::{String, Value, OutputCoin};
-
+use crate::types::{String, Value};
+use crate::zkos_types::OutputCoin;
 impl fmt::Debug for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let progslice: &[Instruction] = &self;
@@ -77,7 +77,7 @@ impl Value {
 
 impl OutputCoin {
     pub(crate) fn fmt_as_pushdata(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "OutputCoin{{{:?},{:?}}}", self.encrypt, self.address)
+        write!(f, "OutputCoin{{{:?},{:?}}}", self.encrypt, self.owner)
     }
 }
 
@@ -110,8 +110,8 @@ impl Instruction {
             Instruction::Scalar => write!(f, "scalar"),
             Instruction::Commit => write!(f, "commit"),
             Instruction::Alloc(_) => write!(f, "alloc"),
-            Instruction::Mintime => write!(f, "mintime"),
-            Instruction::Maxtime => write!(f, "maxtime"),
+            //  Instruction::Mintime => write!(f, "mintime"),
+            // Instruction::Maxtime => write!(f, "maxtime"),
             Instruction::Expr => write!(f, "expr"),
             Instruction::Neg => write!(f, "neg"),
             Instruction::Add => write!(f, "add"),
@@ -126,7 +126,7 @@ impl Instruction {
             Instruction::Issue => write!(f, "issue"),
             Instruction::Borrow => write!(f, "borrow"),
             Instruction::Retire => write!(f, "retire"),
-          //  Instruction::Cloak(m, n) => write!(f, "cloak:{}:{}", m, n),
+            //  Instruction::Cloak(m, n) => write!(f, "cloak:{}:{}", m, n),
             Instruction::Fee => write!(f, "fee"),
             Instruction::Input => write!(f, "input"),
             Instruction::Output(k) => write!(f, "output:{}", k),
