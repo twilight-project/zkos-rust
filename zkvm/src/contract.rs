@@ -6,12 +6,12 @@ use crate::merkle::MerkleItem;
 use crate::predicate::Predicate;
 use crate::program::ProgramItem;
 use crate::transcript::TranscriptProtocol;
-use crate::types::{String, Value, OutputCoin};
+use crate::types::{String, Value};
+use crate::zkos_types::OutputCoin;
 use merlin::Transcript;
 //use transaction::types::Coin;
 //use crate::util::Address;
 //use quisquislib::elgamal::ElGamalCommitment;
-
 
 /// Prefix for the string type in the Output Structure
 pub const STRING_TYPE: u8 = 0x00;
@@ -223,8 +223,8 @@ impl Decodable for PortableItem {
             }
             COIN_TYPE => {
                 let encrypt = reader.read_encryption()?;
-                let address = reader.read_address()?;
-                Ok(PortableItem::Coin(OutputCoin { encrypt, address }))
+                let owner = reader.read_address()?;
+                Ok(PortableItem::Coin(OutputCoin { encrypt, owner }))
             }
             _ => Err(ReadError::InvalidFormat),
         }
@@ -238,8 +238,8 @@ impl PortableItem {
             _ => None,
         }
     }
-     /// Attempts to cast the item as an OutputCoin type.
-     pub fn as_coin(&self) -> Option<&OutputCoin> {
+    /// Attempts to cast the item as an OutputCoin type.
+    pub fn as_coin(&self) -> Option<&OutputCoin> {
         match self {
             PortableItem::Coin(c) => Some(c),
             _ => None,

@@ -19,6 +19,7 @@ curve25519-dalek = { version = "3", features = ["serde"] }
 serde = { version = "1.0", features=["derive"] }
 subtle-encoding = "0.5.1"
 hex = "^0.3"
+bincode = "*"
 
 [dependencies.readerwriter]
 path = "../readerwriter"
@@ -36,8 +37,8 @@ path = "../starsig"
 [dependencies.mulmsgsig]
 path = "../mulmsgsig"
 
-[dependencies.transaction]
-path = "../transaction"
+[dependencies.address]
+path = "../address"
 
 [dependencies.elgamalsign]
 path = "../elgamalsign"
@@ -48,8 +49,9 @@ branch = "develop"
 features = ["yoloproofs"]
 
 [dependencies.quisquis-rust]
+#path ="../../quisquis-rust"
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "zkos"
+branch = "qqtxapi-merged"
 
 [features]
 default = []

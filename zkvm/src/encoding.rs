@@ -1,14 +1,14 @@
 //! Encoding utils for ZkVM
 //! All methods err using VMError::InvalidFormat for convenience.
 
+use crate::errors::VMError;
+
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
+use quisquislib::elgamal::ElGamalCommitment;
 pub use readerwriter::{
     Decodable, Encodable, ExactSizeEncodable, ReadError, Reader, WriteError, Writer,
 };
-use transaction::util::Address;
-use crate::errors::VMError;
-use quisquislib::elgamal::ElGamalCommitment;
 
 /// Extension to the Reader interface for Ristretto points and scalars.
 pub trait ReaderExt: Reader {
@@ -29,25 +29,24 @@ pub trait ReaderExt: Reader {
         Scalar::from_canonical_bytes(buf).ok_or(ReadError::InvalidFormat)
     }
 
-     /// Reads Encryption bytes as pair of Ristretto255 points (64 bytes).
-     fn read_encryption(&mut self) -> Result<ElGamalCommitment, ReadError> {
+    /// Reads Encryption bytes as pair of Ristretto255 points (64 bytes).
+    fn read_encryption(&mut self) -> Result<ElGamalCommitment, ReadError> {
         let buf = self.read_u8x64()?;
         let res = ElGamalCommitment::from_bytes(&buf);
-        if res.is_ok(){
+        if res.is_ok() {
             Ok(res.unwrap())
-        }else{
+        } else {
             Err(ReadError::InvalidFormat)
         }
-
     }
 
     /// Reads address bytes.
-    fn read_address(&mut self) -> Result<Address, ReadError> {
+    fn read_address(&mut self) -> Result<String, ReadError> {
         let buf = self.read_u8x64()?;
-        let res = Address::from_bytes(&buf);
-        if res.is_ok(){
+        let res = String::from_utf8(buf.to_vec());
+        if res.is_ok() {
             Ok(res.unwrap())
-        }else{
+        } else {
             Err(ReadError::InvalidFormat)
         }
     }
@@ -80,16 +79,12 @@ pub trait WriterExt: Writer {
         label: &'static [u8],
         x: &ElGamalCommitment,
     ) -> Result<(), WriteError> {
-       // let b = x.to_bytes();
+        // let b = x.to_bytes();
         self.write(label, &x.to_bytes()[..])
     }
 
     /// Writes an Address of account
-    fn write_address(
-        &mut self,
-        label: &'static [u8],
-        x: &Address,
-    ) -> Result<(), WriteError> {
+    fn write_address(&mut self, label: &'static [u8], x: &String) -> Result<(), WriteError> {
         self.write(label, &x.as_bytes()[..])
     }
 }

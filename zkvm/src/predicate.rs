@@ -330,8 +330,8 @@ impl MerkleItem for PredicateLeaf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Commitment;
     use rand::Rng;
-
     #[test]
     fn valid_taproot() {
         let prog1 = Program::build(|p| {
@@ -367,5 +367,72 @@ mod tests {
         let (call_proof, _) = tree.create_callproof(0).unwrap();
         let result = tree_pred.verify_taproot(&ProgramItem::Program(prog3), &call_proof);
         assert!(result.is_err())
+    }
+
+    #[test]
+    fn prog_tree_build_test() {
+        let prog1 = Program::build(|p| {
+            p.drop();
+        });
+        let prog2 = Program::build(|p| {
+            p.dup(1);
+        });
+        let prog3 = Program::build(|p| {
+            p.roll(0);
+        });
+        let prog4 = Program::build(|p| {
+            p.push(Commitment::blinded(10u64));
+            p.push(Commitment::blinded(20u64));
+        });
+        let prog5 = Program::build(|p| {
+            p.push(Commitment::blinded(5u64));
+            p.dup(1);
+        });
+        let progs = vec![prog1, prog2, prog3, prog4, prog5];
+
+        let hasher = Hasher::new(b"test");
+
+        //let p1_hash = hasher.empty();
+        //println!("p1_hash: {:?}", p1_hash);
+
+        //let p2_hash = hasher.leaf(&progs[0]);
+        //println!("p2_hash: {:?}", p2_hash);
+
+        //let p3_hash = hasher.leaf(&progs[1]);
+        //println!("p3_hash: {:?}", p3_hash);
+
+        let path_1 = Path::new(&progs, 0 as usize, &hasher).unwrap();
+        println!("path_1: {:?}", path_1);
+        let root_1 = path_1.compute_root(&progs[0], &hasher);
+        println!("root_1: {:?}", root_1);
+        let path_2 = Path::new(&progs, 1 as usize, &hasher).unwrap();
+        println!("path_2: {:?}", path_2);
+        let root_2 = path_2.compute_root(&progs[1], &hasher);
+        println!("root_2: {:?}", root_2);
+        let path_3 = Path::new(&progs, 2 as usize, &hasher).unwrap();
+        println!("path_3: {:?}", path_3);
+        let root_3 = path_3.compute_root(&progs[2], &hasher);
+        println!("root_3: {:?}", root_3);
+        let path_4 = Path::new(&progs, 3 as usize, &hasher).unwrap();
+        println!("path_4: {:?}", path_4);
+        let root_4 = path_4.compute_root(&progs[3], &hasher);
+        println!("root_4: {:?}", root_4);
+        let path_5 = Path::new(&progs, 4 as usize, &hasher).unwrap();
+        println!("path_5: {:?}", path_5);
+        let root_5 = path_5.compute_root(&progs[4], &hasher);
+        println!("root_5: {:?}", root_5);
+
+        let root = MerkleTree::root(b"test", progs.iter());
+        println!("root: {:?}", root);
+
+        //create call proofs. Path
+        let path = Path::new(&progs, 3 as usize, &Hasher::new(b"test")).unwrap();
+        println!("path: {:?}", path);
+        let program: Program = progs[3].clone();
+        println!("program: {:?}", program);
+
+        //verify call proofs
+        let verify = path.verify_root(&root, &program, &Hasher::new(b"test"));
+        println!("verify: {:?}", verify);
     }
 }
