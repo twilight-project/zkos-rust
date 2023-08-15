@@ -1,0 +1,4 @@
+snapshot_storage
+src/snapshot/leveldb_docs.rs
+.vscode
+src/blockoperations/test

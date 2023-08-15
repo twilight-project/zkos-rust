@@ -18,7 +18,7 @@ use serde::{Serialize, Serializer};
 
 /// Used in Dark Transaction and Quisquis Tx
 /// Store Dark Tx Proof
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DarkTxProof {
     pub(super) delta_accounts: Vec<Account>,
     pub(super) epsilon_accounts: Vec<Account>,
@@ -26,16 +26,19 @@ pub struct DarkTxProof {
     pub(super) updated_sender_epsilon_accounts: Vec<Account>,
     pub(super) sender_account_dleq: SigmaProof,
     pub(super) range_proof: Vec<RangeProof>,
+    //ONLY FOR TESTING PURPOSES
+    pub(super) receivers_count: usize, //SHOULD BE REMOVED LATER
 }
 
 ///
 /// Store the shuffle proof and missing info for QuisQuis TX
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ShuffleTxProof {
     pub(super) input_dash_accounts: Vec<Account>, //Updated input accounts
     pub(super) input_shuffle_proof: ShuffleProof,
     pub(super) input_shuffle_statement: ShuffleStatement,
     pub(super) updated_delta_dlog: SigmaProof,
+    pub(super) zero_balance_dlog: Option<SigmaProof>,
     pub(super) zero_balance_dlog: Option<SigmaProof>,
     pub(super) updated_delta_accounts: Vec<Account>,
 
@@ -123,6 +126,7 @@ impl DarkTxProof {
         epsilon_accounts: &[Account],
         delta_rscalar: &[Scalar],
         sender_updated_delta_account: &[Account],
+        sender_updated_delta_account: &[Account],
         sender_updated_balance: &[u64],
         reciever_updated_balance: &[u64],
         sender_sk: &[RistrettoSecretKey],
@@ -141,6 +145,7 @@ impl DarkTxProof {
         // let updated_delta_accounts_sender_slice = &delta_accounts[..senders_count];
         let (updated_sender_epsilon_accounts, epsilon_sender_rscalar_vector, sender_account_dleq) =
             Prover::verify_account_prover(
+                &sender_updated_delta_account,
                 &sender_updated_delta_account,
                 sender_updated_balance,
                 sender_sk,
@@ -175,6 +180,7 @@ impl DarkTxProof {
             updated_sender_epsilon_accounts,
             sender_account_dleq,
             range_proof,
+            receivers_count,
         }
     }
 
@@ -189,10 +195,12 @@ impl DarkTxProof {
     ) -> Result<(), &'static str> {
         let base_pk = RistrettoPublicKey::generate_base_pk();
         //identity check function to verify the construction of epsilon accounts using correct rscalars
+
         Verifier::verify_delta_identity_check(&self.epsilon_accounts)?;
         // Verify Update Delta.
         // checks if pk_input' = pk_delta =pk_output'
         // checks if com_output' = com_input' * com_delta
+
         Account::verify_delta_update(updated_delta_account, &self.delta_accounts, updated_input)?;
         let delta_dleq = self.delta_dleq.clone();
         let (zv_vector, zr1_vector, zr2_vector, x) = delta_dleq.get_dleq();
@@ -209,6 +217,9 @@ impl DarkTxProof {
 
         let (zv_sender_acc, zsk_sender_acc, zr_sender_acc, x_sender_acc) =
             self.sender_account_dleq.clone().get_dleq();
+
+        let senders_count: usize = self.updated_sender_epsilon_accounts.len();
+        let updated_delta_account_sender = &updated_delta_account[..senders_count];
         //verify sender account signature and remaining balance.
         let senders_count: usize = self.updated_sender_epsilon_accounts.len();
         let updated_delta_account_sender = &updated_delta_account[..senders_count];
@@ -226,7 +237,8 @@ impl DarkTxProof {
         //let total_count : usize = self.epsilon_accounts.len();
         //Verify the bulletproofs
 
-        let reciever_epsilon_accounts_slice = &self.epsilon_accounts[senders_count..].to_vec();
+        let reciever_epsilon_accounts_slice =
+            &self.epsilon_accounts[senders_count..senders_count + self.receivers_count].to_vec();
         //prepare epsilon account vector for sender + reciver
         let bp_epsilon_vec: Vec<Account> = self
             .updated_sender_epsilon_accounts
@@ -258,14 +270,14 @@ impl DarkTxProof {
     }
 }
 
-impl Serialize for DarkTxProof {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
+// impl Serialize for DarkTxProof {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         serializer.serialize_bytes(&self.to_bytes()[..])
+//     }
+// }
 
 //impl<'de> Deserialize<'de> for DarkTxProof {
 //    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -310,10 +322,6 @@ impl ShuffleTxProof {
         rscalars_slice: &[Scalar],
         input_anonymity_account_slice: &[Account],
         anonymity_comm_scalar: &[Scalar],
-        anonymity_index: usize,
-        senders_count: usize,
-        receivers_count: usize,
-        base_pk: RistrettoPublicKey,
         input_shuffle: &Shuffle,
         output_shuffle: &Shuffle,
     ) -> ShuffleTxProof {
@@ -322,6 +330,7 @@ impl ShuffleTxProof {
         let xpc_gens = VectorPedersenGens::new(ROWS + 1);
         // Prepare the constraint system
         let pc_gens = PedersenGens::default();
+
         let (input_shuffle_proof, input_shuffle_statement) =
             ShuffleProof::create_shuffle_proof(prover, input_shuffle, &pc_gens, &xpc_gens);
 
@@ -340,6 +349,7 @@ impl ShuffleTxProof {
          ** since we are doing compact batch proof we need to collect the anonymity set before we can run the proof
         let zero_balance_dlog = Prover::zero_balance_account_prover(
             &input_anonymity_account_slice,
+            &input_anonymity_account_slice,
             &anonymity_comm_scalar,
             prover,
         );*/
@@ -349,9 +359,12 @@ impl ShuffleTxProof {
 
         ShuffleTxProof {
             input_dash_accounts: input_shuffle.get_outputs_vector(),
+            input_dash_accounts: input_shuffle.get_outputs_vector(),
             input_shuffle_proof,
             input_shuffle_statement,
             updated_delta_dlog,
+            zero_balance_dlog: None,
+            updated_delta_accounts: output_shuffle.get_inputs_vector(),
             zero_balance_dlog: None,
             updated_delta_accounts: output_shuffle.get_inputs_vector(),
             output_shuffle_proof,
@@ -388,6 +401,7 @@ impl ShuffleTxProof {
         let updated_accounts_slice = &self.input_dash_accounts[anonymity_index..9];
         let updated_delta_accounts_slice = &self.updated_delta_accounts[anonymity_index..9];
         //verify dlog proof
+        println!("BEFORE Anony index {:?}", anonymity_index);
         Verifier::verify_update_account_verifier(
             &updated_accounts_slice,
             &updated_delta_accounts_slice,
@@ -454,14 +468,14 @@ impl ShuffleTxProof {
     }
 }
 
-impl Serialize for ShuffleTxProof {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
+// impl Serialize for ShuffleTxProof {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         serializer.serialize_bytes(&self.to_bytes()[..])
+//     }
+// }
 
 //impl<'de> Deserialize<'de> for ShuffleTxProof {
 //  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -509,6 +523,8 @@ mod test {
         let base_pk = RistrettoPublicKey::generate_base_pk();
 
         let value_vector: Vec<Scalar> = vec![
+            -Scalar::from(-(-5i64) as u64),
+            -Scalar::from(-(-3i64) as u64),
             -Scalar::from(-(-5i64) as u64),
             -Scalar::from(-(-3i64) as u64),
             Scalar::from(5u64),
