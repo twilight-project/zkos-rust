@@ -1,8 +1,15 @@
+//#![deny(missing_docs)]
+#![allow(non_snake_case)]
+
+//! ZkOS Transaction Address implementation.
+pub extern crate quisquislib;
+
 use bs58;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use quisquislib::{keys::PublicKey, ristretto::RistrettoPublicKey};
-use serde::{Serialize, Deserialize};
-use sha3::{Digest, Keccak256};
+use ripemd::{Digest, Ripemd160};
+use serde::{Deserialize, Serialize};
+use sha3::Keccak256;
 use std::fmt;
 
 /// The list of the existing Twilight networks.
@@ -24,11 +31,11 @@ impl Network {
         use AddressType::*;
         match self {
             Network::Mainnet => match addr_type {
-                Standard => 12,
+                Coin => 12,
                 Script => 24,
             },
             Network::Testnet => match addr_type {
-                Standard => 44,
+                Coin => 44,
                 Script => 66,
             },
         }
@@ -53,11 +60,11 @@ impl Default for Network {
 }
 /// Address type: standard, contract.
 ///
-/// AddressType implements [`Default`] and returns [`AddressType::Standard`].
+/// AddressType implements [`Default`] and returns [`AddressType::Coin`].
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum AddressType {
     /// Standard twilight coin address.
-    Standard,
+    Coin,
     /// Script addresses.
     Script,
 }
@@ -70,12 +77,12 @@ impl AddressType {
         use Network::*;
         match net {
             Mainnet => match byte {
-                12 => Ok(Standard),
+                12 => Ok(Coin),
                 24 => Ok(Script),
                 _ => Err("Error::InvalidAddressTypeMagicByte"),
             },
             Testnet => match byte {
-                44 => Ok(Standard),
+                44 => Ok(Coin),
                 66 => Ok(Script),
                 _ => Err("Error::InvalidAddressTypeMagicByte"),
             },
@@ -85,22 +92,89 @@ impl AddressType {
 
 impl Default for AddressType {
     fn default() -> AddressType {
-        AddressType::Standard
+        AddressType::Coin
     }
 }
 
 impl fmt::Display for AddressType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AddressType::Standard => write!(f, "Standard address"),
-            AddressType::Script => write!(f, "Script"),
+            AddressType::Coin => write!(f, "Coin address"),
+            AddressType::Script => write!(f, "Script address"),
+        }
+    }
+}
+
+/// Address: standard, contract.
+///
+/// Address implements [`Default`] and returns [`Address::Coin`].
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+pub enum Address {
+    /// Standard twilight coin address.
+    Coin(CoinAddress),
+    /// Script addresses.
+    Script(ScriptAddress),
+}
+
+impl Address {
+    /// Recover the address type given an address bytes and the network.
+    /// /// Create a standard address which is valid on the given network.
+    pub fn coin_address(network: Network, public_key: RistrettoPublicKey) -> Address {
+        Self::Coin(CoinAddress {
+            network,
+            addr_type: AddressType::Coin,
+            public_key,
+        })
+    }
+
+    /// Create a script address which is valid on the given network.
+    pub fn script_address(network: Network, root: [u8; 32]) -> Address {
+        Self::Script(ScriptAddress {
+            network,
+            addr_type: AddressType::Script,
+            root,
+        })
+    }
+    /// Serialize the address bytes as a BTC-Base58 string.
+    pub fn as_base58(&self) -> String {
+        match *self {
+            Address::Coin(c) => c.as_base58(),
+            Address::Script(s) => s.as_base58(),
+        }
+    }
+
+    /// Serialize the address bytes as a Hex string.
+    pub fn as_hex(&self) -> String {
+        match *self {
+            Address::Coin(c) => c.as_hex(),
+            Address::Script(s) => s.as_hex(),
+        }
+    }
+
+    /// Serialize the address as a byte string.
+    pub fn as_bytes(&self) -> Vec<u8> {
+        match *self {
+            Address::Coin(c) => c.as_bytes(),
+            Address::Script(s) => s.as_bytes().to_vec(),
+        }
+    }
+    pub fn as_script_address(&self) -> ScriptAddress {
+        match *self {
+            Address::Script(s) => s,
+            _ => panic!("Not a script address"),
+        }
+    }
+    pub fn as_coin_address(&self) -> CoinAddress {
+        match *self {
+            Address::Coin(c) => c,
+            _ => panic!("Not a coin address"),
         }
     }
 }
 
 /// A complete twilight typed address valid for a specific network.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
-pub struct Address {
+pub struct CoinAddress {
     /// The network on which the address is valid and should be used.
     pub network: Network,
     /// The address type.
@@ -109,28 +183,11 @@ pub struct Address {
     pub public_key: RistrettoPublicKey,
 }
 
-impl Address {
-    /// Create a standard address which is valid on the given network.
-    pub fn standard(network: Network, public_key: RistrettoPublicKey) -> Address {
-        Address {
-            network,
-            addr_type: AddressType::Standard,
-            public_key,
-        }
-    }
-
-    /// Create a Contract address which is valid on the given network.
-    pub fn script(network: Network, public_key: RistrettoPublicKey) -> Address {
-        Address {
-            network,
-            addr_type: AddressType::Script,
-            public_key,
-        }
-    }
-
+impl CoinAddress {
     /// Parse an address from a vector of bytes, fail if the magic byte is incorrect, if public
     /// keys are not valid points, and if checksums missmatch.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Address, &'static str> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<CoinAddress, &'static str> {
+        use sha3::Digest;
         let network = Network::from_u8(bytes[0])?;
         let addr_type = AddressType::from_slice(&bytes, network)?;
         let gr = slice_to_pkpoint(&bytes[1..33])?;
@@ -144,7 +201,7 @@ impl Address {
             return Err("Invalid Checksum");
         }
 
-        Ok(Address {
+        Ok(CoinAddress {
             network,
             addr_type,
             public_key,
@@ -154,6 +211,7 @@ impl Address {
     /// Serialize the address as a vector of bytes.
     /// Byte Format : [magic byte, public key, checksum]  
     pub fn as_bytes(&self) -> Vec<u8> {
+        use sha3::Digest;
         let mut bytes = vec![self.network.as_u8(&self.addr_type)];
         bytes.extend_from_slice(self.public_key.as_bytes().as_slice());
         let mut hasher = Keccak256::new();
@@ -185,6 +243,50 @@ impl Address {
     }
 }
 
+// A complete twilight typed address valid for a specific network.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
+pub struct ScriptAddress {
+    /// The network on which the address is valid and should be used.
+    pub network: Network,
+    /// The address type.
+    pub addr_type: AddressType,
+    /// The root hash of the script tree.
+    pub root: [u8; 32],
+}
+
+impl ScriptAddress {
+    /// Serialize the address as a vector of bytes using Ripemd160 hash for scripts.
+    /// Byte Format : [magic byte, script tree root hash]  
+    pub fn as_bytes(&self) -> [u8; 21] {
+        let mut bytes: Vec<u8> = Vec::with_capacity(21);
+        //add Network magic Byte
+        bytes.push(self.network.as_u8(&self.addr_type));
+
+        // create a RIPEMD-160 hasher instance
+        let mut hasher = Ripemd160::new();
+        // process input message i.e., RIPEMD-160 of tree root hash
+        hasher.update(&self.root);
+        // acquire hash digest in the form of GenericArray, which in this case is equivalent to [u8; 20]
+        let result = hasher.finalize();
+        //add RIP-160 hash bytes to byte array
+        bytes.extend_from_slice(&result);
+        bytes.try_into().unwrap()
+    }
+
+    /// Serialize the address as a vector of bytes using Ripemd160 hash for scripts.
+    /// Byte Format : [magic byte, script tree root hash]  
+    // pub fn from_bytes(bytes : &[u8]) -> ScriptAddress {
+
+    /// Serialize the address bytes as a hexadecimal string.
+    pub fn as_hex(&self) -> String {
+        hex::encode(self.as_bytes())
+    }
+
+    /// Serialize the address bytes as a BTC-Base58 string.
+    pub fn as_base58(&self) -> String {
+        bs58::encode(self.as_bytes()).into_string()
+    }
+}
 /// Deserialize a public key from a slice. The input slice is 64 bytes
 /// Utility Function
 fn slice_to_pkpoint(data: &[u8]) -> Result<CompressedRistretto, &'static str> {
@@ -205,7 +307,23 @@ fn slice_to_pkpoint(data: &[u8]) -> Result<CompressedRistretto, &'static str> {
 // ------------------------------------------------------------------------
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use super::*;
+    use sha3::{Digest, Keccak256};
     #[test]
     fn hex_encoding_decoding_test() {}
+
+    #[test]
+    fn script_address_encoding_test() {
+        let random_str = "I am a fool. Hardy Hardy fool fool";
+        //Hasho fthe string
+        let mut hasher = Keccak256::new();
+        hasher.update(&random_str);
+        let result = hasher.finalize();
+
+        let root_hash = result.into();
+        let sc_add = Address::script_address(Network::Mainnet, root_hash);
+        let by = sc_add.as_bytes();
+        println!("length: {:?}", by.len());
+        println!("bytes: {:?}", by);
+    }
 }

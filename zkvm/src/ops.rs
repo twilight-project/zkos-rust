@@ -80,14 +80,14 @@ pub enum Instruction {
     /// Pushes an _expression_ `expr` corresponding to the _minimum time bound_ of the transaction.
     ///
     /// The one-term expression represents time bound as a weight on the R1CS constant `1` (see `scalar`).
-    Mintime,
+    // Mintime,
 
     /// **maxtime** → _expr_
     ///
     /// Pushes an _expression_ `expr` corresponding to the _maximum time bound_ of the transaction.
     ///
     /// The one-term expression represents time bound as a weight on the R1CS constant `1` (see `scalar`).
-    Maxtime,
+    // Maxtime,
 
     /// _var_ **expr** → _ex_
     ///
@@ -526,9 +526,9 @@ pub enum Opcode {
     /// A code for [Instruction::Alloc]
     Alloc = 0x07,
     /// A code for [Instruction::Mintime]
-    Mintime = 0x08,
+    //Mintime = 0x08,
     /// A code for [Instruction::Maxtime]
-    Maxtime = 0x09,
+    // Maxtime = 0x09,
     /// A code for [Instruction::Expr]
     Expr = 0x0a,
     /// A code for [Instruction::Neg]
@@ -630,8 +630,8 @@ impl Encodable for Instruction {
             Instruction::Scalar => write(Opcode::Scalar)?,
             Instruction::Commit => write(Opcode::Commit)?,
             Instruction::Alloc(_) => write(Opcode::Alloc)?,
-            Instruction::Mintime => write(Opcode::Mintime)?,
-            Instruction::Maxtime => write(Opcode::Maxtime)?,
+            //  Instruction::Mintime => write(Opcode::Mintime)?,
+            //  Instruction::Maxtime => write(Opcode::Maxtime)?,
             Instruction::Expr => write(Opcode::Expr)?,
             Instruction::Neg => write(Opcode::Neg)?,
             Instruction::Add => write(Opcode::Add)?,
@@ -687,7 +687,7 @@ impl ExactSizeEncodable for Instruction {
             Instruction::Program(progitem) => 1 + 4 + progitem.encoded_size(),
             Instruction::Dup(_) => 1 + 4,
             Instruction::Roll(_) => 1 + 4,
-           // Instruction::Cloak(_, _) => 1 + 4 + 4,
+            // Instruction::Cloak(_, _) => 1 + 4 + 4,
             Instruction::Output(_) => 1 + 4,
             Instruction::Contract(_) => 1 + 4,
             Instruction::InputCoin(_) => 1 + 4,
@@ -739,8 +739,8 @@ impl Instruction {
             Opcode::Scalar => Ok(Instruction::Scalar),
             Opcode::Commit => Ok(Instruction::Commit),
             Opcode::Alloc => Ok(Instruction::Alloc(None)),
-            Opcode::Mintime => Ok(Instruction::Mintime),
-            Opcode::Maxtime => Ok(Instruction::Maxtime),
+            // Opcode::Mintime => Ok(Instruction::Mintime),
+            // Opcode::Maxtime => Ok(Instruction::Maxtime),
             Opcode::Expr => Ok(Instruction::Expr),
             Opcode::Neg => Ok(Instruction::Neg),
             Opcode::Add => Ok(Instruction::Add),
@@ -755,7 +755,7 @@ impl Instruction {
             Opcode::Issue => Ok(Instruction::Issue),
             Opcode::Borrow => Ok(Instruction::Borrow),
             Opcode::Retire => Ok(Instruction::Retire),
-           /* Opcode::Cloak => {
+            /* Opcode::Cloak => {
                 let m = program.read_size()?;
                 let n = program.read_size()?;
                 Ok(Instruction::Cloak(m, n))
@@ -777,11 +777,11 @@ impl Instruction {
             Opcode::Signtag => Ok(Instruction::Signtag),
             Opcode::InputCoin => {
                 let idx = program.read_size()?;
-                Ok(Instruction::InputCoin(idx ))
+                Ok(Instruction::InputCoin(idx))
             }
             Opcode::OutputCoin => {
                 let idx = program.read_size()?;
-                Ok(Instruction::OutputCoin(idx ))
+                Ok(Instruction::OutputCoin(idx))
             }
         }
     }

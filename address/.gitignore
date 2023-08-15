@@ -16,5 +16,3 @@ Cargo.lock
 #Ignore .DS_Store
 **/.DS_Store
 
-#Ignore Visual Studio Code Workspace
-ZkOS.code-workspace

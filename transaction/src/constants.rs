@@ -18,7 +18,7 @@
 //! ```
 
 #![allow(non_snake_case)]
-
+#![allow(dead_code)]
 // Gas charged per byte of the transaction.
 pub const GAS_PER_BYTE: u64 = 10;
 

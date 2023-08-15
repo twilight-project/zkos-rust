@@ -1,6 +1,6 @@
 use bulletproofs::r1cs;
-use bulletproofs::r1cs::R1CSProof;
 use bulletproofs::r1cs::ConstraintSystem;
+use bulletproofs::r1cs::R1CSProof;
 use bulletproofs::{BulletproofGens, PedersenGens};
 use curve25519_dalek::ristretto::CompressedRistretto;
 use merlin::Transcript;
@@ -14,10 +14,9 @@ use crate::fees::FeeRate;
 use crate::ops::Instruction;
 use crate::predicate::Predicate;
 use crate::program::ProgramItem;
-use crate::tx::{PrecomputedTx, Tx, VerifiedTx, TxHeader};
+use crate::tx::{PrecomputedTx, Tx, TxHeader, VerifiedTx};
 use crate::vm::{Delegate, VM};
-use transaction::{Input, Output};
-
+use crate::zkos_types::{Input, Output};
 
 /// This is the entry point API for verifying a transaction.
 /// Verifier passes the `Tx` object through the VM,
@@ -91,8 +90,11 @@ impl Verifier {
     /// One obstacle towards that is relation between CS and the transcript: the CS
     /// only holds a &mut of the transcript that can only be parked in the lexical scope,
     /// but not in the struct. And we need CS instance both for building tx and for verifying.
-    pub(crate) fn precompute(tx: &Tx, inputs: &[Input],
-        outputs: &[Output]) -> Result<PrecomputedTx, VMError> {
+    pub(crate) fn precompute(
+        tx: &Tx,
+        _inputs: &[Input],
+        _outputs: &[Output],
+    ) -> Result<PrecomputedTx, VMError> {
         let cs = r1cs::Verifier::new(Transcript::new(b"ZkVM.r1cs"));
 
         let mut verifier = Verifier {
@@ -174,7 +176,11 @@ impl Verifier {
     }
 
     /// verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
-    pub fn verify_proof (proof: R1CSProof, header: TxHeader, program: Vec<u8>) -> Result<bool, VMError> {
+    pub fn verify_proof(
+        proof: R1CSProof,
+        header: TxHeader,
+        program: Vec<u8>,
+    ) -> Result<bool, VMError> {
         let bp_gens = BulletproofGens::new(256, 1);
         //print!("BP Gens in verify_proof {:?}", bp_gens);
         let pc_gens = PedersenGens::default();
@@ -186,11 +192,7 @@ impl Verifier {
             batch: starsig::BatchVerifier::new(rand::thread_rng()),
         };
 
-        let vm = VM::new(
-            header,
-            VerifierRun::new(program.clone()),
-            &mut verifier,
-        );
+        let vm = VM::new(header, VerifierRun::new(program.clone()), &mut verifier);
 
         let (id, _log, _fee) = vm.run()?;
 
@@ -206,43 +208,48 @@ impl Verifier {
         Ok(true)
     }
 
-    /// verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
-    pub fn verify_proof_new (proof: R1CSProof, header: TxHeader, program: Vec<u8>, inputs: &[Input],
-        outputs: &[Output]) -> Result<bool, VMError> {
-        let bp_gens = BulletproofGens::new(256, 1);
-        //print!("BP Gens in verify_proof {:?}", bp_gens);
-        let pc_gens = PedersenGens::default();
-        let cs = r1cs::Verifier::new(Transcript::new(b"ZkVM.r1cs"));
+    // verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
+    // pub fn verify_proof_new(
+    //     proof: R1CSProof,
+    //     header: TxHeader,
+    //     program: Vec<u8>,
+    //     inputs: &[Input],
+    //     outputs: &[Output],
+    // ) -> Result<bool, VMError> {
+    //     let bp_gens = BulletproofGens::new(256, 1);
+    //     //print!("BP Gens in verify_proof {:?}", bp_gens);
+    //     let pc_gens = PedersenGens::default();
+    //     let cs = r1cs::Verifier::new(Transcript::new(b"ZkVM.r1cs"));
 
-        let mut verifier = Verifier {
-            signtx_items: Vec::new(),
-            cs: cs,
-            batch: starsig::BatchVerifier::new(rand::thread_rng()),
-        };
+    //     let mut verifier = Verifier {
+    //         signtx_items: Vec::new(),
+    //         cs: cs,
+    //         batch: starsig::BatchVerifier::new(rand::thread_rng()),
+    //     };
 
-        let vm = crate::vm::VMScript::new(
-            header.mintime_ms,
-            header.maxtime_ms,
-            false,
-            VerifierRun::new(program.clone()),
-            &mut verifier,
-            inputs,
-            outputs,
-        );
+    //     let vm = crate::vm::VMScript::new(
+    //         VerifierRun::new(program.clone()),
+    //         &mut verifier,
+    //         inputs,
+    //         outputs,
+    //     );
 
-        let (_fee) = vm.run()?;
+    //     let _fee = vm.run()?;
 
-        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
-        verifier.cs.transcript().append_message(b"ZkVM.txid", b"ZKOS");
+    //     // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
+    //     verifier
+    //         .cs
+    //         .transcript()
+    //         .append_message(b"ZkVM.txid", b"ZKOS");
 
-        // Verify the R1CS proof
-        verifier
-            .cs
-            .verify(&proof, &pc_gens, &bp_gens)
-            .map_err(|_| VMError::InvalidR1CSProof)?;
+    //     // Verify the R1CS proof
+    //     verifier
+    //         .cs
+    //         .verify(&proof, &pc_gens, &bp_gens)
+    //         .map_err(|_| VMError::InvalidR1CSProof)?;
 
-        Ok(true)
-    }
+    //     Ok(true)
+    // }
 }
 
 impl VerifierRun {
