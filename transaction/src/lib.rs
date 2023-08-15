@@ -8,17 +8,19 @@ pub extern crate quisquislib;
 
 mod constants;
 mod errors;
-mod proof;
-mod reference_tx;
-mod script_tx;
+pub mod proof;
+pub mod reference_tx;
+pub mod script_tx;
 mod serialization;
-mod transfer_tx;
-mod vm_run;
+pub mod transfer_tx;
+pub mod vm_run;
 
 //mod encode;
 #[cfg(test)]
 mod tests;
 pub use self::errors::TxError;
 pub use self::proof::{DarkTxProof, ShuffleTxProof};
-pub use self::transfer_tx::{Transaction, TransferTransaction};
+pub use self::reference_tx::{Receiver, Sender};
+pub use self::script_tx::ScriptTransaction;
+pub use self::transfer_tx::{Transaction, TransactionData, TransactionType, TransferTransaction};
 //pub use self::encode::{ReaderExt, WriterExt};

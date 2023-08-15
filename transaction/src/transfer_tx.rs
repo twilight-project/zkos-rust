@@ -7,7 +7,7 @@ use address::{Address, Network};
 use merlin::Transcript;
 use zkvm::zkos_types::{Input, InputData, Output, OutputCoin, OutputData, Utxo, Witness};
 
-//use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use bulletproofs::r1cs::R1CSProof;
 use curve25519_dalek::scalar::Scalar;
@@ -21,7 +21,7 @@ use quisquislib::{
 };
 
 /// A complete twilight Transactiont valid for a specific network.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
     /// Defines the Tx type.
     pub tx_type: TransactionType,
@@ -30,19 +30,55 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    /// Create a input of Dark Coin which is valid on the given network.
+    
+    pub fn new(tx_type: TransactionType, tx: TransactionData) -> Transaction {
+        Transaction {
+            tx_type,
+            tx,
+        }
+    }
+    
+    /// Create a QuisQuis tx .
     pub fn transaction_transfer(data: TransactionData) -> Transaction {
         Transaction {
             tx_type: TransactionType::default(),
             tx: data,
         }
     }
+    /// Create a Script tx .
+    pub fn transaction_script(data: TransactionData) -> Transaction {
+        Transaction {
+            tx_type: TransactionType::Script,
+            tx: data,
+        }
+    }
+    /// return tx Input values
+    pub fn get_tx_inputs(&self) -> Vec<Input> {
+        match self.tx.clone() {
+            TransactionData::TransactionTransfer(transfer_transaction) => {
+                transfer_transaction.get_input_values().clone()
+            }
+            TransactionData::TransactionScript(script_transaction) => {
+                script_transaction.get_input_values().clone()
+            }
+        }
+    }
+    /// return tx Output values
+    pub fn get_tx_outputs(&self) -> Vec<Output> {
+        match self.tx.clone() {
+            TransactionData::TransactionTransfer(transfer_transaction) => {
+                transfer_transaction.get_output_values()
+            }
+            TransactionData::TransactionScript(script_transaction) => script_transaction.get_output_values(),
+        }
+    }
+
 }
 
 /// Transaction type: Transfer. Script, Vault
 ///
 /// TransactionType implements [`Default`] and returns [`TransactionType::Transfer`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum TransactionType {
     Transfer,
     Script,
@@ -66,7 +102,7 @@ impl Default for TransactionType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransactionData {
     TransactionTransfer(TransferTransaction),
     TransactionScript(ScriptTransaction),
@@ -94,7 +130,7 @@ impl TransactionData {
 
 ///
 /// Store for TransactionTransfer
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferTransaction {
     //transaction header
     pub(crate) version: u64,
@@ -362,10 +398,6 @@ impl TransferTransaction {
             &delta_rscalar,
             &input_anonymity_account_slice,
             &anonymity_comm_scalar,
-            anonymity_index,
-            senders_count,
-            receivers_count,
-            base_pk,
             &input_shuffle,
             &output_shuffle,
         );
@@ -425,5 +457,13 @@ impl TransferTransaction {
         shuffle_proof.verify(&mut verifier, &inputs, &outputs, anonymity_index)?;
 
         Ok(())
+    }
+
+       //created for utxo-in-memory
+       pub fn get_input_values(&self) -> Vec<Input> {
+        self.inputs.clone()
+    }
+    pub fn get_output_values(&self) -> Vec<Output> {
+        self.outputs.clone()
     }
 }

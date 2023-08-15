@@ -170,6 +170,25 @@ impl Address {
             _ => panic!("Not a coin address"),
         }
     }
+    pub fn from_hex(hex: &str, add_type:AddressType) -> Result<Address, &'static str> {
+        let bytes = hex::decode(hex).map_err(|_| "Error::InvalidHex")?;
+        match add_type {
+            AddressType::Coin => Ok(Address::Coin(CoinAddress::from_bytes(&bytes)?)),
+            AddressType::Script => Err("Error::ScriptAddress can not be re-created from hex"),
+        }
+    }
+    pub fn get_coin_address(&self) -> Result<CoinAddress, &'static str> {
+        match *self {
+            Address::Coin(c) => Ok(c),
+            _ => Err("Error::Not a coin address"),
+        }
+    }
+    pub fn get_script_address(&self) -> Result<ScriptAddress, &'static str> {
+        match *self {
+            Address::Script(s) => Ok(s),
+            _ => Err("Error::Not a script address"),
+        }
+    }
 }
 
 /// A complete twilight typed address valid for a specific network.
@@ -285,6 +304,16 @@ impl ScriptAddress {
     /// Serialize the address bytes as a BTC-Base58 string.
     pub fn as_base58(&self) -> String {
         bs58::encode(self.as_bytes()).into_string()
+    }
+}
+impl Default for ScriptAddress {
+    fn default() -> ScriptAddress {
+        ScriptAddress { 
+            network: Network::Testnet, 
+            addr_type: AddressType::Script, 
+            root: [b'0';32] 
+        }
+
     }
 }
 /// Deserialize a public key from a slice. The input slice is 64 bytes

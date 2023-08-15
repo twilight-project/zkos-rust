@@ -1,6 +1,7 @@
 pub mod blockoperations;
 pub mod db;
 mod threadpool;
+pub mod types;
 #[macro_use]
 extern crate lazy_static;
 pub use self::db::SnapShot;
@@ -9,10 +10,11 @@ use db::{LocalDBtrait, LocalStorage};
 use std::sync::{Arc, Mutex};
 use tungstenite::{connect, Message};
 use url::Url;
+use zkvm::zkos_types::Output;
 
 lazy_static! {
-    pub static ref UTXO_STORAGE: Arc<Mutex<LocalStorage::<transaction::Output>>> =
-        Arc::new(Mutex::new(LocalStorage::<transaction::Output>::new(3)));
+    pub static ref UTXO_STORAGE: Arc<Mutex<LocalStorage::<Output>>> =
+        Arc::new(Mutex::new(LocalStorage::<Output>::new(3)));
 }
 
 pub fn init_utxo() {

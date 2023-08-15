@@ -1,11 +1,19 @@
+#![allow(non_snake_case)]
+#![allow(missing_docs)]
+//! Definition of the proof struct.
+//! 
 use serde_derive::{Deserialize, Serialize};
 pub type SequenceNumber = usize;
 
 // bincode::serialize(&value).unwrap()
 pub type UtxoKey = Vec<u8>; //pub struct Utxo {txid: TxId,output_index: u8,}
 pub type UtxoValue = Vec<u8>; // pub struct Output {pub out_type: OutputType, pub output: OutputData,}
-use transaction::reference_tx::{Block, RecordUtxo};
-use transaction::{TransactionData, TxId, Utxo};
+use transaction::reference_tx::RecordUtxo;
+use transaction::TransactionData;
+use zkvm::zkos_types::{Utxo, IOType, Input, Output, OutputData};
+use zkvm::tx::TxID;
+
+use crate::blockoperations::blockprocessing::Block;
 
 // impl UtxoKey {
 //     pub fn serialize(utxo_key: transaction::Utxo) -> Vec<u8> {
@@ -25,18 +33,18 @@ pub enum TxInputOutputType {
               // Genesis = 3, //uint8
 }
 impl TxInputOutputType {
-    pub fn convert_input_type(input_type: transaction::InputType) -> Self {
+    pub fn convert_input_type(input_type: IOType) -> Self {
         match input_type {
-            transaction::InputType::Coin => TxInputOutputType::Coin,
-            transaction::InputType::State => TxInputOutputType::State,
-            transaction::InputType::Memo => TxInputOutputType::Memo,
+            IOType::Coin => TxInputOutputType::Coin,
+            IOType::State => TxInputOutputType::State,
+            IOType::Memo => TxInputOutputType::Memo,
         }
     }
-    pub fn convert_output_type(output_type: transaction::OutputType) -> Self {
+    pub fn convert_output_type(output_type: IOType) -> Self {
         match output_type {
-            transaction::OutputType::Coin => TxInputOutputType::Coin,
-            transaction::OutputType::State => TxInputOutputType::State,
-            transaction::OutputType::Memo => TxInputOutputType::Memo,
+            IOType::Coin => TxInputOutputType::Coin,
+            IOType::State => TxInputOutputType::State,
+            IOType::Memo => TxInputOutputType::Memo,
         }
     }
     pub fn convert_uint8(&self) -> u8 {
@@ -67,9 +75,9 @@ impl UTXO {
         }
     }
 
-    pub fn get_utxokey_from_input_block(input: transaction::Input) -> Self {
+    pub fn get_utxokey_from_input_block(input: Input) -> Self {
         UTXO::new(
-            bincode::serialize(input.input.as_utxo_id().unwrap()).unwrap(),
+            bincode::serialize(input.as_utxo().unwrap()).unwrap(),
             bincode::serialize(&"".to_string()).unwrap(),
             TxInputOutputType::convert_input_type(input.in_type),
         )
@@ -77,12 +85,12 @@ impl UTXO {
     }
 
     pub fn get_utxo_from_output_block(
-        output: &transaction::Output,
-        txid: transaction::TxId,
+        output: &Output,
+        txid: TxID,
         output_index: usize,
     ) -> Self {
         UTXO::new(
-            bincode::serialize(&transaction::Utxo::new(txid, output_index as u8)).unwrap(),
+            bincode::serialize(&Utxo::new(txid, output_index as u8)).unwrap(),
             bincode::serialize(&output).unwrap(),
             TxInputOutputType::convert_output_type(output.out_type),
         )
@@ -128,11 +136,11 @@ impl ZkosBlock {
     }
 
     pub fn get_block_details(block: Block) -> Self {
-        let block_height: usize = block.height as usize;
+        let block_height: usize = block.block_height as usize;
         let mut input_utxo_set: Vec<UTXO> = Vec::new();
         let mut output_utxo_set: Vec<UTXO> = Vec::new();
-        for tx in block.txs {
-            let tx_id = tx.txid;
+        for tx in block.transactions.iter() {
+            let tx_id = tx.tx_id;
             match tx.tx {
                 TransactionData::TransactionTransfer(transfer_transaction) => {
                     for input_set in transfer_transaction.get_input_values() {
@@ -195,7 +203,7 @@ pub type ZkBlockResult = ZkosBlockResult;
 // cargo test --test-threads 1
 #[cfg(test)]
 mod test {
-    // use super::*;
+ use super::*;
     use crate::{db::UTXOStorage, *};
     use curve25519_dalek::scalar::Scalar;
     use quisquislib::accounts::Account;

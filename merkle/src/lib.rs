@@ -483,7 +483,7 @@ impl<'de> serde::Deserialize<'de> for Hash {
 
 /// Call proof represents a proof that a certain program is committed via the merkle tree into the Script Address.
 /// Used by validator primarily to verify. The program is not the part of the proof.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CallProof {
     // Script Address
     pub script_address: String,
@@ -527,6 +527,12 @@ impl CallProof {
         self.path.verify_root(&Hash(address.root), item, hasher)
     }
 }
+/// Default implementation for CallProof
+/// EMPTY CallProof
+impl Default for CallProof {
+    fn default() -> Self {
+        CallProof { script_address: ScriptAddress::default().as_hex(), path: Path::default() } } 
+    }
 
 #[cfg(test)]
 mod tests {

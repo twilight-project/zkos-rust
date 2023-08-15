@@ -19,7 +19,7 @@ use zkvm::merkle::{CallProof, Hash, MerkleItem, MerkleTree};
 
 ///
 /// Store for TransactionScript
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptTransaction {
     //transaction header
     pub(crate) version: u64,
@@ -81,6 +81,37 @@ impl ScriptTransaction {
         
 
     }
+    /// Set a script transaction
+    /// 
+    pub fn set_script_transaction(version: u64,
+        fee: u64,
+        maturity: u64,
+        input_count: u8,
+        output_count: u8,
+        witness_count: u8,
+        inputs: Vec<Input>,
+        outputs: Vec<Output>,
+        program: Vec<u8>,
+        call_proof: CallProof,
+        proof: R1CSProof,
+        data: Vec<u8>,
+        witness: Option<Vec<Witness>>,) -> Self{
+        ScriptTransaction {
+            version,
+            fee,
+            maturity,
+            input_count,
+            output_count,
+            witness_count,
+            inputs,
+            outputs,
+            program,
+            call_proof,
+            proof,
+            data,
+            witness,
+        }
+    }
     ///create signatures and zero balance proofs for all inputs
     pub fn create_witness_without_tx(inputs: &[Input], sk_list: &[Scalar]) -> Vec<Witness> {
         let mut witness: Vec<Witness> = Vec::with_capacity(inputs.len());
@@ -114,4 +145,51 @@ impl ScriptTransaction {
         }
         witness
     }
+    ///DUMMY TX FOR UTXO SET VERIFICATIO
+    /// 
+    pub fn create_utxo_script_transaction(
+        inputs: &[Input],
+        outputs: &[Output],
+    ) -> ScriptTransaction {
+        let program:Vec<u8> = vec![b'0'; 32];
+        ScriptTransaction::set_script_transaction(
+            0u64,
+            0u64,
+            0u64,
+            inputs.len() as u8,
+            outputs.len() as u8,
+            0u8,
+            inputs.to_vec(),
+            outputs.to_vec(),
+            program,
+            CallProof::default(),
+            R1CSProof::from_bytes(&[0u8; 32]).unwrap(),
+            vec![b'0'; 32],
+            None,
+        )
+    }
+
+    pub fn verify_script_tx(
+        &self,
+        inputs: &[Input],
+        outputs: &[Output],
+    ) -> Result<(), &'static str> {
+        //create QuisQUisTx Prover merlin transcript
+        let mut transcript = Transcript::new(b"TxProof");
+       // let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
+
+        //verify the Dark Proof first
+        //self.script_sig.verify(&mut verifier, &inputs, &outputs)?;
+
+        Ok(())
+    }
+
+    //created for utxo-in-memory
+    pub fn get_input_values(&self) -> Vec<Input> {
+        self.inputs.clone()
+    }
+    pub fn get_output_values(&self) -> Vec<Output> {
+        self.outputs.clone()
+    }
+
 }
