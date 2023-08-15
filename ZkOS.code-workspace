@@ -4,10 +4,19 @@
 			"path": "."
 		},
 		{
-			"path": "../quisquis-rust"
+			"path": "../quisquis-rust"{
+				"folders": [
+					{
+						"path": "."
+					},
+					{
+						"path": "../quisquis-rust"
+					}
+				],
+				"settings": {
+					"editor.formatOnSave": true
+				}
+			}
 		}
-	],
-	"settings": {
-		"editor.formatOnSave": true
-	}
+	]
 }
