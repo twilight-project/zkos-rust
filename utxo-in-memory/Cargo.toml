@@ -30,17 +30,25 @@ tungstenite = "0.15.0"
 url = "2.4.0"
 
 temp-env = "0.3.4"
+
 [dependencies.quisquis-rust]
-path = "../../quisquis-rust"
-# # [dependencies.quisquis-rust]
-# # git = "ssh://github.com/twilight-project/quisquis-rust.git"
-# # branch = "qqtxapi"
+#path = "../../quisquis-rust"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "qqtxapi-merged"
 
 [dependencies.transaction]
 path = "../transaction"
 
 # [dependencies.elgamalsign]
 # path = "../elgamalsign"
+[dependencies.zkvm]
+path = "../zkvm"
+
+[dependencies.address]
+path = "../address"
+
+#[dependencies.block]
+#path = "./blockoperations"
 
 # [dependencies.bulletproofs]
 # git = "https://github.com/dalek-cryptography/bulletproofs"

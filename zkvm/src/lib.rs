@@ -25,7 +25,7 @@ pub mod program;
 pub mod prover;
 mod scalar_witness;
 mod transcript;
-mod tx;
+pub mod tx;
 mod types;
 ///ZKVM Verifier
 pub mod verifier;

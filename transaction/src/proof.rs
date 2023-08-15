@@ -14,7 +14,7 @@ use quisquislib::{
     shuffle::{shuffle::ROWS, Shuffle, ShuffleProof, ShuffleStatement},
 };
 
-use serde::{Serialize, Serializer};
+use serde::{Serialize, Deserialize};
 
 /// Used in Dark Transaction and Quisquis Tx
 /// Store Dark Tx Proof
@@ -39,9 +39,7 @@ pub struct ShuffleTxProof {
     pub(super) input_shuffle_statement: ShuffleStatement,
     pub(super) updated_delta_dlog: SigmaProof,
     pub(super) zero_balance_dlog: Option<SigmaProof>,
-    pub(super) zero_balance_dlog: Option<SigmaProof>,
     pub(super) updated_delta_accounts: Vec<Account>,
-
     pub(super) output_shuffle_proof: ShuffleProof,
     pub(super) output_shuffle_statement: ShuffleStatement,
 }
@@ -126,7 +124,6 @@ impl DarkTxProof {
         epsilon_accounts: &[Account],
         delta_rscalar: &[Scalar],
         sender_updated_delta_account: &[Account],
-        sender_updated_delta_account: &[Account],
         sender_updated_balance: &[u64],
         reciever_updated_balance: &[u64],
         sender_sk: &[RistrettoSecretKey],
@@ -145,7 +142,6 @@ impl DarkTxProof {
         // let updated_delta_accounts_sender_slice = &delta_accounts[..senders_count];
         let (updated_sender_epsilon_accounts, epsilon_sender_rscalar_vector, sender_account_dleq) =
             Prover::verify_account_prover(
-                &sender_updated_delta_account,
                 &sender_updated_delta_account,
                 sender_updated_balance,
                 sender_sk,
@@ -359,12 +355,10 @@ impl ShuffleTxProof {
 
         ShuffleTxProof {
             input_dash_accounts: input_shuffle.get_outputs_vector(),
-            input_dash_accounts: input_shuffle.get_outputs_vector(),
+            
             input_shuffle_proof,
             input_shuffle_statement,
             updated_delta_dlog,
-            zero_balance_dlog: None,
-            updated_delta_accounts: output_shuffle.get_inputs_vector(),
             zero_balance_dlog: None,
             updated_delta_accounts: output_shuffle.get_inputs_vector(),
             output_shuffle_proof,

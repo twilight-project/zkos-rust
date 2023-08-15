@@ -1,22 +1,7 @@
 {
-	"folders": [
-		{
-			"path": "."
-		},
-		{
-			"path": "../quisquis-rust"{
-				"folders": [
-					{
-						"path": "."
-					},
-					{
-						"path": "../quisquis-rust"
-					}
-				],
-				"settings": {
-					"editor.formatOnSave": true
-				}
-			}
-		}
-	]
+    "folders": [
+        {
+            "path": "."
+        }
+    ]
 }

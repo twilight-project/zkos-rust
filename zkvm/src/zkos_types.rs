@@ -2,10 +2,10 @@
 #![allow(missing_docs)]
 
 //use crate::readerwriter::{Encodable, ExactSizeEncodable, Writer, WriteError};
-use crate::constraints::CommitmentWitness;
+use crate::constraints::Commitment;
 use crate::tx::TxID;
 use crate::types::String as ZkvmString;
-use crate::{encoding::*, Commitment, ScalarWitness};
+use crate::{encoding::*};
 use bincode;
 use bulletproofs::PedersenGens;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
@@ -56,6 +56,15 @@ impl Utxo {
     pub fn replace_tx_id(&mut self, tx_id: TxID) {
         self.txid = tx_id;
     }
+    pub fn tx_id_to_hex(&self) -> String {
+        hex::encode(self.txid.0.0)
+    }
+
+    pub fn tx_id_to_vec(&self) -> Vec<u8> {
+        self.txid.0.0.to_vec()
+    }
+    
+
 }
 ///Default returns a Utxo with id = 0 and witness index = 0
 ///
@@ -278,14 +287,20 @@ impl InputData {
         }
     }
     // pub const fn memo()
-    pub const fn as_utxo_id(&self) -> Option<&Utxo> {
+    pub const fn as_utxo(&self) -> Option<&Utxo> {
         match self {
             Self::Coin { utxo, .. } => Some(utxo),
             Self::Memo { utxo, .. } => Some(utxo),
             Self::State { utxo, .. } => Some(utxo),
         }
     }
-
+    pub const fn as_utxo_id(&self) -> Option<&TxID> {
+        match self {
+            Self::Coin { utxo, .. } => Some(&utxo.txid),
+            Self::Memo { utxo, .. } => Some(&utxo.txid),
+            Self::State { utxo, .. } => Some(&utxo.txid),
+        }
+    }
     pub const fn owner(&self) -> Option<&String> {
         match self {
             Self::Coin { out_coin, .. } => Some(&out_coin.owner),
@@ -440,8 +455,10 @@ impl Input {
             input: data,
         }
     }
-
-    pub fn as_utxo_id(&self) -> Option<&Utxo> {
+pub fn as_utxo(&self) -> Option<&Utxo> {
+        self.input.as_utxo()
+    }
+    pub fn as_utxo_id(&self) -> Option<&TxID> {
         self.input.as_utxo_id()
     }
 
@@ -544,6 +561,18 @@ pub struct OutputMemo {
     /// Timebounds
     pub timebounds: u32,
 }
+///Dummy values for testing Memo
+impl Default for OutputMemo {
+    fn default() -> Self {
+        Self {
+            script_address: String::new(),
+            owner: String::new(),
+            commitment: Commitment::Closed(CompressedRistretto::default()),
+            data: None,
+            timebounds: 0,
+        }
+    }
+}
 
 /// A complete twilight typed State Output valid for a specific network.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -562,6 +591,19 @@ pub struct OutputState {
     pub state_variables: Option<Vec<ZkvmString>>,
     /// Timebounds
     pub timebounds: u32,
+}
+///Dummy value for state variable testing
+impl Default for OutputState {
+    fn default() -> Self {
+        Self {
+            nonce: 0,
+            script_address: String::new(),
+            owner: String::new(),
+            commitment: Commitment::Closed(CompressedRistretto::default()),
+            state_variables: None,
+            timebounds: 0,
+        }
+    }
 }
 
 /// A complete twilight typed Contract valid for a specific network.
@@ -642,7 +684,24 @@ impl OutputData {
             _ => None,
         }
     }
-
+    pub fn get_output_coin(&self) -> Option<&OutputCoin> {
+        match self {
+            Self::Coin(coin) => Some(coin),
+            _ => None,
+        }
+    }
+    pub fn get_output_memo(&self) -> Option<&OutputMemo> {
+        match self {
+            Self::Memo(memo) => Some(memo),
+            _ => None,
+        }
+    }
+    pub fn get_output_state(&self) -> Option<&OutputState> {
+        match self {
+            Self::State(state) => Some(state),
+            _ => None,
+        }
+    }
     // pub const fn get_contract_info(&self) -> Option<&Contract> {
     //     match self {
     //         Self::Memo(memo) => Some(&memo.contract_info),
