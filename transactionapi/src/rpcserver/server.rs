@@ -12,7 +12,7 @@ use transaction::Transaction;
 use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_address};
 use transaction::reference_tx::verify_transaction;
 use quisquislib::ristretto::RistrettoPublicKey;
-use transaction::util::Address;
+use address::CoinAddress;
 #[derive(Default, Clone, Debug)]
 struct Meta {
     metadata: HashMap<String, Option<String>>,
@@ -60,7 +60,7 @@ pub fn rpcserver() {
 
     io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
         println!("inside getUtxo");
-        let address: Address;
+        let mut address: CoinAddress;
     
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
@@ -77,7 +77,7 @@ pub fn rpcserver() {
         };
     
         println!("Received hex string: {}", hex_str);
-        let address: Address = Address::from_hex(&hex_str);
+        address = CoinAddress::from_hex(&hex_str);
 
         println!("{:?}", address);
 

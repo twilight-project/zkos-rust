@@ -25,15 +25,17 @@ curve25519-dalek = { version = "3", features = ["serde"] }
 merlin = "2"
 getrandom = { version = "0.2", default-features = false, features = ["js"] }
 uuid = { version = "0.8.2", features = ["v4", "serde"] } #https://github.com/serde-rs/serde/issues/324
+sha3 = "0.9.1"
+
 bincode = "1"
 # tendermint-rpc = "0.28.0"
 # check bitcoin core rpc 
 
 [dependencies.quisquis-rust]
-path = "../../quisquis-rust"
+#path = "../../quisquis-rust"
 # [dependencies.quisquis-rust]
-# git = "ssh://github.com/twilight-project/quisquis-rust.git"
-# branch = "qqtxapi"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "qqtxapi-merged"
 
 
 [dependencies.transaction]
@@ -42,8 +44,12 @@ path = "../transaction"
 [dependencies.utxo-in-memory]
 path = "../utxo-in-memory"
 
-[dependencies.elgamalsign]
-path = "../elgamalsign"
+[dependencies.address]
+path = "../address"
+
+[dependencies.zkvm]
+path = "../zkvm"
+
 
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
