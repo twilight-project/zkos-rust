@@ -2,7 +2,7 @@ use super::threadpool::ThreadPool;
 use reqwest::Client;
 use hex;
 use std::error::Error;
-
+use sha3::{Digest, Keccak256};
 use serde::{Serialize, Deserialize};
 // use std::sync::mpsc;
 // use std::sync::Arc;
@@ -33,10 +33,13 @@ pub async fn tx_commit(transaction: Transaction) -> String{
 
 
     let serialized: Vec<u8> = bincode::serialize(&transaction).unwrap();
-    let tx_hex = hex::encode(serialized);
-
+    let tx_hex = hex::encode(serialized.clone());
+    //Creating dummy TxiD of ZKOS Transaction to be used as transaction id 
+    let mut hasher = Keccak256::new();
+        hasher.update(&serialized);
+    let checksum = hasher.finalize();
     let payload = Payload{
-        id: transaction.txid.to_hex_string(),
+        id: hex::encode(checksum.to_vec()),
         tx: tx_hex, 
     };
 

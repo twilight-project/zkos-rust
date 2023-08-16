@@ -1,7 +1,7 @@
 pub mod blockoperations;
 pub mod db;
 mod threadpool;
-pub mod types;
+//pub mod types;
 #[macro_use]
 extern crate lazy_static;
 pub use self::db::SnapShot;

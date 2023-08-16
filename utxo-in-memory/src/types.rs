@@ -141,7 +141,7 @@ impl ZkosBlock {
         let mut output_utxo_set: Vec<UTXO> = Vec::new();
         for tx in block.transactions.iter() {
             let tx_id = tx.tx_id;
-            match tx.tx {
+            match tx.tx_type {
                 TransactionData::TransactionTransfer(transfer_transaction) => {
                     for input_set in transfer_transaction.get_input_values() {
                         input_utxo_set.push(UTXO::get_utxokey_from_input_block(input_set));
@@ -156,7 +156,7 @@ impl ZkosBlock {
                         ));
                     }
                 }
-                TransactionData::Script(script_transaction) => {
+                TransactionData::TransactionScript(script_transaction) => {
                     for input_set in script_transaction.get_input_values() {
                         input_utxo_set.push(UTXO::get_utxokey_from_input_block(input_set));
                     }
@@ -202,13 +202,14 @@ pub type ZkBlockResult = ZkosBlockResult;
 // cargo test -- --nocapture --test-threads 1
 // cargo test --test-threads 1
 #[cfg(test)]
+
 mod test {
- use super::*;
-    use crate::{db::UTXOStorage, *};
+    use super::*;
+    use crate::db::*;
     use curve25519_dalek::scalar::Scalar;
     use quisquislib::accounts::Account;
     use std::fs;
-    use transaction::reference_tx::RecordUtxo;
+    use transaction::reference_tx::RecordUtxo;    
     pub fn init_utxo_for_test(test_path: &str) {
         let mut utxo_storage = temp_env::with_var(
             "SNAPSHOT_FILE_LOCATION",
