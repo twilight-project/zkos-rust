@@ -268,18 +268,20 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
 
     let tx_inputs = transaction.get_tx_inputs();
     for input in tx_inputs{
-     /*    let utxo_input_type = input.in_type as usize;
-        if let InputData::Coin { utxo, owner, encryption, witness, account } = input.input {
-            if utxo_storage.search_key(&utxo.tx_id().0.to_vec(), utxo_input_type) == false {
-                return false;
-            };
-        }
-        if let InputData::Memo { utxo, script_address, owner, commitment, data, witness } = input.input {
-            continue;
-        }
-        if let InputData::State { utxo, nonce, script_address, owner, commitment, script_data, witness, program_index } = input.input {
-            continue;
-        }*/
+         let utxo_input_type = input.in_type as usize;
+         let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
+        //if utxo_input_type == 0 {
+        //let InputData::Coin { utxo, owner, encryption, witness, account } = input.input {
+        if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
+            return false;
+        };
+       // }
+       // if let InputData::Memo { utxo, script_address, owner, commitment, data, witness } = input.input {
+         //   continue;
+       // }
+       // if let InputData::State { utxo, nonce, script_address, owner, commitment, script_data, witness, program_index } = input.input {
+         //   continue;
+       // }
     }
     return true;
 }
