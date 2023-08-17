@@ -63,7 +63,7 @@ impl Utxo {
     pub fn tx_id_to_vec(&self) -> Vec<u8> {
         self.txid.0.0.to_vec()
     }
-    
+
 
 }
 ///Default returns a Utxo with id = 0 and witness index = 0
@@ -529,6 +529,11 @@ pub struct OutputCoin {
     pub encrypt: ElGamalCommitment,
     /// Owners Address
     pub owner: String,
+}
+impl OutputCoin{
+    pub fn new(encrypt : ElGamalCommitment, owner: String)-> Self{
+        Self { encrypt, owner }
+    }
 }
 
 impl Encodable for OutputCoin {
