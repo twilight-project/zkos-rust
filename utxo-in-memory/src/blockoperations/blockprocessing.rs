@@ -234,30 +234,35 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
 }
 
 
-pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<String>  {
-    let mut filtered_utxo: Vec<String> = Vec::new();
+pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>  {
+    let mut filtered_utxo: Vec<Utxo> = Vec::new();
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
     let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
-    let mut utxo: Utxo;
 
     for (key, output_data) in utxos{
         let addr =  output_data.output.get_owner_address().unwrap();
         if address::Standard::from_hex(addr).public_key == address.public_key{
             match bincode::deserialize(&key) {
-                Ok(value) => utxo = value,
+                Ok(value) =>{
+                    filtered_utxo.push(value);
+                },
                 Err(args) => {
                     let err = format!("Deserialization error, {:?}", args);
-                    return vec!(err)
+                    println!("{}", err)
                 }
             }
-
-            let tx_id = utxo.tx_id_to_hex();
-            filtered_utxo.push(format!("{}:{}", tx_id, utxo.output_index()));
         } 
     }
 
     return filtered_utxo
+}
+
+pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Output{
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Coin as usize;
+    let result = utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type).unwrap();
+    return result
 }
 
 
