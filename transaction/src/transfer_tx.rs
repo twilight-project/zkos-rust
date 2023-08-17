@@ -249,7 +249,7 @@ impl TransferTransaction {
         for i in 0..senders_count + receivers_count {
             //create address
             let (pk, comm) = updated_delta_accounts[i].get_account();
-            let owner: String = Address::coin_address(Network::Mainnet, pk).as_hex();
+            let owner: String = Address::standard_address(Network::Mainnet, pk).as_hex();
             let coin: OutputCoin = OutputCoin {
                 encrypt: comm,
                 owner,
@@ -333,7 +333,7 @@ impl TransferTransaction {
             let (pk, enc) = input.get_account();
             let out_coin = OutputCoin {
                 encrypt: enc,
-                owner: Address::coin_address(Network::default(), pk).as_hex(),
+                owner: Address::standard_address(Network::default(), pk).as_hex(),
             };
             let inp = Input::coin(InputData::coin(
                 utxo_vector[i],
@@ -410,7 +410,7 @@ impl TransferTransaction {
             let (pk, comm) = out.get_account();
             let coin: OutputCoin = OutputCoin {
                 encrypt: comm,
-                owner: Address::coin_address(Network::default(), pk).as_hex(),
+                owner: Address::standard_address(Network::default(), pk).as_hex(),
             };
             let out = Output::coin(OutputData::coin(coin));
             outputs.push(out.clone());

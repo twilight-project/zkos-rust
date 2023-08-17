@@ -2,10 +2,9 @@
 //#![deny(missing_docs)]
 
 use crate::transfer_tx::{Transaction, TransactionData, TransactionType, TransferTransaction};
-use address::CoinAddress;
+use address::{Address, Standard};
 use quisquislib::elgamal::ElGamalCommitment;
 use zkvm::zkos_types::{Input, InputData, OutputCoin, OutputData, Utxo, Output, OutputMemo, OutputState, IOType};
-// use serde_derive::{Deserialize, Serialize};
 use curve25519_dalek::ristretto::{RistrettoPoint, CompressedRistretto};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED;
 use curve25519_dalek::scalar::Scalar;
@@ -20,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use sha3::Sha3_512;
 use zkvm::merkle::Hash;
 
-use bincode::serialize;
 
 ///Needed for Creating Reference transaction for Testing RPC
 ///
@@ -290,7 +288,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
         let (pk, enc) = input.get_account();
         let out_coin = OutputCoin {
             encrypt: enc,
-            owner: address::Address::coin_address(address::Network::Mainnet, pk).as_hex(),
+            owner: address::Address::standard_address(address::Network::Mainnet, pk).as_hex(),
         };
         let inp = Input::coin(InputData::coin(
             utxo,
@@ -369,7 +367,7 @@ pub fn create_genesis_block(
                 let out = OutputData::Coin(OutputCoin {
                     encrypt: enc,
 
-                    owner: address::Address::coin_address(address::Network::Mainnet, pk).as_hex(),
+                    owner: address::Address::standard_address(address::Network::Mainnet, pk).as_hex(),
                 });
 
                 let output = Output::coin(out);
@@ -463,9 +461,9 @@ pub fn create_dark_reference_tx_for_utxo_test(
     let add_input: String= input.input.owner().unwrap().to_owned();
 
     let input_enc = input.input.as_encryption().unwrap().to_owned();
-    let add = address::Address::from_hex(&add_input, address::AddressType::Coin).unwrap();
+    let add = address::Address::from_hex(&add_input, address::AddressType::Standard).unwrap();
     
-    let pk = add.get_coin_address().unwrap().public_key;
+    let pk = add.get_standard_address().unwrap().public_key;
 
     let input_account = Account::set_account(pk, input_enc);
 
@@ -555,7 +553,7 @@ pub fn verify_transaction(tx: Transaction) -> Result<(), &'static str> {
             let out_data_pk: Vec<RistrettoPublicKey> = tx_data
                 .outputs
                 .iter()
-                .map(|i| CoinAddress::from_hex(i.output.get_owner_address().unwrap()).public_key)
+                .map(|i| Standard::from_hex(i.output.get_owner_address().unwrap()).public_key)
                 .collect();
             let out_data_enc: Vec<ElGamalCommitment> = tx_data
                 .outputs
@@ -566,7 +564,7 @@ pub fn verify_transaction(tx: Transaction) -> Result<(), &'static str> {
             let in_data_pk: Vec<RistrettoPublicKey> = tx_data
                 .inputs
                 .iter()
-                .map(|i| CoinAddress::from_hex(i.input.owner().unwrap()).public_key)
+                .map(|i| Standard::from_hex(i.input.owner().unwrap()).public_key)
                 .collect();
 
             let in_data_enc: Vec<ElGamalCommitment> = tx_data

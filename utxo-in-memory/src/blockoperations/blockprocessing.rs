@@ -7,20 +7,18 @@ use crate::UTXO_STORAGE;
 use hex;
 
 use serde_derive::{Deserialize, Serialize};
-use transaction::transfer_tx::{Transaction, TransactionData, TransactionType, TransferTransaction};
+use transaction::transfer_tx::{Transaction, TransactionData};
 use transaction::script_tx::ScriptTransaction;
 use zkvm::tx::TxID;
 use zkvm::Hash;
 use transaction::reference_tx::{convert_output_to_input, RecordUtxo, create_dark_reference_tx_for_utxo_test};
 use quisquislib::elgamal::elgamal::ElGamalCommitment;
-use zkvm::zkos_types::{Input, InputData, IOType, Output, OutputData, Utxo, OutputCoin, OutputMemo, OutputState};
-use address::{Address, Network, CoinAddress};
-use quisquislib::ristretto::RistrettoPublicKey;
-use rand::Rng;
-use std::collections::HashMap;
+use zkvm::zkos_types::{Input, IOType, Output, OutputData, Utxo, OutputCoin, OutputMemo, OutputState};
+use address::{Address, Network};
 use serde::de::{self, Deserializer, Visitor};
 use std::fmt;
 use zkvm::constraints::Commitment;
+use rand::Rng;
 
 
 use quisquislib::{
@@ -203,7 +201,7 @@ pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &m
         let mut qq_account_bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
         let elgamal = qq_account_bytes.split_off(qq_account_bytes.len() - 64);
         let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
-        let address = CoinAddress::from_bytes(&qq_account_bytes[0..69]).unwrap();
+        let address = address::Standard::from_bytes(&qq_account_bytes[0..69]).unwrap();
         //let output = OutputData::Coin(OutputCoin{encrypt: elgamal, address:address.as_hex()});
         let output = Output::coin(OutputData::Coin(OutputCoin{encrypt: elgamal, owner:address.as_hex()}));
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
@@ -236,7 +234,7 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
 }
 
 
-pub fn search_coin_type_utxo_by_address(address: CoinAddress) -> Vec<String>  {
+pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<String>  {
     let mut filtered_utxo: Vec<String> = Vec::new();
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
@@ -245,7 +243,7 @@ pub fn search_coin_type_utxo_by_address(address: CoinAddress) -> Vec<String>  {
 
     for (key, output_data) in utxos{
         let addr =  output_data.output.get_owner_address().unwrap();
-        if CoinAddress::from_hex(addr).public_key == address.public_key{
+        if address::Standard::from_hex(addr).public_key == address.public_key{
             match bincode::deserialize(&key) {
                 Ok(value) => utxo = value,
                 Err(args) => {
@@ -339,7 +337,7 @@ pub fn create_utxo_test_block<>(
                     .get_account();
                 let out = Output::coin(OutputData::Coin(OutputCoin {
                     encrypt: enc,
-                    owner: Address::coin_address(Network::default(), pk).as_hex(),
+                    owner: Address::standard_address(Network::default(), pk).as_hex(),
                 }));
                 outputs.push(out.clone());
                 //add to new set
@@ -352,7 +350,7 @@ pub fn create_utxo_test_block<>(
             if random_number == 1 {
                 //memo output
                 let (pk, _) = Account::generate_random_account_with_value(Scalar::from(10u64)).0.get_account();
-                let add = Address::coin_address(Network::default(), pk);
+                let add = Address::standard_address(Network::default(), pk);
                 let out = Output::memo(OutputData::Memo(OutputMemo {
                     script_address: add.as_hex(),
                     owner: add.as_hex(),
@@ -374,7 +372,7 @@ pub fn create_utxo_test_block<>(
                 let (pk, _) = Account::generate_random_account_with_value(Scalar::from(0u64))
                     .0
                     .get_account();
-                let add = Address::coin_address(Network::default(), pk);
+                let add = Address::standard_address(Network::default(), pk);
                 let out = Output::state(OutputData::State(OutputState {
                     nonce: 0u32,
                     script_address: add.as_hex(),
