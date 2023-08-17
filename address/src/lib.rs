@@ -31,11 +31,11 @@ impl Network {
         use AddressType::*;
         match self {
             Network::Mainnet => match addr_type {
-                Coin => 12,
+                Standard => 12,
                 Script => 24,
             },
             Network::Testnet => match addr_type {
-                Coin => 44,
+                Standard => 44,
                 Script => 66,
             },
         }
