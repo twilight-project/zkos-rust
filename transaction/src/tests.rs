@@ -57,7 +57,7 @@ fn call_proof_test() {
 
     // verify call proof
     let prog = prog3.clone();
-    let verify = call_proof.verify_call_proof(&address.as_script_address(), &prog, &hasher);
+    let verify = call_proof.verify_call_proof(&address, &prog, &hasher);
     println!("verify: {:?}", verify);
 }
 
@@ -80,7 +80,7 @@ fn order_message_test() {
         Scalar::random(&mut rng),
         Scalar::from(10u64),
     );
-    let add: Address = Address::coin_address(Network::default(), pk_in.clone());
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
     let out_coin = OutputCoin {
         encrypt: commit_in,
         owner: add.as_hex(),
@@ -94,7 +94,7 @@ fn order_message_test() {
     let input: Vec<Input> = vec![coin_in];
     let sk_out: RistrettoSecretKey = SecretKey::random(&mut rng);
     let pk_out = RistrettoPublicKey::from_secret_key(&sk_out, &mut rng);
-    let add_out: Address = Address::coin_address(Network::default(), pk_out);
+    let add_out: Address = Address::standard_address(Network::default(), pk_out);
     let commit_out = ElGamalCommitment::generate_commitment(
         &pk_out,
         Scalar::random(&mut rng),
@@ -187,7 +187,7 @@ fn trade_order_tx_input_output_test() {
         Scalar::random(&mut rng),
         Scalar::from(10u64),
     );
-    let add: Address = Address::coin_address(Network::default(), pk_in.clone());
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
     let out_coin = OutputCoin {
         encrypt: commit_in,
         owner: add.as_hex(),

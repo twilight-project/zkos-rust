@@ -64,7 +64,7 @@ impl Default for Network {
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum AddressType {
     /// Standard twilight coin address.
-    Coin,
+    Standard,
     /// Script addresses.
     Script,
 }
@@ -77,12 +77,12 @@ impl AddressType {
         use Network::*;
         match net {
             Mainnet => match byte {
-                12 => Ok(Coin),
+                12 => Ok(Standard),
                 24 => Ok(Script),
                 _ => Err("Error::InvalidAddressTypeMagicByte"),
             },
             Testnet => match byte {
-                44 => Ok(Coin),
+                44 => Ok(Standard),
                 66 => Ok(Script),
                 _ => Err("Error::InvalidAddressTypeMagicByte"),
             },
@@ -92,14 +92,14 @@ impl AddressType {
 
 impl Default for AddressType {
     fn default() -> AddressType {
-        AddressType::Coin
+        AddressType::Standard
     }
 }
 
 impl fmt::Display for AddressType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AddressType::Coin => write!(f, "Coin address"),
+            AddressType::Standard => write!(f, "Coin address"),
             AddressType::Script => write!(f, "Script address"),
         }
     }
@@ -107,29 +107,29 @@ impl fmt::Display for AddressType {
 
 /// Address: standard, contract.
 ///
-/// Address implements [`Default`] and returns [`Address::Coin`].
+/// Address implements [`Default`] and returns [`Address::Standard`].
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum Address {
     /// Standard twilight coin address.
-    Coin(CoinAddress),
+    Standard(Standard),
     /// Script addresses.
-    Script(ScriptAddress),
+    Script(Script),
 }
 
 impl Address {
     /// Recover the address type given an address bytes and the network.
     /// /// Create a standard address which is valid on the given network.
-    pub fn coin_address(network: Network, public_key: RistrettoPublicKey) -> Address {
-        Self::Coin(CoinAddress {
+    pub fn standard_address(network: Network, public_key: RistrettoPublicKey) -> Address {
+        Self::Standard(Standard{
             network,
-            addr_type: AddressType::Coin,
+            addr_type: AddressType::default(),
             public_key,
         })
     }
 
     /// Create a script address which is valid on the given network.
     pub fn script_address(network: Network, root: [u8; 32]) -> Address {
-        Self::Script(ScriptAddress {
+        Self::Script(Script {
             network,
             addr_type: AddressType::Script,
             root,
@@ -138,7 +138,7 @@ impl Address {
     /// Serialize the address bytes as a BTC-Base58 string.
     pub fn as_base58(&self) -> String {
         match *self {
-            Address::Coin(c) => c.as_base58(),
+            Address::Standard(c) => c.as_base58(),
             Address::Script(s) => s.as_base58(),
         }
     }
@@ -146,7 +146,7 @@ impl Address {
     /// Serialize the address bytes as a Hex string.
     pub fn as_hex(&self) -> String {
         match *self {
-            Address::Coin(c) => c.as_hex(),
+            Address::Standard(c) => c.as_hex(),
             Address::Script(s) => s.as_hex(),
         }
     }
@@ -154,46 +154,51 @@ impl Address {
     /// Serialize the address as a byte string.
     pub fn as_bytes(&self) -> Vec<u8> {
         match *self {
-            Address::Coin(c) => c.as_bytes(),
+            Address::Standard(c) => c.as_bytes(),
             Address::Script(s) => s.as_bytes().to_vec(),
         }
     }
-    pub fn as_script_address(&self) -> ScriptAddress {
+    pub fn as_script_address(&self) -> Script {
         match *self {
             Address::Script(s) => s,
             _ => panic!("Not a script address"),
         }
     }
-    pub fn as_coin_address(&self) -> CoinAddress {
+    pub fn as_c_address(&self) -> Standard {
         match *self {
-            Address::Coin(c) => c,
+            Address::Standard(c) => c,
             _ => panic!("Not a coin address"),
         }
     }
     pub fn from_hex(hex: &str, add_type:AddressType) -> Result<Address, &'static str> {
         let bytes = hex::decode(hex).map_err(|_| "Error::InvalidHex")?;
         match add_type {
-            AddressType::Coin => Ok(Address::Coin(CoinAddress::from_bytes(&bytes)?)),
+            AddressType::Standard => Ok(Address::Standard(Standard::from_bytes(&bytes)?)),
             AddressType::Script => Err("Error::ScriptAddress can not be re-created from hex"),
         }
     }
-    pub fn get_coin_address(&self) -> Result<CoinAddress, &'static str> {
+    pub fn get_standard_address(&self) -> Result<Standard, &'static str> {
         match *self {
-            Address::Coin(c) => Ok(c),
+            Address::Standard(c) => Ok(c),
             _ => Err("Error::Not a coin address"),
         }
     }
-    pub fn get_script_address(&self) -> Result<ScriptAddress, &'static str> {
+    pub fn get_script_address(&self) -> Result<Script, &'static str> {
         match *self {
             Address::Script(s) => Ok(s),
             _ => Err("Error::Not a script address"),
         }
     }
 }
+impl Default for Address {
+    fn default() -> Address {
+        Address::Standard(Standard::default())
+    }
+}
 
 /// A complete twilight typed address valid for a specific network.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
-pub struct CoinAddress {
+pub struct Standard {
     /// The network on which the address is valid and should be used.
     pub network: Network,
     /// The address type.
@@ -202,10 +207,10 @@ pub struct CoinAddress {
     pub public_key: RistrettoPublicKey,
 }
 
-impl CoinAddress {
+impl Standard {
     /// Parse an address from a vector of bytes, fail if the magic byte is incorrect, if public
     /// keys are not valid points, and if checksums missmatch.
-    pub fn from_bytes(bytes: &[u8]) -> Result<CoinAddress, &'static str> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Standard, &'static str> {
         use sha3::Digest;
         let network = Network::from_u8(bytes[0])?;
         let addr_type = AddressType::from_slice(&bytes, network)?;
@@ -220,7 +225,7 @@ impl CoinAddress {
             return Err("Invalid Checksum");
         }
 
-        Ok(CoinAddress {
+        Ok(Standard {
             network,
             addr_type,
             public_key,
@@ -262,9 +267,19 @@ impl CoinAddress {
     }
 }
 
+impl Default for Standard {
+    fn default() -> Standard {
+        Standard {
+            network: Network::Mainnet,
+            addr_type: AddressType::default(),
+            public_key: RistrettoPublicKey::new_from_pk(CompressedRistretto::default(),CompressedRistretto::default())
+        }
+    }
+}
+
 // A complete twilight typed address valid for a specific network.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
-pub struct ScriptAddress {
+pub struct Script {
     /// The network on which the address is valid and should be used.
     pub network: Network,
     /// The address type.
@@ -273,7 +288,7 @@ pub struct ScriptAddress {
     pub root: [u8; 32],
 }
 
-impl ScriptAddress {
+impl Script {
     /// Serialize the address as a vector of bytes using Ripemd160 hash for scripts.
     /// Byte Format : [magic byte, script tree root hash]  
     pub fn as_bytes(&self) -> [u8; 21] {
@@ -306,9 +321,9 @@ impl ScriptAddress {
         bs58::encode(self.as_bytes()).into_string()
     }
 }
-impl Default for ScriptAddress {
-    fn default() -> ScriptAddress {
-        ScriptAddress { 
+impl Default for Script {
+    fn default() -> Script {
+        Script { 
             network: Network::Testnet, 
             addr_type: AddressType::Script, 
             root: [b'0';32] 

@@ -1,4 +1,4 @@
-use address::{Address, CoinAddress, Network};
+use address::{Address, Network};
 use merlin::Transcript;
 use quisquislib::{keys::PublicKey, ristretto::RistrettoSecretKey};
 use serde::{Deserialize, Serialize};
@@ -119,7 +119,7 @@ impl ScriptTransaction {
         for (i, inp) in inputs.iter().enumerate() {
             // create signature over input
             //extract public key of input
-            let pk = CoinAddress::from_hex(inp.input.owner().unwrap());
+            let pk = address::Standard::from_hex(inp.input.owner().unwrap());
             //serialize input
             let inp_bytes: Vec<u8> = bincode::serialize(inp).unwrap();
             //create signature

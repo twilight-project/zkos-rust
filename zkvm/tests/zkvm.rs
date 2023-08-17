@@ -701,7 +701,7 @@ fn order_message() {
         Scalar::random(&mut rng),
         Scalar::from(10u64),
     );
-    let add: Address = Address::coin_address(Network::default(), pk_in.clone());
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
     let out_coin = OutputCoin {
         encrypt: commit_in,
         owner: add.as_hex(),
@@ -715,7 +715,7 @@ fn order_message() {
     let input: Vec<Input> = vec![coin_in];
     let sk_out: RistrettoSecretKey = SecretKey::random(&mut rng);
     let pk_out = RistrettoPublicKey::from_secret_key(&sk_out, &mut rng);
-    let add_out: Address = Address::coin_address(Network::default(), pk_out);
+    let add_out: Address = Address::standard_address(Network::default(), pk_out);
     let commit_out = ElGamalCommitment::generate_commitment(
         &pk_out,
         Scalar::random(&mut rng),
@@ -754,7 +754,7 @@ fn state_witness_test() {
     let pk_in: VerificationKey = VerificationKey::from_secret(&sk_in, &r);
     let (g, h) = pk_in.as_point();
 
-    let add: Address = Address::coin_address(
+    let add: Address = Address::standard_address(
         Network::default(),
         RistrettoPublicKey::new_from_pk(g.clone(), h.clone()),
     );
@@ -809,7 +809,7 @@ fn value_witness_test() {
     let pk_in: VerificationKey = VerificationKey::from_secret(&sk_in, &r);
     let (g, h) = pk_in.as_point();
     let ris_pk = RistrettoPublicKey::new_from_pk(g.clone(), h.clone());
-    let add: Address = Address::coin_address(Network::default(), ris_pk.clone());
+    let add: Address = Address::standard_address(Network::default(), ris_pk.clone());
     let rscalar: Scalar = Scalar::random(&mut rng);
     // create input coin
     let commit_in = ElGamalCommitment::generate_commitment(&ris_pk, rscalar, Scalar::from(10u64));

@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 //! API for operations on merkle binary trees.
-use address::ScriptAddress;
+use address::{Address,Script};
 use core::marker::PhantomData;
 use merlin::Transcript;
 use readerwriter::*;
@@ -515,7 +515,7 @@ impl CallProof {
 
     pub fn verify_call_proof<M: MerkleItem>(
         &self,
-        address: &ScriptAddress,
+        address: &Address,
         item: &M,
         hasher: &Hasher<M>,
     ) -> bool {
@@ -524,14 +524,14 @@ impl CallProof {
             return false;
         }
         // Verify that the root hash matches the merkle path.
-        self.path.verify_root(&Hash(address.root), item, hasher)
+        self.path.verify_root(&Hash(address.as_script_address().root), item, hasher)
     }
 }
 /// Default implementation for CallProof
 /// EMPTY CallProof
 impl Default for CallProof {
     fn default() -> Self {
-        CallProof { script_address: ScriptAddress::default().as_hex(), path: Path::default() } } 
+        CallProof { script_address: Address::Script(Script::default()).as_hex(), path: Path::default() } } 
     }
 
 #[cfg(test)]
