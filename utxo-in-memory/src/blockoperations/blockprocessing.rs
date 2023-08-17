@@ -7,6 +7,7 @@ use crate::UTXO_STORAGE;
 use hex;
 
 use serde_derive::{Deserialize, Serialize};
+use transaction::TransactionType;
 use transaction::transfer_tx::{Transaction, TransactionData};
 use transaction::script_tx::ScriptTransaction;
 use zkvm::tx::TxID;
@@ -270,22 +271,31 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 
     let tx_inputs = transaction.get_tx_inputs();
-    for input in tx_inputs{
-         let utxo_input_type = input.in_type as usize;
-         let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
-        //if utxo_input_type == 0 {
-        //let InputData::Coin { utxo, owner, encryption, witness, account } = input.input {
-        if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
-            return false;
-        };
-       // }
-       // if let InputData::Memo { utxo, script_address, owner, commitment, data, witness } = input.input {
-         //   continue;
-       // }
-       // if let InputData::State { utxo, nonce, script_address, owner, commitment, script_data, witness, program_index } = input.input {
-         //   continue;
-       // }
+    if transaction.tx_type == TransactionType::Script{
+        for input in tx_inputs{
+            let utxo_input_type = input.in_type as usize;
+            let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
+       
+            if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
+                return false;
+            };
+        }
+    }else if transaction.tx_type == TransactionType::Transfer{
+        for input in tx_inputs{
+            let utxo = input.as_utxo().unwrap();
+            let utxo_test = Utxo::new(TxID(Hash([0;32])), 0);
+            if utxo.to_owned() != utxo_test{
+                let utxo_key = bincode::serialize(utxo).unwrap();
+                if utxo_storage.search_key(&utxo_key, 0) == false {
+                    return false;
+                };
+            }else{
+                continue;
+            }
+        }
+
     }
+    
     return true;
 }
 /// This function will create a block with a set of transactions
