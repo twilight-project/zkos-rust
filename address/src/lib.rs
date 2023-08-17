@@ -127,6 +127,10 @@ impl Address {
         })
     }
 
+    pub fn set_standard_address(add: Standard)-> Self{
+        Address::Standard(add)
+    }
+
     /// Create a script address which is valid on the given network.
     pub fn script_address(network: Network, root: [u8; 32]) -> Address {
         Self::Script(Script {
