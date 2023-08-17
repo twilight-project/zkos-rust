@@ -15,6 +15,7 @@ use merkle::Hash;
 use quisquislib::accounts::{Account, SigmaProof};
 use quisquislib::elgamal::ElGamalCommitment;
 use serde::{Deserialize, Serialize};
+use bincode::{serialize, deserialize};
 /// Identification of transaction in a block.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct TxPointer {
@@ -43,6 +44,15 @@ impl Utxo {
             txid: TxID(hash),
             output_index,
         }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        serialize(self).unwrap()
+    }
+
+    // Create a Utxo struct from Vec<u8>
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        deserialize(bytes).ok()
     }
 
     pub const fn tx_id(&self) -> &TxID {
