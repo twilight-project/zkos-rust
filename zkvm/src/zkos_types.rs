@@ -3,9 +3,9 @@
 
 //use crate::readerwriter::{Encodable, ExactSizeEncodable, Writer, WriteError};
 use crate::constraints::Commitment;
+use crate::encoding::*;
 use crate::tx::TxID;
 use crate::types::String as ZkvmString;
-use crate::{encoding::*};
 use bincode;
 use bulletproofs::PedersenGens;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
@@ -57,14 +57,12 @@ impl Utxo {
         self.txid = tx_id;
     }
     pub fn tx_id_to_hex(&self) -> String {
-        hex::encode(self.txid.0.0)
+        hex::encode(self.txid.0 .0)
     }
 
     pub fn tx_id_to_vec(&self) -> Vec<u8> {
-        self.txid.0.0.to_vec()
+        self.txid.0 .0.to_vec()
     }
-
-
 }
 ///Default returns a Utxo with id = 0 and witness index = 0
 ///
@@ -455,7 +453,7 @@ impl Input {
             input: data,
         }
     }
-pub fn as_utxo(&self) -> Option<&Utxo> {
+    pub fn as_utxo(&self) -> Option<&Utxo> {
         self.input.as_utxo()
     }
     pub fn as_utxo_id(&self) -> Option<&TxID> {
@@ -530,8 +528,8 @@ pub struct OutputCoin {
     /// Owners Address
     pub owner: String,
 }
-impl OutputCoin{
-    pub fn new(encrypt : ElGamalCommitment, owner: String)-> Self{
+impl OutputCoin {
+    pub fn new(encrypt: ElGamalCommitment, owner: String) -> Self {
         Self { encrypt, owner }
     }
 }
@@ -561,10 +559,48 @@ pub struct OutputMemo {
     pub owner: String,
     /// Pedersen commitment on amount of coins.
     pub commitment: Commitment,
-    ///Memo related data
+    ///Memo related data. e.g., Order Size
     pub data: Option<ZkvmString>,
     /// Timebounds
     pub timebounds: u32,
+}
+impl OutputMemo {
+    pub fn new(
+        script_address: String,
+        owner: String,
+        commitment: Commitment,
+        data: Option<ZkvmString>,
+        timebounds: u32,
+    ) -> Self {
+        Self {
+            script_address,
+            owner,
+            commitment,
+            data,
+            timebounds,
+        }
+    }
+
+    pub fn new_from_wasm(
+        script_address: String,
+        owner_address: String,
+        balance: u64,
+        order_size: u64,
+        scalar: Scalar,
+    ) -> Self{
+        //create ScalarWitness
+        
+        let commitment = crate::Commitment::blinded_with_factor(balance, scalar);
+        let data = Some(ZkvmString::U64(order_size));
+        // create OutputMemo
+        OutputMemo {
+            script_address,
+            owner: owner_address,
+            commitment,
+            data,
+            timebounds: 0,
+        }
+    }
 }
 ///Dummy values for testing Memo
 impl Default for OutputMemo {
