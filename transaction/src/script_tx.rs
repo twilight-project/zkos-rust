@@ -13,7 +13,7 @@ use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 
 use bincode;
-use elgamalsign::{Signature, VerificationKey};
+use zkschnorr::{Signature, VerificationKey};
 use std::fmt;
 use zkvm::merkle::{CallProof, Hash, MerkleItem, MerkleTree};
 
@@ -113,38 +113,38 @@ impl ScriptTransaction {
         }
     }
     ///create signatures and zero balance proofs for all inputs
-    pub fn create_witness_without_tx(inputs: &[Input], sk_list: &[Scalar]) -> Vec<Witness> {
-        let mut witness: Vec<Witness> = Vec::with_capacity(inputs.len());
-        //iterate over Inputs and check its type
-        for (i, inp) in inputs.iter().enumerate() {
-            // create signature over input
-            //extract public key of input
-            let pk = address::Standard::from_hex(inp.input.owner().unwrap());
-            //serialize input
-            let inp_bytes: Vec<u8> = bincode::serialize(inp).unwrap();
-            //create signature
-            let sign = Signature::sign_message(
-                ("ZKOS.Sign").as_bytes(),
-                &inp_bytes,
-                VerificationKey::from_bytes(pk.public_key.as_bytes().as_slice()).unwrap(),
-                sk_list[i],
-            );
-            //if coin mark witness as Signature
-            match inp.in_type {
-                IOType::Coin => {
-                    witness.push(Witness::Signature(sign));
-                }
-                //if data mark witness as ZeroBalanceProof
-                IOType::Memo => {
-                    witness.push(Witness::Signature(sign));
-                }
-                IOType::State => {
-                    witness.push(Witness::Signature(sign));
-                }
-            }
-        }
-        witness
-    }
+    // pub fn create_witness_without_tx(inputs: &[Input], sk_list: &[Scalar]) -> Vec<Witness> {
+    //     let mut witness: Vec<Witness> = Vec::with_capacity(inputs.len());
+    //     //iterate over Inputs and check its type
+    //     for (i, inp) in inputs.iter().enumerate() {
+    //         // create signature over input
+    //         //extract public key of input
+    //         let pk = address::Standard::from_hex(inp.input.owner().unwrap());
+    //         //serialize input
+    //         let inp_bytes: Vec<u8> = bincode::serialize(inp).unwrap();
+    //         //create signature
+    //         let sign = Signature::sign_message(
+    //             ("ZKOS.Sign").as_bytes(),
+    //             &inp_bytes,
+    //             VerificationKey::from_bytes(pk.public_key.as_bytes().as_slice()).unwrap(),
+    //             sk_list[i],
+    //         );
+    //         //if coin mark witness as Signature
+    //         match inp.in_type {
+    //             IOType::Coin => {
+    //                 witness.push(Witness::Signature(sign));
+    //             }
+    //             //if data mark witness as ZeroBalanceProof
+    //             IOType::Memo => {
+    //                 witness.push(Witness::Signature(sign));
+    //             }
+    //             IOType::State => {
+    //                 witness.push(Witness::Signature(sign));
+    //             }
+    //         }
+    //     }
+    //     witness
+    // }
     ///DUMMY TX FOR UTXO SET VERIFICATIO
     /// 
     pub fn create_utxo_script_transaction(

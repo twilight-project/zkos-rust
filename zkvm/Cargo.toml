@@ -40,8 +40,11 @@ path = "../mulmsgsig"
 [dependencies.address]
 path = "../address"
 
-[dependencies.elgamalsign]
-path = "../elgamalsign"
+#[dependencies.elgamalsign]
+#path = "../elgamalsign"
+
+[dependencies.zkschnorr]
+git = "ssh://github.com/twilight-project/ZkSchnorr.git"
 
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
