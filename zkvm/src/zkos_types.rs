@@ -941,7 +941,7 @@ impl StateWitness {
         //create message bytes using input_state
         let message = bincode::serialize(&verifier_input).unwrap();
 
-        let sign = pubkey.sign_msg(&message, &secret_key, ("stateSign").as_bytes());
+        let sign = pubkey.sign_msg(&message, &secret_key, ("StateSign").as_bytes());
 
         Self { sign, zero_proof }
 
@@ -963,7 +963,7 @@ impl StateWitness {
         let message = bincode::serialize(&verifier_input).unwrap();
         
         let verify_sig = pubkey.verify_msg(&message, &self
-            .sign, ("stateSign").as_bytes());
+            .sign, ("StateSign").as_bytes());
         if verify_sig.is_err() {
             return Err("Signature verification failed");
         }
@@ -1028,19 +1028,21 @@ impl ValueWitness {
     }
 
     pub fn create_value_witness(
-        in_value: InputData,
-        secret_key: Scalar,
+        input: Input,
+        secret_key: RistrettoSecretKey,
         enc_acc: Account,
-        pubkey: VerificationKey,
+        pubkey: RistrettoPublicKey,
         pedersen_commitment: CompressedRistretto,
         value: u64,
         rscalar: Scalar, //commitment scalar
     ) -> Self {
         //create the Signature over the Input Coin/Memo with the secret key
-        //create message bytes using input_state
-        let message = bincode::serialize(&in_value).unwrap();
-        let sign = Signature::sign_message(("valueSign").as_bytes(), &message, pubkey, secret_key);
-
+        //create message bytes using input
+        //CONVERT INPUT TO VERIFIER VIEW 
+        let message = bincode::serialize(&input).unwrap();
+        
+        //create the signature over the input
+        let sign = pubkey.sign_msg(&message, &secret_key, ("ValueSign").as_bytes());
         //create the SigmaProof over the Input Coin/Memo with the secret key
         let value_proof = quisquislib::accounts::Prover::same_value_compact_prover(
             enc_acc,
@@ -1053,19 +1055,18 @@ impl ValueWitness {
 
     pub fn verify_value_witness(
         &self,
-        in_data: InputData,
-        pubkey: VerificationKey,
+        input: Input,
+        pubkey: RistrettoPublicKey,
         enc_acc: Account,
         commitment: CompressedRistretto,
     ) -> Result<bool, &'static str> {
         //create message to verify the Signature over the Input State with the public key
-        let message = bincode::serialize(&in_data).unwrap();
+        let message = bincode::serialize(&input).unwrap();
         //verify the Signature over the InputData with the public key
 
-        let sig = self
-            .sign
-            .verify_message(("valueSign").as_bytes(), &message, pubkey);
-        if sig.is_err() {
+        let verify_sig = pubkey.verify_msg(&message, &self
+            .sign, ("ValueSign").as_bytes());
+        if verify_sig.is_err() {
             return Err("Signature verification failed");
         }
 
@@ -1079,5 +1080,23 @@ impl ValueWitness {
             return Err("Same Value SigmaProof verification failed");
         }
         Ok(true)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ZkosCreateOrder {
+    pub input: Input,         //coin type input
+    pub output: Output,       // memo type output
+    pub signature: Signature, //quisquis signature
+    pub proof: SigmaProof,
+} 
+impl ZkosCreateOrder{
+    pub fn new(input: Input, output: Output, vw: ValueWitness) -> Self {
+        Self {
+            input,
+            output,
+            signature: vw.get_sign().clone(),
+            proof: vw.get_value_proof().clone(),
+        }
     }
 }
