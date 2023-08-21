@@ -2,7 +2,7 @@ use address::{Address, Network};
 use bulletproofs::{BulletproofGens, PedersenGens};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED;
 use curve25519_dalek::scalar::Scalar;
-use elgamalsign::{SigningKey, VerificationKey};
+use zkschnorr::{SigningKey, VerificationKey};
 use merlin::Transcript;
 use quisquislib::accounts::Account;
 use quisquislib::elgamal::ElGamalCommitment;
@@ -749,14 +749,14 @@ fn order_message_old() {
 #[test]
 fn state_witness_test() {
     let mut rng = rand::thread_rng();
-    let sk_in: SigningKey = Scalar::random(&mut rng);
+    let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
     let r = Scalar::random(&mut rng);
-    let pk_in: VerificationKey = VerificationKey::from_secret(&sk_in, &r);
-    let (g, h) = pk_in.as_point();
+    let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+    //let (g, h) = pk_in.as_point();
 
     let add: Address = Address::standard_address(
         Network::default(),
-        RistrettoPublicKey::new_from_pk(g.clone(), h.clone()),
+        pk_in.clone(),
     );
     //create first Cimmtment Witness
     let commit_1: Commitment = Commitment::blinded(0u64);
@@ -788,16 +788,17 @@ fn state_witness_test() {
         None,
         1,
     );
+    let input : Input = Input::state(in_data);
     let witness = Witness::State(StateWitness::create_state_witness(
-        in_data.clone(),
-        sk_in.clone(),
+        input.clone(),
+        sk_in,
         pk_in.clone(),
         Some(state_commitment_witness.clone()),
     ));
 
     // verify the witness
     let state_wit = witness.to_state_witness().unwrap();
-    let res = state_wit.verify_state_witness(in_data, pk_in.clone());
+    let res = state_wit.verify_state_witness(input, pk_in.clone());
     println!("res {:?}", res);
 }
 

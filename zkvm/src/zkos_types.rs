@@ -6,11 +6,16 @@ use crate::constraints::Commitment;
 use crate::encoding::*;
 use crate::tx::TxID;
 use crate::types::String as ZkvmString;
+use crate::verifier;
 use bincode;
 use bulletproofs::PedersenGens;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
-use elgamalsign::Signature;
-use elgamalsign::VerificationKey;
+use quisquislib::ristretto::RistrettoPublicKey;
+use quisquislib::keys::PublicKey;
+use quisquislib::ristretto::RistrettoSecretKey;
+use zkschnorr
+::Signature;
+use zkschnorr::VerificationKey;
 use merkle::Hash;
 use quisquislib::accounts::{Account, SigmaProof};
 use quisquislib::elgamal::ElGamalCommitment;
@@ -894,35 +899,75 @@ impl StateWitness {
     }
 
     pub fn create_state_witness(
-        in_state: InputData,
-        secret_key: Scalar,
+        input: Input,
+        secret_key: RistrettoSecretKey,
 
-        pubkey: VerificationKey,
+        pubkey: RistrettoPublicKey,
         zero_proof: Option<Vec<Scalar>>,
     ) -> Self {
+        let in_state = input.input.clone();
         //create the Signature over the Input State with the secret key
+        let commit: Commitment = Commitment::Closed(in_state.as_commitment().unwrap().to_point());
+       // if in_state.as_state_variables().is_some(){
+        let state_variables = in_state.as_state_variables().unwrap();
+        let mut new_state_variables:Vec<ZkvmString>= Vec::new();
+        
+        for state in state_variables.iter(){
+            match state {
+                ZkvmString::Commitment(a) => {
+                    let a_point = a.to_point();
+                    let new_commitment = Commitment::Closed(a_point);
+                    new_state_variables.push(ZkvmString::Commitment(Box::new(new_commitment)));
+                },
+                _ => new_state_variables.push(Clone::clone(&state)),
+            }
+        }
+    //}
+        // recreate the input state with the Verifier view values
+        let out_state = OutputState{nonce: in_state.as_nonce().unwrap().clone(), 
+                
+                script_address: in_state.as_script_address().unwrap().clone(),
+                commitment: commit.clone(),
+                owner: in_state.owner().unwrap().clone(),
+                state_variables: Some(new_state_variables),
+                timebounds: in_state.as_timebounds().unwrap().clone(),
+            };
+        
+            //IGNORE Witness index at the time creating the signature
+        let verifier_input = Input::state(InputData::state(input.as_utxo().unwrap().clone(), out_state, input.input.as_state_script_data().cloned(), 0));   
+        //The sign must happen on the verifier View of the input so ghatg it can be verified acorrectly
+
+        
         //create message bytes using input_state
-        let message = bincode::serialize(&in_state).unwrap();
-        let sign = Signature::sign_message(("stateSign").as_bytes(), &message, pubkey, secret_key);
+        let message = bincode::serialize(&verifier_input).unwrap();
+
+        let sign = pubkey.sign_msg(&message, &secret_key, ("stateSign").as_bytes());
 
         Self { sign, zero_proof }
+
     }
+       
+
     pub fn verify_state_witness(
         &self,
-        in_state: InputData,
-        pubkey: VerificationKey,
+        input: Input,
+        pubkey: RistrettoPublicKey,
     ) -> Result<bool, &'static str> {
         //create message to verify the Signature over the Input State with the public key
-        let message = bincode::serialize(&in_state).unwrap();
-        //verify the Signature over the Input State with the public key
+        // The witness is 0 for the purposes of signature verification
+        //recreate the input statewith the Witness as zero 
 
-        let sig = self
-            .sign
-            .verify_message(("stateSign").as_bytes(), &message, pubkey);
-        if sig.is_err() {
+        
+        //verify the Signature over the Input state with the public key
+        let verifier_input = Input::state(InputData::state(input.as_utxo().unwrap().clone(), input.as_out_state().unwrap().clone(), input.input.as_state_script_data().cloned(), 0));   
+        let message = bincode::serialize(&verifier_input).unwrap();
+        
+        let verify_sig = pubkey.verify_msg(&message, &self
+            .sign, ("stateSign").as_bytes());
+        if verify_sig.is_err() {
             return Err("Signature verification failed");
         }
-
+        let in_state = input.input;
         //get state_variables
         if in_state.as_state_variables().is_some() {
             //verify the zero proofs if any over the state variables
@@ -931,7 +976,7 @@ impl StateWitness {
             if commitment_witness.len() > state_variables.len() {
                 return Err("Error::There are more zero proofs than state variables");
             }
-            //index is to go through the proofs agaisstn the committed variables
+            //index is to go through the proofs against the committed variables
             let mut index: usize = 0;
             let gens = PedersenGens::default();
             for variable in state_variables {
