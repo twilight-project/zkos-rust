@@ -516,7 +516,29 @@ impl Input {
             _ => None,
         }
     }
-}
+
+    // return Input with Witness = 0 for signing
+    pub fn as_input_for_signing(&self) -> Input {
+            match self.input {
+                InputData::Coin { ref utxo, ref out_coin, .. } => Input::coin(InputData::coin(utxo.clone(),
+                    out_coin.clone(),
+                    0,)
+            ),
+                InputData::Memo { ref utxo, ref out_memo, ref commitment_proof_value, .. } => Input::memo(InputData::memo (utxo.clone(),
+                    out_memo.clone(),
+                    0,
+                    commitment_proof_value.clone(),
+                )),
+                InputData::State { ref utxo, ref out_state, ref script_data, .. } => Input::state(InputData::state(utxo.clone(), 
+                    out_state.clone(),
+                    script_data.clone(),
+                    0,
+                    
+                )),
+            }
+        }
+} 
+
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OutputData {
@@ -583,6 +605,15 @@ impl OutputMemo {
             commitment,
             data,
             timebounds,
+        }
+    }
+    pub fn verifier_view(&self) -> OutputMemo {
+        OutputMemo {
+            script_address: self.script_address.clone(),
+            owner: self.owner.clone(),
+            commitment: Commitment::Closed(self.commitment.clone().to_point()),
+            data: self.data.clone(),
+            timebounds: self.timebounds,
         }
     }
 
