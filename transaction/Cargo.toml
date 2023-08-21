@@ -29,8 +29,11 @@ bincode = "1.3.3"
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
 branch = "qqtxapi-merged"
 
-[dependencies.elgamalsign]
-path = "../elgamalsign"
+#[dependencies.elgamalsign]
+#path = "../elgamalsign"
+
+[dependencies.zkschnorr]
+git = "ssh://github.com/twilight-project/ZkSchnorr.git"
 
 [dependencies.address]
 path = "../address"
