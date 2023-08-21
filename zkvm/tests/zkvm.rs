@@ -805,16 +805,15 @@ fn state_witness_test() {
 #[test]
 fn value_witness_test() {
     let mut rng = rand::thread_rng();
-    let sk_in: SigningKey = Scalar::random(&mut rng);
-    let r = Scalar::random(&mut rng);
-    let pk_in: VerificationKey = VerificationKey::from_secret(&sk_in, &r);
-    let (g, h) = pk_in.as_point();
-    let ris_pk = RistrettoPublicKey::new_from_pk(g.clone(), h.clone());
-    let add: Address = Address::standard_address(Network::default(), ris_pk.clone());
+    let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
+    let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+   
+   
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
     let rscalar: Scalar = Scalar::random(&mut rng);
     // create input coin
-    let commit_in = ElGamalCommitment::generate_commitment(&ris_pk, rscalar, Scalar::from(10u64));
-    let enc_acc = Account::set_account(ris_pk, commit_in);
+    let commit_in = ElGamalCommitment::generate_commitment(&pk_in , rscalar, Scalar::from(10u64));
+    let enc_acc = Account::set_account(pk_in, commit_in);
 
     let out_coin = OutputCoin {
         encrypt: commit_in,
@@ -843,8 +842,8 @@ fn value_witness_test() {
 
     // create InputCoin Witness
     let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
-        in_data.clone(),
-        sk_in.clone(),
+        coin_in.clone(),
+        sk_in,
         enc_acc,
         pk_in.clone(),
         commit_1.to_point(),
@@ -855,7 +854,7 @@ fn value_witness_test() {
     // verify the witness
     let value_wit = witness.to_value_witness().unwrap();
     let res = value_wit.verify_value_witness(
-        in_data.clone(),
+        coin_in.clone(),
         pk_in.clone(),
         enc_acc,
         commit_1.to_point(),
