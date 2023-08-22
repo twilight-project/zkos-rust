@@ -51,12 +51,12 @@ fn main() {
             }
         })
         .unwrap();
-    // init_utxo();
+    init_utxo();
 
-    // let handle = thread::spawn(|| {
-    //     zk_oracle_subscriber();
-    // });
-    // rpcserver();
-    // handle.join().unwrap();
-     handle.join().unwrap();
+    let handle = thread::spawn(|| {
+        zk_oracle_subscriber();
+    });
+    rpcserver();
+    handle.join().unwrap();
+    //  handle.join().unwrap();
 }

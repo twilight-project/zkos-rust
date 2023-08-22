@@ -86,19 +86,29 @@ pub fn rpcserver() {
         println!("{:?}", address);
 
         let utxos = search_coin_type_utxo_by_address(address);
+        println!("{}", hex::encode(utxos[0].to_bytes()));
         let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
         Ok(response_body)
     });
 
 
     io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
-        let utxo: Utxo = match params.parse() {
-            Ok(utxo) => utxo,
-            Err(_) => {
-                let err = JsonRpcError::invalid_params("Expected a valid Utxo object.".to_string());
+
+        let hex_str = match params.parse::<Vec<String>>() {
+            Ok(vec) => {
+                if vec.is_empty() {
+                    let err = JsonRpcError::invalid_params("Expected an array with at least one string.".to_string());
+                    return Err(err);
+                }
+                vec[0].clone()
+            },
+            Err(args) => {
+                let err = JsonRpcError::invalid_params(format!("Expected an array of strings, {:?}", args));
                 return Err(err);
             }
         };
+        let bytes = hex::decode(hex_str).unwrap();
+        let utxo = Utxo::from_bytes(&bytes).unwrap();
 
         let output = search_coin_type_utxo_by_utxo_key(utxo);
         let response_body = serde_json::to_value(&output).expect("Failed to serialize to JSON");

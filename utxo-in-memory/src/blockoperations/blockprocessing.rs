@@ -89,7 +89,7 @@ pub struct Block {
 pub struct TransactionMessage {
     #[serde(rename = "@type")]
     pub tx_type: String,
-    #[serde(rename = "TxID")]
+    #[serde(rename = "TxId")]
     pub tx_id: String,
     #[serde(rename = "TxByteCode")]
     pub tx_byte_code: Option<String>,
