@@ -9,9 +9,10 @@ use jsonrpc_http_server::{hyper, ServerBuilder};
 use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 use std::collections::HashMap;
 use transaction::Transaction;
-use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_address};
+use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key};
 use transaction::reference_tx::verify_transaction;
 use quisquislib::ristretto::RistrettoPublicKey;
+use zkvm::zkos_types::Utxo;
 #[derive(Default, Clone, Debug)]
 struct Meta {
     metadata: HashMap<String, Option<String>>,
@@ -39,25 +40,29 @@ pub fn rpcserver() {
             }
         };
 
-        // TODO : add verification here
-        let utxo_verified = verify_utxo(tx.clone());
-        let tx_verified = verify_transaction(tx.clone());
         let response_body = format!("{{ \"Error\": \"\"}}");
 
-        match tx_verified {
-            Ok(()) => {
-                let response_body = service::tx_commit(tx);
-            },
-            Err(err_msg) => {
-                let response_body = format!("{{ \"Error\": \"{}\"}}", err_msg);
-            },
+        let utxo_verified = verify_utxo(tx.clone());
+        if utxo_verified == false {
+            let response_body = "{{ \"Error\": \"failed to verify utxo\"}}".to_string();
+        }
+        else{
+            let tx_verified = verify_transaction(tx.clone());
+            match tx_verified {
+                Ok(()) => {
+                    let response_body = service::tx_commit(tx);
+                },
+                Err(err_msg) => {
+                    let response_body = format!("{{ \"Error\": \"{}\"}}", err_msg);
+                },
+            }
         }
 
         let response_body = serde_json::Value::String(response_body);
         Ok(response_body)
     });
 
-    io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
+    io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
         println!("inside getUtxo");
         let mut address: address::Standard;
     
@@ -82,6 +87,21 @@ pub fn rpcserver() {
 
         let utxos = search_coin_type_utxo_by_address(address);
         let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+        Ok(response_body)
+    });
+
+
+    io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
+        let utxo: Utxo = match params.parse() {
+            Ok(utxo) => utxo,
+            Err(_) => {
+                let err = JsonRpcError::invalid_params("Expected a valid Utxo object.".to_string());
+                return Err(err);
+            }
+        };
+
+        let output = search_coin_type_utxo_by_utxo_key(utxo);
+        let response_body = serde_json::to_value(&output).expect("Failed to serialize to JSON");
         Ok(response_body)
     });
     
