@@ -52,18 +52,18 @@ pub struct RecordUtxo {
 }
 impl Sender {
     pub fn generate_value_and_account_vector(
-        tx_vector: Vec<Sender>,
-    ) -> Result<(Vec<i64>, Vec<Account>, Vec<Scalar>, usize, usize, usize), &'static str> {
+        tx_vector: Vec<Sender>, 
+    ) -> Result<(Vec<i64>, Vec<Account>, usize, usize), &'static str> {
         if tx_vector.len() < 9 {
             let mut value_vector: Vec<i64> = tx_vector.iter().map(|s| s.total_amount).collect();
             let mut account_vector: Vec<Account> = tx_vector.iter().map(|s| s.account).collect();
+            
             let senders_count: usize = tx_vector.iter().count();
             let mut receivers_count = 0;
+            
             let mut receiver_amount_vector: Vec<i64> = Vec::new();
             let mut receiver_account_vector: Vec<Account> = Vec::new();
-            //keep track of all the r used for commitment of value zero
-            let mut annonymity_account_commmitment_scalars_vector: Vec<Scalar> = Vec::new();
-
+            
             for sender in tx_vector.iter() {
                 receivers_count += &sender.receivers.iter().count();
 
@@ -77,7 +77,29 @@ impl Sender {
                 value_vector.append(&mut receiver_amount_vector);
                 account_vector.append(&mut receiver_account_vector);
 
-                // lets create anonymity set - these are randomly generated on the fly
+                Ok((
+                    value_vector,
+                    account_vector,
+                    senders_count,
+                    receivers_count,
+                ))
+            } else {
+                Err("senders and receivers count should be less than 9")
+            }
+        } else {
+            Err("account count is more than 9")
+        }
+    }
+
+    //create anonymous account for anonymity set
+    pub fn create_anonymity_set(senders_count: usize, receivers_count: usize)-> (Vec<i64>, Vec<Account>, Vec<Scalar>, usize){
+        let mut value_vector: Vec<i64> = Vec::new();
+        let mut account_vector: Vec<Account> = Vec::new();
+
+        //keep track of all the r used for commitment of value zero
+        let mut annonymity_account_commmitment_scalars_vector: Vec<Scalar> = Vec::new();
+
+        // lets create anonymity set - these are randomly generated on the fly
                 // this anonymity set may need to come from the blockchain state itself in the future
 
                 let diff = 9 - (senders_count + receivers_count);
@@ -103,23 +125,9 @@ impl Sender {
                         annonymity_account_commmitment_scalars_vector.push(comm_scalar);
                     }
                 }
-
-                Ok((
-                    value_vector,
-                    account_vector,
-                    annonymity_account_commmitment_scalars_vector,
-                    diff,
-                    senders_count,
-                    receivers_count,
-                ))
-            } else {
-                Err("senders and receivers count should be less than 9")
-            }
-        } else {
-            Err("account count is more than 9")
-        }
+                (value_vector, account_vector, annonymity_account_commmitment_scalars_vector,
+                    diff,)
     }
-
     pub fn create_reference_tx_data_for_zkos_test() -> Result<
         (
             Vec<i64>,
@@ -177,13 +185,13 @@ impl Sender {
         ];
 
         let (
-            value_vector,
-            account_vector,
-            annonymity_com_scalar_vector,
-            diff,
+           mut value_vector,
+           mut account_vector,
             sender_count,
             receiver_count,
         ) = Sender::generate_value_and_account_vector(tx_vector)?;
+        let (v_vec, acc_vec, annonymity_com_scalar_vector,
+            diff,) = Sender::create_anonymity_set(sender_count, receiver_count);
 
         //Create sender updated account vector for the verification of sk and bl-v
         let bl_first_sender = 10 - 5; //bl-v
@@ -508,7 +516,7 @@ pub fn create_dark_reference_tx_for_utxo_test(
         ],
     }];
 
-    let (value_vector, account_vector, _, _, sender_count, receiver_count) =
+    let (value_vector, account_vector, sender_count, receiver_count) =
         Sender::generate_value_and_account_vector(tx_vector).unwrap();
 
     // println!("S = {:?}, R = {:?}", sender_count, receiver_count);
