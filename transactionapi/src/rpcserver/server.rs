@@ -23,44 +23,44 @@ pub fn rpcserver() {
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
 
-    // io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
-    //     let tx: transaction::Transaction;
-    //     tx = match params.parse::<Vec<u8>>() {
-    //         Ok(txx) => match bincode::deserialize(&txx) {
-    //             Ok(value) => value,
-    //             Err(args) => {
-    //                 let err =
-    //                     JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
-    //                 return Err(err);
-    //             }
-    //         },
-    //         Err(args) => {
-    //             let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
-    //             return Err(err);
-    //         }
-    //     };
+    io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
+        let tx: transaction::Transaction;
+        tx = match params.parse::<Vec<u8>>() {
+            Ok(txx) => match bincode::deserialize(&txx) {
+                Ok(value) => value,
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                    return Err(err);
+                }
+            },
+            Err(args) => {
+                let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                return Err(err);
+            }
+        };
 
-    //     let response_body = format!("{{ \"Error\": \"\"}}");
+        let response_body = format!("{{ \"Error\": \"\"}}");
 
-    //     let utxo_verified = verify_utxo(tx.clone());
-    //     if utxo_verified == false {
-    //         let response_body = "{{ \"Error\": \"failed to verify utxo\"}}".to_string();
-    //     }
-    //     else{
-    //         let tx_verified = verify_transaction(tx.clone());
-    //         match tx_verified {
-    //             Ok(()) => {
-    //                 let response_body = service::tx_commit(tx);
-    //             },
-    //             Err(err_msg) => {
-    //                 let response_body = format!("{{ \"Error\": \"{}\"}}", err_msg);
-    //             },
-    //         }
-    //     }
+        let utxo_verified = verify_utxo(tx.clone());
+        if utxo_verified == false {
+            let response_body = "{{ \"Error\": \"failed to verify utxo\"}}".to_string();
+        }
+        else{
+            let tx_verified = verify_transaction(tx.clone());
+            match tx_verified {
+                Ok(()) => {
+                    let response_body = service::tx_commit(tx);
+                },
+                Err(err_msg) => {
+                    let response_body = format!("{{ \"Error\": \"{}\"}}", err_msg);
+                },
+            }
+        }
 
-    //     let response_body = serde_json::Value::String(response_body);
-    //     Ok(response_body)
-    // });
+        let response_body = serde_json::Value::String(response_body);
+        Ok(response_body)
+    });
 
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
         println!("inside getUtxo");
