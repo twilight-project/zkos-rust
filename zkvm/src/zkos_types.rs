@@ -527,6 +527,15 @@ impl Input {
         }
     }
 
+    //return owner_address from input
+    pub fn as_owner_address(&self) -> Option<&String> {
+        match self.input {
+            InputData::Coin { ref out_coin, .. } => Some(&out_coin.owner),
+            InputData::Memo { ref out_memo, .. } => Some(&out_memo.owner),
+            InputData::State { ref out_state, .. } => Some(&out_state.owner),
+        }
+    }
+
     // return Input with Witness = 0 for signing
     pub fn as_input_for_signing(&self) -> Input {
             match self.input {
