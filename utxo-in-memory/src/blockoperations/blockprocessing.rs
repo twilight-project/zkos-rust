@@ -259,17 +259,10 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
     return filtered_utxo
 }
 
-pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Option<Output>{
+pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Output{
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
-    let result  = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
-        Ok(result) => {
-            Some(result)
-        }
-        Err(err) => {
-            None
-        }
-    };
+    let result = utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type).unwrap();
     return result
 }
 
