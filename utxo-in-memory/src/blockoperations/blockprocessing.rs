@@ -264,7 +264,7 @@ pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Option<Output>{
     let input_type = IOType::Coin as usize;
     let result  = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
         Ok(result) => {
-            some(result)
+            Some(result)
         }
         Err(err) => {
             None
