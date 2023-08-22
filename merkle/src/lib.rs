@@ -10,7 +10,7 @@ use std::fmt;
 use subtle::ConstantTimeEq;
 
 /// Merkle hash of a node.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default,Serialize, Deserialize)]
 pub struct Hash(pub [u8; 32]);
 
 /// MerkleItem defines an item in the Merkle tree.
@@ -440,46 +440,48 @@ impl DoubleEndedIterator for Directions {
     }
 }
 
-impl Serialize for Hash {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_bytes(&self.0)
-    }
-}
+// impl Serialize for Hash {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         serializer.serialize_bytes(&self.0)
+//     }
+// }
 
-impl<'de> serde::Deserialize<'de> for Hash {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct BytesVisitor;
+// impl<'de> serde::Deserialize<'de> for Hash {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: serde::Deserializer<'de>,
+//     {
+//         struct BytesVisitor;
 
-        impl<'de> serde::de::Visitor<'de> for BytesVisitor {
-            type Value = Hash;
+//         impl<'de> serde::de::Visitor<'de> for BytesVisitor {
+//             type Value = Hash;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                formatter.write_str("a valid 32-byte string")
-            }
+//             fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+//                 formatter.write_str("a valid 32-byte string")
+//             }
 
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Hash, E>
-            where
-                E: serde::de::Error,
-            {
-                if v.len() == 32 {
-                    let mut buf = [0u8; 32];
-                    buf[0..32].copy_from_slice(v);
-                    Ok(Hash(buf))
-                } else {
-                    Err(serde::de::Error::invalid_length(v.len(), &self))
-                }
-            }
-        }
+//             fn visit_bytes<E>(self, v: &[u8]) -> Result<Hash, E>
+//             where
+//                 E: serde::de::Error,
+//             {
+//                 println!("visit_bytes: {:?}", v);
+//                 println!("visit_bytes len: {:?}", v.len());
+//                 if v.len() == 32 {
+//                     let mut buf = [0u8; 32];
+//                     buf[0..32].copy_from_slice(v);
+//                     Ok(Hash(buf))
+//                 } else {
+//                     Err(serde::de::Error::invalid_length(v.len(), &self))
+//                 }
+//             }
+//         }
 
-        deserializer.deserialize_bytes(BytesVisitor)
-    }
-}
+//         deserializer.deserialize_bytes(BytesVisitor)
+//     }
+//}
 
 /// Call proof represents a proof that a certain program is committed via the merkle tree into the Script Address.
 /// Used by validator primarily to verify. The program is not the part of the proof.
