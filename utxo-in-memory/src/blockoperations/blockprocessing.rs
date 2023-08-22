@@ -267,7 +267,7 @@ pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Output{
             result
         }
         Err(err) => {
-            Default::default()
+            None
         }
     };
     return result
