@@ -86,7 +86,7 @@ pub fn rpcserver() {
         println!("{:?}", address);
 
         let utxos = search_coin_type_utxo_by_address(address);
-        // println!("{}", hex::encode(utxos[0].to_bytes()));
+        println!("{}", hex::encode(utxos[0].to_bytes()));
         let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
         Ok(response_body)
     });
@@ -111,18 +111,9 @@ pub fn rpcserver() {
         let utxo = Utxo::from_bytes(&bytes).unwrap();
 
         let output = search_coin_type_utxo_by_utxo_key(utxo);
-
-        match output {
-            Some(value) => {
-                let json_value = serde_json::to_value(&value).expect("Failed to serialize to JSON");
-                return Ok(Some(json_value).into()); // Wrap the value in Some and convert to Option<Value>
-            }
-            None => {
-                return Ok(None.into()); // Wrap None in Option<Value>
-            }
-        }
+        let response_body = serde_json::to_value(&output).expect("Failed to serialize to JSON");
+        Ok(response_body)
     });
-    
     
     
 
