@@ -107,7 +107,8 @@ pub fn rpcserver() {
                 return Err(err);
             }
         };
-        let utxo = Utxo::from_bytes(hex::decode(hex_str)).unwrap();
+        let bytes = hex::decode(hex_str).unwrap();
+        let utxo = Utxo::from_bytes(&bytes).unwrap();
 
         let output = search_coin_type_utxo_by_utxo_key(utxo);
         let response_body = serde_json::to_value(&output).expect("Failed to serialize to JSON");
