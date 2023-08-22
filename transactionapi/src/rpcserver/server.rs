@@ -114,7 +114,7 @@ pub fn rpcserver() {
 
         let response_body = match output {
             Some(value) => {
-                serde_json::to_value(&output).expect("Failed to serialize to JSON");
+                serde_json::to_value(&value).expect("Failed to serialize to JSON");
             }
             None => {
                 serde_json::to_value(None).expect("Failed to serialize to JSON");
