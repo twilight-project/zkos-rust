@@ -112,14 +112,14 @@ pub fn rpcserver() {
 
         let output = search_coin_type_utxo_by_utxo_key(utxo);
 
-        match wrapped_value {
+        let response_body = match output {
             Some(value) => {
-                let response_body = serde_json::to_value(&output).expect("Failed to serialize to JSON");
+                serde_json::to_value(&output).expect("Failed to serialize to JSON");
             }
             None => {
-                let response_body = serde_json::to_value(None).expect("Failed to serialize to JSON");
+                serde_json::to_value(None).expect("Failed to serialize to JSON");
             }
-        }
+        };
 
 
         Ok(response_body)
