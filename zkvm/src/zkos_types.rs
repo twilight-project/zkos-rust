@@ -559,6 +559,21 @@ impl OutputCoin {
     pub fn new(encrypt: ElGamalCommitment, owner: String) -> Self {
         Self { encrypt, owner }
     }
+    pub fn to_output(&self) -> Output {
+        Output::coin(OutputData::Coin(self.clone()))
+    }
+    pub fn to_input_data(&self, utxo: Utxo, witness_index: u8) -> InputData {
+        InputData::coin(utxo, self.clone(), witness_index)
+    }
+    pub fn to_input(&self, utxo: Utxo, witness_index: u8) -> Input {
+        Input::coin(InputData::coin(utxo, self.clone(), witness_index))
+    }
+    pub fn to_quisquis_account(&self) -> Account {
+        let add: address::Address = address::Address::from_hex(&self.owner, address::AddressType::Standard).unwrap();
+        let pub_key: RistrettoPublicKey = add.as_c_address().public_key;
+        Account::set_account( pub_key.clone(), self.encrypt.clone())
+    }
+
 }
 
 impl Encodable for OutputCoin {
