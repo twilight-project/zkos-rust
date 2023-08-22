@@ -114,13 +114,15 @@ pub fn rpcserver() {
 
         match output {
             Some(value) => {
-                return Ok(serde_json::to_value(&value).expect("Failed to serialize to JSON"));
+                let json_value = serde_json::to_value(&value).expect("Failed to serialize to JSON");
+                return Ok(Some(json_value).into()); // Wrap the value in Some and convert to Option<Value>
             }
             None => {
-                return Ok(serde_json::to_value(None).expect("Failed to serialize to JSON"));
+                return Ok(None.into()); // Wrap None in Option<Value>
             }
-        };
+        }
     });
+    
     
     
 
