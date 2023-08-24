@@ -92,7 +92,7 @@ impl Sender {
     }
 
     //create anonymous account for anonymity set
-    pub fn create_anonymity_set(senders_count: usize, receivers_count: usize)-> (Vec<i64>, Vec<Account>, Vec<Scalar>, usize){
+    pub fn create_anonymity_set(senders_count: usize, receivers_count: usize)-> (Vec<Account>, Vec<Scalar>){
         let mut value_vector: Vec<i64> = Vec::new();
         let mut account_vector: Vec<Account> = Vec::new();
 
@@ -125,8 +125,7 @@ impl Sender {
                         annonymity_account_commmitment_scalars_vector.push(comm_scalar);
                     }
                 }
-                (value_vector, account_vector, annonymity_account_commmitment_scalars_vector,
-                    diff,)
+                (account_vector, annonymity_account_commmitment_scalars_vector)
     }
     pub fn create_reference_tx_data_for_zkos_test() -> Result<
         (
@@ -147,13 +146,13 @@ impl Sender {
         // lets create sender accounts to send these amounts from
         let (bob_account_1, bob_sk_account_1) =
             Account::generate_random_account_with_value(10u64.into());
-        let (bob_account_2, bob_sk_account_2) =
-            Account::generate_random_account_with_value(20u64.into());
+        //let (bob_account_2, bob_sk_account_2) =
+        // Account::generate_random_account_with_value(20u64.into());
 
         // lets create receiver accounts
         let alice_account = Account::generate_random_account_with_value(0u64.into()).0;
-        let fay_account = Account::generate_random_account_with_value(0u64.into()).0;
-        let jay_account = Account::generate_random_account_with_value(0u64.into()).0;
+        //let fay_account = Account::generate_random_account_with_value(0u64.into()).0;
+        //let jay_account = Account::generate_random_account_with_value(0u64.into()).0;
 
         // so we have 2 senders and 3 receivers, rest will be the anonymity set
 
@@ -168,20 +167,20 @@ impl Sender {
                     acc: alice_account,
                 }],
             },
-            Sender {
-                total_amount: -3,
-                account: bob_account_2,
-                receivers: vec![
-                    Receiver {
-                        amount: 2,
-                        acc: fay_account,
-                    },
-                    Receiver {
-                        amount: 1,
-                        acc: jay_account,
-                    },
-                ],
-            },
+            // //Sender {
+            //     total_amount: -3,
+            //     account: bob_account_2,
+            //     receivers: vec![
+            //         Receiver {
+            //             amount: 2,
+            //             acc: fay_account,
+            //         },
+            //         Receiver {
+            //             amount: 1,
+            //             acc: jay_account,
+            //         },
+            //     ],
+            // },
         ];
 
         let (
@@ -190,15 +189,22 @@ impl Sender {
             sender_count,
             receiver_count,
         ) = Sender::generate_value_and_account_vector(tx_vector)?;
-        let (v_vec, acc_vec, annonymity_com_scalar_vector,
-            diff,) = Sender::create_anonymity_set(sender_count, receiver_count);
+        let (anonymity_account_vec, annonymity_com_scalar_vector,) = Sender::create_anonymity_set(sender_count, receiver_count);
+        
+        let diff: usize = 9 - (sender_count + receiver_count);
+        if diff >= 1 {
+            for i in 0..diff {
+                value_vector.push(0);
+                account_vector.push(anonymity_account_vec[i].clone());
+            }
+        }
 
         //Create sender updated account vector for the verification of sk and bl-v
         let bl_first_sender = 10 - 5; //bl-v
-        let bl_second_sender = 20 - 3; //bl-v
-        let updated_balance_sender: Vec<u64> = vec![bl_first_sender, bl_second_sender];
+       //let bl_second_sender = 20 - 3; //bl-v
+        let updated_balance_sender: Vec<u64> = vec![bl_first_sender];//, bl_second_sender];
         //Create vector of sender secret keys
-        let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1, bob_sk_account_2];
+        let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1];//, bob_sk_account_2];
 
         Ok((
             value_vector,
@@ -249,7 +255,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
         utxo.clone(),
     ];
 
-    let updated_balance_reciever: Vec<u64> = vec![5, 2, 1];
+    let updated_balance_reciever: Vec<u64> = vec![5];//, 2, 1];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransaction
     let transfer = TransferTransaction::create_quisquis_transaction(
