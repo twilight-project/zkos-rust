@@ -102,7 +102,7 @@ pub struct TransactionMessage {
     #[serde(rename = "QqAccount")]
     pub qq_account: Option<String>,
     #[serde(rename = "EncryptScalar")]
-    pub encrypt_scalar: Option<u64>,
+    pub encrypt_scalar: Option<String>,
     #[serde(rename = "TwilightAddress")]
     pub twilight_address: Option<String>,
 }
