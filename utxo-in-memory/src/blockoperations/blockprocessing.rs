@@ -98,7 +98,7 @@ pub struct TransactionMessage {
     #[serde(rename = "MintOrBurn")]
     pub mint_or_burn: Option<bool>, // Optional because it's not present in all types.
     #[serde(rename = "BtcValue")]
-    pub btc_value: Option<u32>,
+    pub btc_value: Option<String>,
     #[serde(rename = "QqAccount")]
     pub qq_account: Option<String>,
     #[serde(rename = "EncryptScalar")]
