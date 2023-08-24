@@ -14,7 +14,7 @@ pub mod script_tx;
 mod serialization;
 pub mod transfer_tx;
 pub mod vm_run;
-
+mod verify_relayer;
 //mod encode;
 #[cfg(test)]
 mod tests;
