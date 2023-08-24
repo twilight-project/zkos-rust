@@ -45,17 +45,17 @@ path = "../address"
 #path = "../elgamalsign"
 
 [dependencies.zkschnorr]
-git = "ssh://github.com/twilight-project/ZkSchnorr.git"
-# path = "../../ZkSchnorr"
-[dependencies.bulletproofs]
-git = "https://github.com/dalek-cryptography/bulletproofs"
-branch = "develop"
+#git = "ssh://github.com/twilight-project/ZkSchnorr.git"
+path = "../../ZkSchnorr"
+#[dependencies.bulletproofs]
+#git = "https://github.com/dalek-cryptography/bulletproofs"
+#branch = "develop"
 features = ["yoloproofs"]
 
 [dependencies.quisquis-rust]
-# path ="../../quisquis-rust"
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "qqtxapi-merged"
+path ="../../quisquis-rust"
+#git = "ssh://github.com/twilight-project/quisquis-rust.git"
+#branch = "qqtxapi-merged"
 
 [features]
 default = []
