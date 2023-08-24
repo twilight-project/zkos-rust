@@ -47,10 +47,11 @@ path = "../address"
 [dependencies.zkschnorr]
 git = "ssh://github.com/twilight-project/ZkSchnorr.git"
 # path = "../../ZkSchnorr"
+
 #[dependencies.bulletproofs]
 #git = "https://github.com/dalek-cryptography/bulletproofs"
 #branch = "develop"
-features = ["yoloproofs"]
+# features = ["yoloproofs"]
 
 [dependencies.quisquis-rust]
 # path ="../../quisquis-rust"
