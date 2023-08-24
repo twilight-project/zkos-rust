@@ -19,9 +19,9 @@ ripemd = "0.1.3"
 
 
 [dependencies.quisquis-rust]
-path = "../../quisquis-rust"
-#git = "ssh://github.com/twilight-project/quisquis-rust.git"
-#branch = "qqtxapi-merged"
+# path = "../../quisquis-rust"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "qqtxapi-merged"
 
 [features]
 default = []
