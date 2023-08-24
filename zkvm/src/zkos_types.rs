@@ -1084,7 +1084,7 @@ impl ValueWitness {
         Self { sign, value_proof }
     }
 
-    pub fn get_sign(&self) -> &Signature {
+    pub fn get_signature(&self) -> &Signature {
         &self.sign
     }
 
@@ -1160,7 +1160,7 @@ impl ZkosCreateOrder{
         Self {
             input,
             output,
-            signature: vw.get_sign().clone(),
+            signature: vw.get_signature().clone(),
             proof: vw.get_value_proof().clone(),
         }
     }
