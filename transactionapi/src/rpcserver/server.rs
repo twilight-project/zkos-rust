@@ -63,16 +63,20 @@ pub fn rpcserver() {
     });
 
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
-        println!("inside getUtxo");
         let mut address: address::Standard;
     
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
-                if vec.trim().is_empty() {
+                if vec.is_empty() {
                     let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
-                vec[0].clone()
+                let hex_address = vec[0].clone();
+                if hex_address.trim().is_empty(){
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                    return Err(err);
+                }
+                hex_address
             },
             Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
@@ -97,7 +101,7 @@ pub fn rpcserver() {
     });
 
 
-    io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
+    io.add_method_with_meta("getOutput", move |params: Params, _meta: Meta| async move {
 
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
