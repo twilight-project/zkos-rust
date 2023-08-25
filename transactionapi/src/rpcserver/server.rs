@@ -88,7 +88,7 @@ pub fn rpcserver() {
         address = match address::Standard::from_hex_with_error(&hex_str) {
             Ok(addr) => addr,
             Err(e) => {
-                let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                let err = JsonRpcError::invalid_params( e.to_string());
                 return Err(err)
             }
         };
