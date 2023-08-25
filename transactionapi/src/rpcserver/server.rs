@@ -75,6 +75,7 @@ pub fn rpcserver() {
             println!("tx is checked");
             match tx_verified {
                 Ok(()) => {
+                    println!("tx is ok");
                     let response_body = service::tx_commit(tx);
                     let response_body = serde_json::Value::String(response_body);
                     Ok(response_body)
