@@ -44,8 +44,6 @@ pub fn rpcserver() {
                 return Err(err);
             }
         };
-
-        let response_body = format!("Error");
         
         let tx_bytes = match hex::decode(hex_tx) {
             Ok(bytes) => bytes,
@@ -66,21 +64,24 @@ pub fn rpcserver() {
         let utxo_verified = verify_utxo(tx.clone());
         if utxo_verified == false {
             let response_body = "Error: failed to verify utxo".to_string();
+            let response_body = serde_json::Value::String(response_body);
+            Ok(response_body)
         }
         else{
             let tx_verified = verify_transaction(tx.clone());
             match tx_verified {
                 Ok(()) => {
                     let response_body = service::tx_commit(tx);
+                    let response_body = serde_json::Value::String(response_body);
+                    Ok(response_body)
                 },
                 Err(err_msg) => {
                     let response_body = format!("Error: {}", err_msg);
+                    let response_body = serde_json::Value::String(response_body);
+                    Ok(response_body)
                 },
             }
         }
-
-        let response_body = serde_json::Value::String(response_body);
-        Ok(response_body)
     });
 
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
