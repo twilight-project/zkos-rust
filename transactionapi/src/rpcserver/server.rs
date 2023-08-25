@@ -114,8 +114,8 @@ pub fn rpcserver() {
         };
         let utxo = match hex::decode(hex_str) {
             Ok(bytes) => match Utxo::from_bytes(&bytes) {
-                Ok(utxo) => utxo,
-                Err(_) => {
+                Some(utxo) => utxo,
+                None => {
                     let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
                     return Err(err);
                 }
