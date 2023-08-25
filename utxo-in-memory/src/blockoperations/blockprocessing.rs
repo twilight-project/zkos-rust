@@ -184,6 +184,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     //     }
     // }
     //proccess tx
+    println!("utxo status {}", utxo_verified);
 
     if utxo_verified {
         println!("inside success");
