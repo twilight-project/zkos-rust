@@ -146,7 +146,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
 
-    let utxo_verified = verify_utxo(transaction);
+    let utxo_verified = verify_utxo(transaction_info);
 
     // if transaction_info.tx_type == TransactionType::Script{
     //     for input in &tx_input {
