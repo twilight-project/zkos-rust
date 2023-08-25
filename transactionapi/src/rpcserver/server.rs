@@ -163,7 +163,7 @@ pub fn rpcserver() {
 
         let response_body = match search_coin_type_utxo_by_utxo_key(utxo){
             Ok(output) => serde_json::to_value(&output).expect("Failed to serialize to JSON"),
-            Err(err) => serde_json::to_value(&output).expect("Failed to serialize to JSON")
+            Err(err) => serde_json::to_value(&err).expect("Failed to serialize to JSON")
         };
 
         Ok(response_body)
