@@ -85,7 +85,13 @@ pub fn rpcserver() {
         };
     
         println!("Received hex string: {}", hex_str);
-        address = address::Standard::from_hex(&hex_str);
+        address = match address::Standard::from_hex_with_error(&hex_str) {
+            Ok(addr) => addr,
+            Err(e) => {
+                let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                return Err(err)
+            }
+        };
 
         let utxos = search_coin_type_utxo_by_address(address);
         if utxos.len() > 0 {
