@@ -116,11 +116,11 @@ pub fn rpcserver() {
             Ok(bytes) => match Utxo::from_bytes(&bytes) {
                 Some(utxo) => utxo,
                 None => {
-                    let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                    let err = JsonRpcError::invalid_params(format!("invalid Hex"));
                     return Err(err);
                 }
             },
-            Err(_) => {
+            Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
                 return Err(err);
             }
