@@ -32,9 +32,9 @@ url = "2.4.0"
 temp-env = "0.3.4"
 
 [dependencies.quisquis-rust]
-# path = "../../quisquis-rust"
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "qqtxapi-merged"
+path = "../../quisquis-rust"
+#git = "ssh://github.com/twilight-project/quisquis-rust.git"
+#branch = "qqtxapi-merged"
 
 [dependencies.transaction]
 path = "../transaction"
