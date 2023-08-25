@@ -140,12 +140,16 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     println!("inside process transfer");
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
+    println!("decoded tx ");
+
     let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
+    println!("created tx");
     let tx_id:[u8;32] = hex::decode(transaction.tx_id).unwrap().try_into().unwrap();
-    let mut success: bool = true;
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
 
+    println!("verifying utxos");
+    
     let utxo_verified = verify_utxo(transaction_info);
 
     // if transaction_info.tx_type == TransactionType::Script{
