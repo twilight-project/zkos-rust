@@ -68,7 +68,7 @@ pub fn rpcserver() {
     
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
-                if vec.is_empty() {
+                if vec.trim().is_empty() {
                     let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
