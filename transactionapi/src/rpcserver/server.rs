@@ -61,8 +61,6 @@ pub fn rpcserver() {
             }
         };
 
-        println!("going to check utxo");
-
         let utxo_verified = verify_utxo(tx.clone());
         if utxo_verified == false {
             let response_body = "Error: failed to verify utxo".to_string();
@@ -70,12 +68,9 @@ pub fn rpcserver() {
             Ok(response_body)
         }
         else{
-            println!("going to check tx");
             let tx_verified = verify_transaction(tx.clone());
-            println!("tx is checked");
             match tx_verified {
                 Ok(()) => {
-                    println!("tx is ok");
                     let response_body = service::tx_commit(tx).await;
                     let response_body = serde_json::Value::String(response_body);
                     Ok(response_body)
@@ -110,8 +105,6 @@ pub fn rpcserver() {
                 return Err(err);
             }
         };
-    
-        println!("Received hex string: {}", hex_str);
         address = match address::Standard::from_hex_with_error(&hex_str) {
             Ok(addr) => addr,
             Err(e) => {
