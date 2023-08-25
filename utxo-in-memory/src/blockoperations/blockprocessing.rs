@@ -191,7 +191,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     // }
     //proccess tx
     println!("utxo status {}", utxo_verified);
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 
     if utxo_verified {
         println!("inside success");
@@ -288,11 +288,16 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
     return filtered_utxo
 }
 
-pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Output{
+pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str>{
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
-    let result = utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type).unwrap();
-    return result
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type){
+        Ok(output) => output,
+        Err(err) => {
+            return Err("Utxo not found ")
+        }
+    };
+    return Ok(result)
 }
 
 
