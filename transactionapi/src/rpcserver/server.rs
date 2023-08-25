@@ -69,21 +69,19 @@ pub fn rpcserver() {
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
                 if vec.is_empty() {
-                    let err = JsonRpcError::invalid_params("Expected an array with at least one string.".to_string());
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
                 vec[0].clone()
             },
             Err(args) => {
-                let err = JsonRpcError::invalid_params(format!("Expected an array of strings, {:?}", args));
+                let err = JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
                 return Err(err);
             }
         };
     
         println!("Received hex string: {}", hex_str);
         address = address::Standard::from_hex(&hex_str);
-
-        println!("{:?}", address);
 
         let utxos = search_coin_type_utxo_by_address(address);
         if utxos.len() > 0 {
@@ -92,7 +90,7 @@ pub fn rpcserver() {
             Ok(response_body)
         }
         else {
-            let result = format!("{{ \"Error\": \"Utxo not available for provided address \"}}");
+            let result = format!("{{ Error: Utxo not available for provided address}}");
             let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
             Ok(response_body)
         }       
