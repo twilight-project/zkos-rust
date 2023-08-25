@@ -138,7 +138,6 @@ where
 
 pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
     println!("inside process transfer");
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
     println!("decoded tx ");
 
@@ -153,7 +152,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     println!("outputs : {}", tx_output.len());
     let utxo_verified = false;
     
-    // let utxo_verified = verify_utxo(transaction_info);
+    let utxo_verified = verify_utxo(transaction_info);
 
     // if transaction_info.tx_type == TransactionType::Script{
     //     for input in &tx_input {
@@ -192,6 +191,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     // }
     //proccess tx
     println!("utxo status {}", utxo_verified);
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 
     if utxo_verified {
         println!("inside success");
