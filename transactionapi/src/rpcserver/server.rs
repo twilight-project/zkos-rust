@@ -115,7 +115,12 @@ pub fn rpcserver() {
                     let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
-                vec[0].clone()
+                hex_utxo = vec[0].clone();
+                if hex_utxo.trim().is_empty(){
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                    return Err(err);
+                }
+                hex_utxo
             },
             Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
