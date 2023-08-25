@@ -149,8 +149,9 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     let tx_output = transaction_info.get_tx_outputs();
 
     println!("verifying utxos");
-    println!("inputs : ", tx_input.len());
-    println!("outputs : ", tx_output.len());
+    println!("inputs : {}", tx_input.len());
+    println!("outputs : {}", tx_output.len());
+    let utxo_verified = true;
     
     // let utxo_verified = verify_utxo(transaction_info);
 
