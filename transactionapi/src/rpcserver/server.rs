@@ -50,7 +50,7 @@ pub fn rpcserver() {
         let tx_bytes = match hex::decode(hex_tx) {
             Ok(bytes) => bytes,
             Err(e) => {
-                let err = JsonRpcError::invalid_params(format!("Expected a valid hex string, {:?}", args));
+                let err = JsonRpcError::invalid_params(format!("Expected a valid hex string, {:?}", e));
                 return Err(err);
             }
         };
@@ -58,7 +58,7 @@ pub fn rpcserver() {
         tx = match bincode::deserialize(&tx_bytes){
             Ok(t) => t,
             Err(e) => {
-                let err = JsonRpcError::invalid_params(format!("Expected a valid Tx, {:?}", args));
+                let err = JsonRpcError::invalid_params(format!("Expected a valid Tx, {:?}", e));
                 return Err(err);
             }
         };
