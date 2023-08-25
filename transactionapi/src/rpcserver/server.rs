@@ -86,8 +86,15 @@ pub fn rpcserver() {
         println!("{:?}", address);
 
         let utxos = search_coin_type_utxo_by_address(address);
-        println!("{}", hex::encode(utxos[0].to_bytes()));
-        let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+        if len(utxo) > 0 {
+            println!("{}", hex::encode(utxos[0].to_bytes()));
+            let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+        }
+        else {
+            let result = format!("{{ \"Error\": \"Utxo not available for provided address \"}}")
+            let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
+        }
+
         Ok(response_body)
     });
 
