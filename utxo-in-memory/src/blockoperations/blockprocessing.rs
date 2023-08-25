@@ -151,7 +151,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     println!("verifying utxos");
     println!("inputs : {}", tx_input.len());
     println!("outputs : {}", tx_output.len());
-    let utxo_verified = true;
+    let utxo_verified = false;
     
     // let utxo_verified = verify_utxo(transaction_info);
 
