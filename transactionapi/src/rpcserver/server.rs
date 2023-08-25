@@ -102,18 +102,29 @@ pub fn rpcserver() {
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
                 if vec.is_empty() {
-                    let err = JsonRpcError::invalid_params("Expected an array with at least one string.".to_string());
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
                 vec[0].clone()
             },
             Err(args) => {
-                let err = JsonRpcError::invalid_params(format!("Expected an array of strings, {:?}", args));
+                let err = JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
                 return Err(err);
             }
         };
-        let bytes = hex::decode(hex_str).unwrap();
-        let utxo = Utxo::from_bytes(&bytes).unwrap();
+        let utxo = match hex::decode(hex_str) {
+            Ok(bytes) => match Utxo::from_bytes(&bytes) {
+                Ok(utxo) => utxo,
+                Err(_) => {
+                    let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                    return Err(err);
+                }
+            },
+            Err(_) => {
+                let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                return Err(err);
+            }
+        };
 
         let output = search_coin_type_utxo_by_utxo_key(utxo);
         let response_body = serde_json::to_value(&output).expect("Failed to serialize to JSON");
