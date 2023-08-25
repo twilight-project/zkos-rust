@@ -137,6 +137,7 @@ where
 }
 
 pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
+    println!("inside process transfer");
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
     let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
@@ -146,6 +147,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     let tx_output = transaction_info.get_tx_outputs();
 
     for input in &tx_input {
+        println!("inside inputs");
         let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
         let utxo_input_type = input.in_type as usize;
         let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
@@ -154,18 +156,20 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             success = false;
         }
     }
-    for (output_index, output_set) in tx_output.iter().enumerate() {
-        let utxo_key =
-            bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
-        let utxo_output_type = output_set.out_type as usize;
-        let bool = utxo_storage.search_key(&utxo_key, utxo_output_type);
-        if bool {
-            success = false;
-        } else {
-        }
-    }
+    // for (output_index, output_set) in tx_output.iter().enumerate() {
+    //     println!("inside outputs");
+    //     let utxo_key =
+    //         bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
+    //     let utxo_output_type = output_set.out_type as usize;
+    //     let bool = utxo_storage.search_key(&utxo_key, utxo_output_type);
+    //     if bool {
+    //         success = false;
+    //     } else {
+    //     }
+    // }
     //proccess tx
     if success {
+        println!("inside success");
         //remove all input
         for input in tx_input {
             let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
