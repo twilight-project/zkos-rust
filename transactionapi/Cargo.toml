@@ -32,10 +32,10 @@ bincode = "1"
 # check bitcoin core rpc 
 
 [dependencies.quisquis-rust]
-#path = "../../quisquis-rust"
+path = "../../quisquis-rust"
 # [dependencies.quisquis-rust]
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "qqtxapi-merged"
+# git = "ssh://github.com/twilight-project/quisquis-rust.git"
+# branch = "qqtxapi-merged"
 
 
 [dependencies.transaction]
