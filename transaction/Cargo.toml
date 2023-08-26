@@ -24,6 +24,7 @@ bs58 = "0.4.0"
 ripemd = "0.1.3"
 serde_bytes = "0.11.9"
 bincode = "1.3.3"
+
 [dependencies.quisquis-rust]
 path = "../../quisquis-rust"
 #git = "ssh://github.com/twilight-project/quisquis-rust.git"
@@ -35,6 +36,8 @@ path = "../../quisquis-rust"
 [dependencies.zkschnorr]
 #git = "ssh://github.com/twilight-project/ZkSchnorr.git"
 path = "../../ZkSchnorr"
+
+
 [dependencies.address]
 path = "../address"
 

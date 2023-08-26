@@ -42,7 +42,6 @@ pub fn zk_oracle_subscriber() {
         let msg = socket.read_message().expect("Error reading message");
         match msg {
             Message::Text(text) => {
-                println!("{}", text);
                 let block: blockoperations::blockprocessing::Block = serde_json::from_str(&text).unwrap();
                 let result = blockoperations::blockprocessing::process_block_for_utxo_insert(block);
                 if result.suceess_tx.len() > 0{
