@@ -38,7 +38,6 @@ path = "../../quisquis-rust"
 
 [dependencies.transaction]
 path = "../transaction"
-
 # [dependencies.elgamalsign]
 # path = "../elgamalsign"
 [dependencies.zkvm]

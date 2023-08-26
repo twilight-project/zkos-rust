@@ -13,8 +13,8 @@ pub mod reference_tx;
 pub mod script_tx;
 mod serialization;
 pub mod transfer_tx;
+pub mod verify_relayer;
 pub mod vm_run;
-mod verify_relayer;
 //mod encode;
 #[cfg(test)]
 mod tests;
@@ -23,4 +23,5 @@ pub use self::proof::{DarkTxProof, ShuffleTxProof};
 pub use self::reference_tx::{Receiver, Sender};
 pub use self::script_tx::ScriptTransaction;
 pub use self::transfer_tx::{Transaction, TransactionData, TransactionType, TransferTransaction};
+
 //pub use self::encode::{ReaderExt, WriterExt};
