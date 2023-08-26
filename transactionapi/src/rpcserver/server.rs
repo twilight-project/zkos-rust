@@ -13,6 +13,7 @@ use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_
 use transaction::reference_tx::verify_transaction;
 use quisquislib::ristretto::RistrettoPublicKey;
 use zkvm::zkos_types::Utxo;
+use bincode::deserialize;
 #[derive(Default, Clone, Debug)]
 struct Meta {
     metadata: HashMap<String, Option<String>>,
@@ -23,47 +24,67 @@ pub fn rpcserver() {
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
 
-    io.add_method_with_meta("TxCommit", move |params: Params, _meta: Meta| async move {
+    io.add_method_with_meta("txCommit", move |params: Params, _meta: Meta| async move {
         let tx: transaction::Transaction;
-        tx = match params.parse::<Vec<u8>>() {
-            Ok(txx) => match bincode::deserialize(&txx) {
-                Ok(value) => value,
-                Err(args) => {
-                    let err =
-                        JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+        let hex_tx = match params.parse::<Vec<String>>() {
+            Ok(vec) => {
+                if vec.is_empty() {
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
+                let hex_tx = vec[0].clone();
+                if hex_tx.trim().is_empty(){
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                    return Err(err);
+                }
+                hex_tx
             },
             Err(args) => {
-                let err = JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                let err = JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                return Err(err);
+            }
+        };
+        
+        let tx_bytes = match hex::decode(hex_tx) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                let err = JsonRpcError::invalid_params(format!("Expected a valid hex string, {:?}", e));
                 return Err(err);
             }
         };
 
-        let response_body = format!("{{ \"Error\": \"\"}}");
+        tx = match bincode::deserialize(&tx_bytes){
+            Ok(t) => t,
+            Err(e) => {
+                let err = JsonRpcError::invalid_params(format!("Expected a valid Tx, {:?}", e));
+                return Err(err);
+            }
+        };
 
         let utxo_verified = verify_utxo(tx.clone());
         if utxo_verified == false {
-            let response_body = "{{ \"Error\": \"failed to verify utxo\"}}".to_string();
+            let response_body = "Error: failed to verify utxo".to_string();
+            let response_body = serde_json::Value::String(response_body);
+            Ok(response_body)
         }
         else{
             let tx_verified = verify_transaction(tx.clone());
             match tx_verified {
                 Ok(()) => {
-                    let response_body = service::tx_commit(tx);
+                    let response_body = service::tx_commit(tx).await;
+                    let response_body = serde_json::Value::String(response_body);
+                    Ok(response_body)
                 },
                 Err(err_msg) => {
-                    let response_body = format!("{{ \"Error\": \"{}\"}}", err_msg);
+                    let response_body = format!("Verification Error: {}", err_msg);
+                    let response_body = serde_json::Value::String(response_body);
+                    Ok(response_body)
                 },
             }
         }
-
-        let response_body = serde_json::Value::String(response_body);
-        Ok(response_body)
     });
 
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
-        println!("inside getUtxo");
         let mut address: address::Standard;
     
         let hex_str = match params.parse::<Vec<String>>() {
@@ -72,16 +93,25 @@ pub fn rpcserver() {
                     let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
-                vec[0].clone()
+                let hex_address = vec[0].clone();
+                if hex_address.trim().is_empty(){
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                    return Err(err);
+                }
+                hex_address
             },
             Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
                 return Err(err);
             }
         };
-    
-        println!("Received hex string: {}", hex_str);
-        address = address::Standard::from_hex(&hex_str);
+        address = match address::Standard::from_hex_with_error(&hex_str) {
+            Ok(addr) => addr,
+            Err(e) => {
+                let err = JsonRpcError::invalid_params( e.to_string());
+                return Err(err)
+            }
+        };
 
         let utxos = search_coin_type_utxo_by_address(address);
         if utxos.len() > 0 {
@@ -97,7 +127,7 @@ pub fn rpcserver() {
     });
 
 
-    io.add_method_with_meta("getUtxo", move |params: Params, _meta: Meta| async move {
+    io.add_method_with_meta("getOutput", move |params: Params, _meta: Meta| async move {
 
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
@@ -105,7 +135,12 @@ pub fn rpcserver() {
                     let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
-                vec[0].clone()
+                let hex_utxo = vec[0].clone();
+                if hex_utxo.trim().is_empty(){
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                    return Err(err);
+                }
+                hex_utxo
             },
             Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
@@ -116,18 +151,21 @@ pub fn rpcserver() {
             Ok(bytes) => match Utxo::from_bytes(&bytes) {
                 Some(utxo) => utxo,
                 None => {
-                    let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                    let err = JsonRpcError::invalid_params(format!("invalid Hex"));
                     return Err(err);
                 }
             },
-            Err(_) => {
+            Err(args) => {
                 let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
                 return Err(err);
             }
         };
 
-        let output = search_coin_type_utxo_by_utxo_key(utxo);
-        let response_body = serde_json::to_value(&output).expect("Failed to serialize to JSON");
+        let response_body = match search_coin_type_utxo_by_utxo_key(utxo){
+            Ok(output) => serde_json::to_value(&output).expect("Failed to serialize to JSON"),
+            Err(err) => serde_json::to_value(&err).expect("Failed to serialize to JSON")
+        };
+
         Ok(response_body)
     });
     

@@ -264,6 +264,12 @@ impl Standard {
         Self::from_bytes(&hex::decode(s).unwrap().as_slice()).unwrap()
     }
 
+    pub fn from_hex_with_error(s: &str) -> Result<Self, String> {
+        let bytes = hex::decode(s).map_err(|e| format!("Hex decode error: {}", e))?;
+        Self::from_bytes(&bytes.as_slice()).map_err(|e| format!("From bytes error: {}", e))
+    }
+    
+
     /// Convert Base58 address string to Address
     pub fn from_base58(s: &str) -> Self {
         let decoded = bs58::decode(s).into_vec().unwrap();
