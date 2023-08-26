@@ -137,35 +137,64 @@ where
 }
 
 pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    println!("inside process transfer");
     let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
+    println!("decoded tx ");
+
     let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
+    println!("created tx");
     let tx_id:[u8;32] = hex::decode(transaction.tx_id).unwrap().try_into().unwrap();
-    let mut success: bool = true;
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
 
-    for input in &tx_input {
-        let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
-        let utxo_input_type = input.in_type as usize;
-        let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
-        if bool {
-        } else {
-            success = false;
-        }
-    }
-    for (output_index, output_set) in tx_output.iter().enumerate() {
-        let utxo_key =
-            bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
-        let utxo_output_type = output_set.out_type as usize;
-        let bool = utxo_storage.search_key(&utxo_key, utxo_output_type);
-        if bool {
-            success = false;
-        } else {
-        }
-    }
+    println!("verifying utxos");
+    println!("inputs : {}", tx_input.len());
+    println!("outputs : {}", tx_output.len());
+    let utxo_verified = false;
+    
+    let utxo_verified = verify_utxo(transaction_info);
+
+    // if transaction_info.tx_type == TransactionType::Script{
+    //     for input in &tx_input {
+    //         let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
+    //         let utxo_input_type = input.in_type as usize;
+    //         let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
+    //         if bool {
+    //         } else {
+    //             success = false;
+    //         }
+    //     }
+    // }
+
+    // if transaction_info.tx_type == TransactionType::Transfer{
+    //     for input in &tx_input {
+    //         let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
+    //         let utxo_input_type = input.in_type as usize;
+    //         let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
+    //         if bool {
+    //         } else {
+    //             success = false;
+    //         }
+    //     }
+    // }
+
+    // for (output_index, output_set) in tx_output.iter().enumerate() {
+    //     println!("inside outputs");
+    //     let utxo_key =
+    //         bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
+    //     let utxo_output_type = output_set.out_type as usize;
+    //     let bool = utxo_storage.search_key(&utxo_key, utxo_output_type);
+    //     if bool {
+    //         success = false;
+    //     } else {
+    //     }
+    // }
     //proccess tx
-    if success {
+    println!("utxo status {}", utxo_verified);
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+
+    if utxo_verified {
+        println!("inside success");
         //remove all input
         for input in tx_input {
             let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
@@ -190,7 +219,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
 
 }
 
-pub fn process_trade(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
+pub fn process_trade_mint(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
     println!("{:?}", transaction);
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let tx_id = hex::decode(transaction.tx_id).expect("error decoding tx id");
@@ -227,7 +256,7 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
 
         match transaction.tx_type.as_str() {
             "/twilightproject.nyks.zkos.MsgTransferTx" => process_transfer(transaction, block.block_height, &mut tx_result),
-            "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc" => process_trade(transaction, block.block_height, &mut tx_result),
+            "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc" => process_trade_mint(transaction, block.block_height, &mut tx_result),
             _ => {}  // you might want to handle any other cases or just ignore them
         };
     }
@@ -259,11 +288,16 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
     return filtered_utxo
 }
 
-pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Output{
+pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str>{
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
-    let result = utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type).unwrap();
-    return result
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type){
+        Ok(output) => output,
+        Err(err) => {
+            return Err("Utxo not found ")
+        }
+    };
+    return Ok(result)
 }
 
 

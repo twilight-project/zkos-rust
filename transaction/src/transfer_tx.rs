@@ -30,14 +30,10 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    
     pub fn new(tx_type: TransactionType, tx: TransactionData) -> Transaction {
-        Transaction {
-            tx_type,
-            tx,
-        }
+        Transaction { tx_type, tx }
     }
-    
+
     /// Create a QuisQuis tx .
     pub fn transaction_transfer(data: TransactionData) -> Transaction {
         Transaction {
@@ -69,10 +65,11 @@ impl Transaction {
             TransactionData::TransactionTransfer(transfer_transaction) => {
                 transfer_transaction.get_output_values()
             }
-            TransactionData::TransactionScript(script_transaction) => script_transaction.get_output_values(),
+            TransactionData::TransactionScript(script_transaction) => {
+                script_transaction.get_output_values()
+            }
         }
     }
-
 }
 
 /// Transaction type: Transfer. Script, Vault
@@ -99,6 +96,15 @@ impl TransactionType {
 impl Default for TransactionType {
     fn default() -> TransactionType {
         TransactionType::Transfer
+    }
+}
+
+impl From<ScriptTransaction> for Transaction {
+    fn from(tx_script: ScriptTransaction) -> Transaction {
+        Transaction {
+            tx_type: TransactionType::Script,
+            tx: TransactionData::TransactionScript(tx_script),
+        }
     }
 }
 
@@ -459,8 +465,8 @@ impl TransferTransaction {
         Ok(())
     }
 
-       //created for utxo-in-memory
-       pub fn get_input_values(&self) -> Vec<Input> {
+    //created for utxo-in-memory
+    pub fn get_input_values(&self) -> Vec<Input> {
         self.inputs.clone()
     }
     pub fn get_output_values(&self) -> Vec<Output> {

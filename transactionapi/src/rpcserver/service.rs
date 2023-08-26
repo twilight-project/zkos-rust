@@ -25,7 +25,6 @@ pub fn tx_queue(transaction: Transaction) {
     } // Mutex lock is automatically dropped here
 }
 
-#[tokio::main]
 pub async fn tx_commit(transaction: Transaction) -> String{
 
     let client = Client::new();

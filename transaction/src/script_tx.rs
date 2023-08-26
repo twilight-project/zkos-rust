@@ -13,8 +13,8 @@ use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 
 use bincode;
-use zkschnorr::{Signature, VerificationKey};
 use std::fmt;
+use zkschnorr::{Signature, VerificationKey};
 use zkvm::merkle::{CallProof, Hash, MerkleItem, MerkleTree};
 
 ///
@@ -78,12 +78,11 @@ impl ScriptTransaction {
     pub fn create_script_tx_without_witness(prog: Program, inputs: &[Input], outputs: &[Output]) {
 
         //Run the program and create a proof
-        
-
     }
     /// Set a script transaction
-    /// 
-    pub fn set_script_transaction(version: u64,
+    ///
+    pub fn set_script_transaction(
+        version: u64,
         fee: u64,
         maturity: u64,
         input_count: u8,
@@ -94,8 +93,9 @@ impl ScriptTransaction {
         program: Vec<u8>,
         call_proof: CallProof,
         proof: R1CSProof,
+        witness: Option<Vec<Witness>>,
         data: Vec<u8>,
-        witness: Option<Vec<Witness>>,) -> Self{
+    ) -> Self {
         ScriptTransaction {
             version,
             fee,
@@ -108,8 +108,8 @@ impl ScriptTransaction {
             program,
             call_proof,
             proof,
-            data,
             witness,
+            data,
         }
     }
     ///create signatures and zero balance proofs for all inputs
@@ -146,12 +146,12 @@ impl ScriptTransaction {
     //     witness
     // }
     ///DUMMY TX FOR UTXO SET VERIFICATIO
-    /// 
+    ///
     pub fn create_utxo_script_transaction(
         inputs: &[Input],
         outputs: &[Output],
     ) -> ScriptTransaction {
-        let program:Vec<u8> = vec![b'0'; 32];
+        let program: Vec<u8> = vec![b'0'; 32];
         ScriptTransaction::set_script_transaction(
             0u64,
             0u64,
@@ -164,8 +164,8 @@ impl ScriptTransaction {
             program,
             CallProof::default(),
             R1CSProof::from_bytes(&[0u8; 32]).unwrap(),
-            vec![b'0'; 32],
             None,
+            vec![b'0'; 32],
         )
     }
 
@@ -176,7 +176,7 @@ impl ScriptTransaction {
     ) -> Result<(), &'static str> {
         //create QuisQUisTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
-       // let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
+        // let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
 
         //verify the Dark Proof first
         //self.script_sig.verify(&mut verifier, &inputs, &outputs)?;
@@ -191,5 +191,4 @@ impl ScriptTransaction {
     pub fn get_output_values(&self) -> Vec<Output> {
         self.outputs.clone()
     }
-
 }
