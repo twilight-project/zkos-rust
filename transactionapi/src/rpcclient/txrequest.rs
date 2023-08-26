@@ -152,11 +152,13 @@ pub struct Payload {
 }
 impl Payload {
     pub fn new(data: RpcBody<Transaction>) -> Payload {
+        let data = bincode::serialize(&data.params).unwrap();
         Payload {
             jsonrpc: data.jsonrpc,
             id: data.id,
             method: data.method,
-            params: bincode::serialize(&data.params).unwrap(),
+            params: hex::encode(&data)
+            ,
         }
     }
 }

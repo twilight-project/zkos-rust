@@ -55,6 +55,10 @@ impl Utxo {
         serialize(self).unwrap()
     }
 
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.to_bytes())
+    }
+
     // Create a Utxo struct from Vec<u8>
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         deserialize(bytes).ok()
