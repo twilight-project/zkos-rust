@@ -118,8 +118,21 @@ pub fn verify_query_order( address: String, signature: Signature, message: &[u8]
 
 }
 
+pub fn create_trade_order()-> Transaction {
 
+}
 
+pub fn create_lend_order()-> Transaction {
+
+}
+
+pub fn settle_trader_order()-> Transaction {
+
+}
+
+pub fn settle_lend_order()-> Transaction {
+
+}
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------
@@ -204,4 +217,6 @@ mod test {
         println!("verify_query: {:?}", verify_query);
         assert!(verify_query.is_ok());
     }
+
+
 }
