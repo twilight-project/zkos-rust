@@ -8,6 +8,7 @@ pub enum Method {
 
     /// Sends a transaction and waits until transaction is fully complete.
     TxCommit,
+    txCommit,
 
     /// Queries status of a transaction by hash and returns the final transaction result.
     TxStatus,

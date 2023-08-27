@@ -111,6 +111,20 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
 
                 return rpc_response(res);
             }
+            Method::txCommit => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":1,"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[],"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
+                    .send();
+
+                return rpc_response(res);
+            }
             Method::TxQueue => {
                 let client = reqwest::blocking::Client::new();
                 let clint_clone = client.clone();
@@ -157,8 +171,7 @@ impl Payload {
             jsonrpc: data.jsonrpc,
             id: data.id,
             method: data.method,
-            params: hex::encode(&tx_data)
-            ,
+            params: hex::encode(&tx_data),
         }
     }
 }
@@ -252,6 +265,20 @@ impl RpcRequest<TransactionStatusId> for RpcBody<TransactionStatusId> {
         // let res: Result<reqwest::blocking::Response, reqwest::Error>;
         match self.method {
             Method::TxCommit => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":1,"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[],"id":1}"#)
+                    // .body(r#"{"jsonrpc":"2.0","method":"TxQueue","params":[1],"id":1}"#)
+                    .send();
+
+                return rpc_response(res);
+            }
+            Method::txCommit => {
                 let client = reqwest::blocking::Client::new();
                 let clint_clone = client.clone();
                 let res = clint_clone
