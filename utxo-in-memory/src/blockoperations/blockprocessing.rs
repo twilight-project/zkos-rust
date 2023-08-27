@@ -137,19 +137,12 @@ where
 }
 
 pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult){
-    println!("inside process transfer");
     let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
-    println!("decoded tx ");
-
     let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
-    println!("created tx");
     let tx_id:[u8;32] = hex::decode(transaction.tx_id).unwrap().try_into().unwrap();
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
 
-    println!("verifying utxos");
-    println!("inputs : {}", tx_input.len());
-    println!("outputs : {}", tx_output.len());
     let utxo_verified = false;
     
     let utxo_verified = verify_utxo(transaction_info);
@@ -190,11 +183,9 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     //     }
     // }
     //proccess tx
-    println!("utxo status {}", utxo_verified);
-        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 
     if utxo_verified {
-        println!("inside success");
         //remove all input
         for input in tx_input {
             let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
@@ -237,7 +228,6 @@ pub fn process_trade_mint(transaction: TransactionMessage, height: u64, tx_resul
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
 
         let pk = address.as_hex();
-        println!("{}", pk);
         tx_result.suceess_tx.push(tx_id);
 
         println!("UTXO ADDED TRADE")
