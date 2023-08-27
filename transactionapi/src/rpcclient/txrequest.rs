@@ -81,7 +81,7 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
         &self.params
     }
     fn into_json(self) -> String {
-        let tx = serde_json::to_value(&Payload::new(self)).unwrap();
+        let tx = serde_json::to_string(&Payload::new(self)).unwrap();
         let mut file = File::create("foo.txt").unwrap();
         file.write_all(&serde_json::to_vec_pretty(&tx.clone()).unwrap())
             .unwrap();
@@ -162,7 +162,7 @@ pub struct Payload {
     pub method: Method,
 
     /// Request parameters (i.e. request object)
-    pub params: String,
+    pub params: Vec<String>,
 }
 impl Payload {
     pub fn new(data: RpcBody<Transaction>) -> Payload {
@@ -171,7 +171,7 @@ impl Payload {
             jsonrpc: data.jsonrpc,
             id: data.id,
             method: data.method,
-            params: hex::encode(&tx_data),
+            params: vec![hex::encode(&tx_data)],
         }
     }
 }
