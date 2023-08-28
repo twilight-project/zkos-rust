@@ -168,6 +168,8 @@ pub fn create_trade_order(
     //cretae unsigned Tx with program proof
     let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs);
     let (program, proof) = result.unwrap();
+    println!("program:{:?}, /n proof: {:?}", program, proof);
+
     //get program call proof and address
     let (call_proof, address) = create_call_proof();
     let script_tx = ScriptTransaction::set_script_transaction(
