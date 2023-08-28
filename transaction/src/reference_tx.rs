@@ -3,11 +3,10 @@
 
 use crate::transfer_tx::{Transaction, TransactionData, TransactionType, TransferTransaction};
 use address::{Address, Standard};
-use quisquislib::elgamal::ElGamalCommitment;
-use zkvm::zkos_types::{Input, InputData, OutputCoin, OutputData, Utxo, Output, OutputMemo, OutputState, IOType};
-use curve25519_dalek::ristretto::{RistrettoPoint, CompressedRistretto};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use quisquislib::elgamal::ElGamalCommitment;
 use quisquislib::{
     accounts::Account,
     keys::PublicKey,
@@ -18,7 +17,9 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha3::Sha3_512;
 use zkvm::merkle::Hash;
-
+use zkvm::zkos_types::{
+    IOType, Input, InputData, Output, OutputCoin, OutputData, OutputMemo, OutputState, Utxo,
+};
 
 ///Needed for Creating Reference transaction for Testing RPC
 ///
@@ -32,10 +33,7 @@ pub struct Receiver {
 }
 impl Receiver {
     pub fn set_receiver(amount: i64, acc: Account) -> Receiver {
-        Receiver {
-            amount,
-            acc,
-        }
+        Receiver { amount, acc }
     }
 }
 
@@ -52,18 +50,18 @@ pub struct RecordUtxo {
 }
 impl Sender {
     pub fn generate_value_and_account_vector(
-        tx_vector: Vec<Sender>, 
+        tx_vector: Vec<Sender>,
     ) -> Result<(Vec<i64>, Vec<Account>, usize, usize), &'static str> {
         if tx_vector.len() < 9 {
             let mut value_vector: Vec<i64> = tx_vector.iter().map(|s| s.total_amount).collect();
             let mut account_vector: Vec<Account> = tx_vector.iter().map(|s| s.account).collect();
-            
+
             let senders_count: usize = tx_vector.iter().count();
             let mut receivers_count = 0;
-            
+
             let mut receiver_amount_vector: Vec<i64> = Vec::new();
             let mut receiver_account_vector: Vec<Account> = Vec::new();
-            
+
             for sender in tx_vector.iter() {
                 receivers_count += &sender.receivers.iter().count();
 
@@ -77,12 +75,7 @@ impl Sender {
                 value_vector.append(&mut receiver_amount_vector);
                 account_vector.append(&mut receiver_account_vector);
 
-                Ok((
-                    value_vector,
-                    account_vector,
-                    senders_count,
-                    receivers_count,
-                ))
+                Ok((value_vector, account_vector, senders_count, receivers_count))
             } else {
                 Err("senders and receivers count should be less than 9")
             }
@@ -92,7 +85,10 @@ impl Sender {
     }
 
     //create anonymous account for anonymity set
-    pub fn create_anonymity_set(senders_count: usize, receivers_count: usize)-> (Vec<Account>, Vec<Scalar>){
+    pub fn create_anonymity_set(
+        senders_count: usize,
+        receivers_count: usize,
+    ) -> (Vec<Account>, Vec<Scalar>) {
         let mut value_vector: Vec<i64> = Vec::new();
         let mut account_vector: Vec<Account> = Vec::new();
 
@@ -100,32 +96,32 @@ impl Sender {
         let mut annonymity_account_commmitment_scalars_vector: Vec<Scalar> = Vec::new();
 
         // lets create anonymity set - these are randomly generated on the fly
-                // this anonymity set may need to come from the blockchain state itself in the future
+        // this anonymity set may need to come from the blockchain state itself in the future
 
-                let diff = 9 - (senders_count + receivers_count);
-                //use random key as base pk for annonymity accounts
-                let pk_g = RISTRETTO_BASEPOINT_COMPRESSED;
-                let pk_h = RistrettoPoint::hash_from_bytes::<Sha3_512>(
-                    RISTRETTO_BASEPOINT_COMPRESSED.as_bytes(),
-                )
+        let diff = 9 - (senders_count + receivers_count);
+        //use random key as base pk for annonymity accounts
+        let pk_g = RISTRETTO_BASEPOINT_COMPRESSED;
+        let pk_h =
+            RistrettoPoint::hash_from_bytes::<Sha3_512>(RISTRETTO_BASEPOINT_COMPRESSED.as_bytes())
                 .compress();
-                let pk_ref = RistrettoPublicKey::new_from_pk(pk_g, pk_h);
-                let pk_annonymity =
-                    PublicKey::update_public_key(&pk_ref, Scalar::random(&mut OsRng));
+        let pk_ref = RistrettoPublicKey::new_from_pk(pk_g, pk_h);
+        let pk_annonymity = PublicKey::update_public_key(&pk_ref, Scalar::random(&mut OsRng));
 
-                if diff >= 1 {
-                    for _ in 0..diff {
-                        value_vector.push(0);
-                        let (acc, comm_scalar) =
-                            Account::generate_account(PublicKey::update_public_key(
-                                &pk_annonymity,
-                                Scalar::random(&mut OsRng),
-                            ));
-                        account_vector.push(acc);
-                        annonymity_account_commmitment_scalars_vector.push(comm_scalar);
-                    }
-                }
-                (account_vector, annonymity_account_commmitment_scalars_vector)
+        if diff >= 1 {
+            for _ in 0..diff {
+                value_vector.push(0);
+                let (acc, comm_scalar) = Account::generate_account(PublicKey::update_public_key(
+                    &pk_annonymity,
+                    Scalar::random(&mut OsRng),
+                ));
+                account_vector.push(acc);
+                annonymity_account_commmitment_scalars_vector.push(comm_scalar);
+            }
+        }
+        (
+            account_vector,
+            annonymity_account_commmitment_scalars_vector,
+        )
     }
     pub fn create_reference_tx_data_for_zkos_test() -> Result<
         (
@@ -183,14 +179,11 @@ impl Sender {
             // },
         ];
 
-        let (
-           mut value_vector,
-           mut account_vector,
-            sender_count,
-            receiver_count,
-        ) = Sender::generate_value_and_account_vector(tx_vector)?;
-        let (anonymity_account_vec, annonymity_com_scalar_vector,) = Sender::create_anonymity_set(sender_count, receiver_count);
-        
+        let (mut value_vector, mut account_vector, sender_count, receiver_count) =
+            Sender::generate_value_and_account_vector(tx_vector)?;
+        let (anonymity_account_vec, annonymity_com_scalar_vector) =
+            Sender::create_anonymity_set(sender_count, receiver_count);
+
         let diff: usize = 9 - (sender_count + receiver_count);
         if diff >= 1 {
             for i in 0..diff {
@@ -201,10 +194,10 @@ impl Sender {
 
         //Create sender updated account vector for the verification of sk and bl-v
         let bl_first_sender = 10 - 5; //bl-v
-       //let bl_second_sender = 20 - 3; //bl-v
-        let updated_balance_sender: Vec<u64> = vec![bl_first_sender];//, bl_second_sender];
-        //Create vector of sender secret keys
-        let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1];//, bob_sk_account_2];
+                                      //let bl_second_sender = 20 - 3; //bl-v
+        let updated_balance_sender: Vec<u64> = vec![bl_first_sender]; //, bl_second_sender];
+                                                                      //Create vector of sender secret keys
+        let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1]; //, bob_sk_account_2];
 
         Ok((
             value_vector,
@@ -255,9 +248,9 @@ pub fn create_qq_reference_transaction() -> Transaction {
         utxo.clone(),
     ];
 
-    let updated_balance_reciever: Vec<u64> = vec![5];//, 2, 1];
-    //println!("Data : {:?}", sender_count);
-    //create quisquis transfertransaction
+    let updated_balance_reciever: Vec<u64> = vec![5]; //, 2, 1];
+                                                      //println!("Data : {:?}", sender_count);
+                                                      //create quisquis transfertransaction
     let transfer = TransferTransaction::create_quisquis_transaction(
         &utxo_vector,
         &value_vector,
@@ -331,7 +324,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
 }
 
 ///Random Initialization of UTXO set for testing purposes
-/// 
+///
 //Should be called first. Will only create a random set of outputs
 //with random txIDs to kickstart the system
 pub fn create_genesis_block(
@@ -381,15 +374,13 @@ pub fn create_genesis_block(
                 let out = OutputData::Coin(OutputCoin {
                     encrypt: enc,
 
-                    owner: address::Address::standard_address(address::Network::Mainnet, pk).as_hex(),
+                    owner: address::Address::standard_address(address::Network::Mainnet, pk)
+                        .as_hex(),
                 });
 
                 let output = Output::coin(out);
 
-                outputs.push(RecordUtxo {
-                    utx,
-                    value: output,
-                });
+                outputs.push(RecordUtxo { utx, value: output });
             }
 
             if random_number == 1 {
@@ -400,10 +391,7 @@ pub fn create_genesis_block(
                 //create dummy MemoOutput
                 let out = Output::memo(OutputData::Memo(OutputMemo::default()));
 
-                outputs.push(RecordUtxo {
-                    utx,
-                    value: out,
-                });
+                outputs.push(RecordUtxo { utx, value: out });
             }
 
             if random_number == 2 {
@@ -425,7 +413,7 @@ pub fn create_genesis_block(
     outputs
 }
 ///utility function for converting output to input to help with testing
-/// 
+///
 pub fn convert_output_to_input(rec: RecordUtxo) -> Option<Input> {
     let utx = rec.utx;
 
@@ -435,28 +423,26 @@ pub fn convert_output_to_input(rec: RecordUtxo) -> Option<Input> {
 
     match out.out_type {
         IOType::Coin => {
-
             let out_coin = out.output.get_output_coin().unwrap().to_owned();
             inp = Input::coin(InputData::coin(utx, out_coin, 0));
             Some(inp)
         }
 
         IOType::Memo => {
-
             let out_memo = out.output.get_output_memo().unwrap().to_owned();
-            inp = Input::memo(InputData::memo(utx, out_memo.clone(), 0, zkvm::Commitment::Closed(CompressedRistretto::default())));
+            inp = Input::memo(InputData::memo(
+                utx,
+                out_memo.clone(),
+                0,
+                zkvm::Commitment::Closed(CompressedRistretto::default()),
+            ));
             Some(inp)
         }
 
         IOType::State => {
             let out_state = out.output.get_output_state().unwrap().to_owned();
 
-            inp = Input::state(InputData::state(
-                utx,
-                out_state.clone(),
-                None,
-                0
-            ));
+            inp = Input::state(InputData::state(utx, out_state.clone(), None, 0));
 
             Some(inp)
         }
@@ -472,11 +458,11 @@ pub fn create_dark_reference_tx_for_utxo_test(
     let mut rng = rand::thread_rng();
 
     // so we have 1 senders and 2 receivers, rest will be the anonymity set
-    let add_input: String= input.input.owner().unwrap().to_owned();
+    let add_input: String = input.input.owner().unwrap().to_owned();
 
     let input_enc = input.input.as_encryption().unwrap().to_owned();
     let add = address::Address::from_hex(&add_input, address::AddressType::Standard).unwrap();
-    
+
     let pk = add.get_standard_address().unwrap().public_key;
 
     let input_account = Account::set_account(pk, input_enc);
@@ -554,9 +540,7 @@ pub fn create_dark_reference_tx_for_utxo_test(
         receiver_count,
     );
 
-    Transaction::transaction_transfer(
-        TransactionData::TransactionTransfer(transfer.unwrap()),
-    )
+    Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
 }
 
 pub fn verify_transaction(tx: Transaction) -> Result<(), &'static str> {
@@ -606,7 +590,8 @@ pub fn verify_transaction(tx: Transaction) -> Result<(), &'static str> {
                 tx_data.verify_quisquis_tx(&inputs, &outputs)
             }
         }
-        _ => Err("Not found"),
+        TransactionType::Script => Ok(()),
+        _ => Err("Tx Verification failed. Transaction Type is not valid."),
     }
 }
 // ------------------------------------------------------------------------
