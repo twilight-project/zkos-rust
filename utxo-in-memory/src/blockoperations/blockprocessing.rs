@@ -192,7 +192,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             let utxo_input_type = input.in_type as usize;
             let _result = utxo_storage.remove(utxo_key, utxo_input_type);
             match _result {
-                Ok() => {println!("UTXO REMOVED TRANSFER")},
+                Ok(_) => {println!("UTXO REMOVED TRANSFER")},
                 Err(err) => {println!("ERROR IN REMOVING UTXO TRANSFER : {}", err)}
             }
         }
@@ -203,7 +203,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             let utxo_output_type = output_set.out_type as usize;
             let _result = utxo_storage.add(utxo_key, output_set.clone(), utxo_output_type);
             match _result {
-                Ok() => {println!("UTXO ADDED TRANSFER")},
+                Ok(_) => {println!("UTXO ADDED TRANSFER")},
                 Err(err) => {println!("ERROR IN ADDING UTXO TRANSFER : {}", err)}
             }
         }
