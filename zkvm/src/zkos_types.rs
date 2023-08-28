@@ -8,19 +8,18 @@ use crate::tx::TxID;
 use crate::types::String as ZkvmString;
 use crate::verifier;
 use bincode;
+use bincode::{deserialize, serialize};
 use bulletproofs::PedersenGens;
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
-use quisquislib::ristretto::RistrettoPublicKey;
-use quisquislib::keys::PublicKey;
-use quisquislib::ristretto::RistrettoSecretKey;
-use zkschnorr
-::Signature;
-use zkschnorr::VerificationKey;
 use merkle::Hash;
 use quisquislib::accounts::{Account, SigmaProof};
 use quisquislib::elgamal::ElGamalCommitment;
+use quisquislib::keys::PublicKey;
+use quisquislib::ristretto::RistrettoPublicKey;
+use quisquislib::ristretto::RistrettoSecretKey;
 use serde::{Deserialize, Serialize};
-use bincode::{serialize, deserialize};
+use zkschnorr::Signature;
+use zkschnorr::VerificationKey;
 /// Identification of transaction in a block.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct TxPointer {
@@ -542,26 +541,37 @@ impl Input {
 
     // return Input with Witness = 0 for signing
     pub fn as_input_for_signing(&self) -> Input {
-            match self.input {
-                InputData::Coin { ref utxo, ref out_coin, .. } => Input::coin(InputData::coin(utxo.clone(),
-                    out_coin.clone(),
-                    0,)
-            ),
-                InputData::Memo { ref utxo, ref out_memo, ref commitment_proof_value, .. } => Input::memo(InputData::memo (utxo.clone(),
-                    out_memo.clone(),
-                    0,
-                    commitment_proof_value.clone(),
-                )),
-                InputData::State { ref utxo, ref out_state, ref script_data, .. } => Input::state(InputData::state(utxo.clone(), 
-                    out_state.clone(),
-                    script_data.clone(),
-                    0,
-                    
-                )),
-            }
+        match self.input {
+            InputData::Coin {
+                ref utxo,
+                ref out_coin,
+                ..
+            } => Input::coin(InputData::coin(utxo.clone(), out_coin.clone(), 0)),
+            InputData::Memo {
+                ref utxo,
+                ref out_memo,
+                ref commitment_proof_value,
+                ..
+            } => Input::memo(InputData::memo(
+                utxo.clone(),
+                out_memo.clone(),
+                0,
+                commitment_proof_value.clone(),
+            )),
+            InputData::State {
+                ref utxo,
+                ref out_state,
+                ref script_data,
+                ..
+            } => Input::state(InputData::state(
+                utxo.clone(),
+                out_state.clone(),
+                script_data.clone(),
+                0,
+            )),
         }
-} 
-
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OutputData {
@@ -592,11 +602,11 @@ impl OutputCoin {
         Input::coin(InputData::coin(utxo, self.clone(), witness_index))
     }
     pub fn to_quisquis_account(&self) -> Account {
-        let add: address::Address = address::Address::from_hex(&self.owner, address::AddressType::Standard).unwrap();
+        let add: address::Address =
+            address::Address::from_hex(&self.owner, address::AddressType::Standard).unwrap();
         let pub_key: RistrettoPublicKey = add.as_c_address().public_key;
-        Account::set_account( pub_key.clone(), self.encrypt.clone())
+        Account::set_account(pub_key.clone(), self.encrypt.clone())
     }
-
 }
 
 impl Encodable for OutputCoin {
@@ -646,6 +656,33 @@ impl OutputMemo {
         }
     }
     pub fn verifier_view(&self) -> OutputMemo {
+        // let mut data_str: ZkvmString;
+        // if self.data.is_some() {
+        //     match self.data.unwrap() {
+        //         ZkvmString::Commitment(commitment) => {
+        //         data_str = Commitment::Closed(self.data.to_point());
+
+        //     }
+
+        //
+
+        //         OutputMemo {
+        //             script_address: self.script_address.clone(),
+        //             owner: self.owner.clone(),
+        //             commitment: Commitment::Closed(data_commitment.clone().to_point()),
+        //             data: self.data.clone(),
+        //             timebounds: self.timebounds,
+        //         }
+        //     }
+        //     _ => OutputMemo {
+        //         script_address: self.script_address.clone(),
+        //         owner: self.owner.clone(),
+        //         commitment: Commitment::Closed(self.commitment.clone().to_point()),
+        //         data: self.data.clone(),
+        //         timebounds: self.timebounds,
+        //     },
+        //   }
+        // }
         OutputMemo {
             script_address: self.script_address.clone(),
             owner: self.owner.clone(),
@@ -654,18 +691,20 @@ impl OutputMemo {
             timebounds: self.timebounds,
         }
     }
-
+    //Use this function to create Output Memo in case of Trader/lend Order from Wasm
     pub fn new_from_wasm(
         script_address: String,
         owner_address: String,
         balance: u64,
         order_size: u64,
         scalar: Scalar,
-    ) -> Self{
+    ) -> Self {
         //create ScalarWitness
-        
+
         let commitment = crate::Commitment::blinded_with_factor(balance, scalar);
-        let data = Some(ZkvmString::U64(order_size));
+        // order size has to be in commitment
+        let data_commitment = Commitment::blinded_with_factor(order_size, scalar);
+        let data = Some(ZkvmString::Commitment(Box::new(data_commitment)));
         // create OutputMemo
         OutputMemo {
             script_address,
@@ -977,45 +1016,48 @@ impl StateWitness {
         let in_state = input.input.clone();
         //create the Signature over the Input State with the secret key
         let commit: Commitment = Commitment::Closed(in_state.as_commitment().unwrap().to_point());
-       // if in_state.as_state_variables().is_some(){
+        // if in_state.as_state_variables().is_some(){
         let state_variables = in_state.as_state_variables().unwrap();
-        let mut new_state_variables:Vec<ZkvmString>= Vec::new();
-        
-        for state in state_variables.iter(){
+        let mut new_state_variables: Vec<ZkvmString> = Vec::new();
+
+        for state in state_variables.iter() {
             match state {
                 ZkvmString::Commitment(a) => {
                     let a_point = a.to_point();
                     let new_commitment = Commitment::Closed(a_point);
                     new_state_variables.push(ZkvmString::Commitment(Box::new(new_commitment)));
-                },
+                }
                 _ => new_state_variables.push(Clone::clone(&state)),
             }
         }
-    //}
+        //}
         // recreate the input state with the Verifier view values
-        let out_state = OutputState{nonce: in_state.as_nonce().unwrap().clone(), 
-                
-                script_address: in_state.as_script_address().unwrap().clone(),
-                commitment: commit.clone(),
-                owner: in_state.owner().unwrap().clone(),
-                state_variables: Some(new_state_variables),
-                timebounds: in_state.as_timebounds().unwrap().clone(),
-            };
-        
-            //IGNORE Witness index at the time creating the signature
-        let verifier_input = Input::state(InputData::state(input.as_utxo().unwrap().clone(), out_state, input.input.as_state_script_data().cloned(), 0));   
+        let out_state = OutputState {
+            nonce: in_state.as_nonce().unwrap().clone(),
+
+            script_address: in_state.as_script_address().unwrap().clone(),
+            commitment: commit.clone(),
+            owner: in_state.owner().unwrap().clone(),
+            state_variables: Some(new_state_variables),
+            timebounds: in_state.as_timebounds().unwrap().clone(),
+        };
+
+        //IGNORE Witness index at the time creating the signature
+        let verifier_input = Input::state(InputData::state(
+            input.as_utxo().unwrap().clone(),
+            out_state,
+            input.input.as_state_script_data().cloned(),
+            0,
+        ));
         //The sign must happen on the verifier View of the input so ghatg it can be verified acorrectly
 
-        
         //create message bytes using input_state
         let message = bincode::serialize(&verifier_input).unwrap();
 
         let sign = pubkey.sign_msg(&message, &secret_key, ("StateSign").as_bytes());
 
         Self { sign, zero_proof }
-
     }
-       
 
     pub fn verify_state_witness(
         &self,
@@ -1024,15 +1066,18 @@ impl StateWitness {
     ) -> Result<bool, &'static str> {
         //create message to verify the Signature over the Input State with the public key
         // The witness is 0 for the purposes of signature verification
-        //recreate the input statewith the Witness as zero 
+        //recreate the input statewith the Witness as zero
 
-        
         //verify the Signature over the Input state with the public key
-        let verifier_input = Input::state(InputData::state(input.as_utxo().unwrap().clone(), input.as_out_state().unwrap().clone(), input.input.as_state_script_data().cloned(), 0));   
+        let verifier_input = Input::state(InputData::state(
+            input.as_utxo().unwrap().clone(),
+            input.as_out_state().unwrap().clone(),
+            input.input.as_state_script_data().cloned(),
+            0,
+        ));
         let message = bincode::serialize(&verifier_input).unwrap();
-        
-        let verify_sig = pubkey.verify_msg(&message, &self
-            .sign, ("StateSign").as_bytes());
+
+        let verify_sig = pubkey.verify_msg(&message, &self.sign, ("StateSign").as_bytes());
         if verify_sig.is_err() {
             return Err("Signature verification failed");
         }
@@ -1107,9 +1152,9 @@ impl ValueWitness {
     ) -> Self {
         //create the Signature over the Input Coin/Memo with the secret key
         //create message bytes using input
-        //CONVERT INPUT TO VERIFIER VIEW 
+        //CONVERT INPUT TO VERIFIER VIEW
         let message = bincode::serialize(&input).unwrap();
-        
+
         //create the signature over the input
         let sign = pubkey.sign_msg(&message, &secret_key, ("ValueSign").as_bytes());
         //create the SigmaProof over the Input Coin/Memo with the secret key
@@ -1133,8 +1178,7 @@ impl ValueWitness {
         let message = bincode::serialize(&input).unwrap();
         //verify the Signature over the InputData with the public key
 
-        let verify_sig = pubkey.verify_msg(&message, &self
-            .sign, ("ValueSign").as_bytes());
+        let verify_sig = pubkey.verify_msg(&message, &self.sign, ("ValueSign").as_bytes());
         if verify_sig.is_err() {
             return Err("Signature verification failed");
         }
@@ -1158,8 +1202,8 @@ pub struct ZkosCreateOrder {
     pub output: Output,       // memo type output
     pub signature: Signature, //quisquis signature
     pub proof: SigmaProof,
-} 
-impl ZkosCreateOrder{
+}
+impl ZkosCreateOrder {
     pub fn new(input: Input, output: Output, vw: ValueWitness) -> Self {
         Self {
             input,

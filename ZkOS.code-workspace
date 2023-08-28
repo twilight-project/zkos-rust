@@ -8,6 +8,9 @@
         },
         {
             "path": "../quisquis-rust"
+        },
+        {
+            "path": "../ZkSchnorr"
         }
     ]
 }
