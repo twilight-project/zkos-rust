@@ -142,9 +142,6 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     let tx_id:[u8;32] = hex::decode(transaction.tx_id).unwrap().try_into().unwrap();
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
-
-    let utxo_verified = false;
-    
     let utxo_verified = verify_utxo(transaction_info);
 
     // if transaction_info.tx_type == TransactionType::Script{
@@ -190,10 +187,14 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         for input in tx_input {
             let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
             let utxo_input_type = input.in_type as usize;
-            let _result = utxo_storage.remove(utxo_key, utxo_input_type);
-            match _result {
-                Ok(_) => {println!("UTXO REMOVED TRANSFER")},
-                Err(err) => {println!("ERROR IN REMOVING UTXO TRANSFER : {}", err)}
+            let utxo_test = Utxo::new(TxID(Hash([0;32])), 0);
+            let utxo = input.as_utxo().unwrap();
+            if utxo.to_owned() != utxo_test{
+                let _result = utxo_storage.remove(utxo_key, utxo_input_type);
+                match _result {
+                    Ok(_) => {println!("UTXO REMOVED TRANSFER")},
+                    Err(err) => {println!("ERROR IN REMOVING UTXO TRANSFER : {}", err)}
+                }
             }
         }
         //Add all output
