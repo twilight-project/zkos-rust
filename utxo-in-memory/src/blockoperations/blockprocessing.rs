@@ -191,7 +191,10 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
             let utxo_input_type = input.in_type as usize;
             let _result = utxo_storage.remove(utxo_key, utxo_input_type);
-            println!("UTXO REMOVED TRANSFER")
+            match _result {
+                Ok() => {println!("UTXO REMOVED TRANSFER")},
+                Err(err) => {println!("ERROR IN REMOVING UTXO TRANSFER : {}", err)}
+            }
         }
         //Add all output
         for (output_index, output_set) in tx_output.iter().enumerate() {
@@ -199,7 +202,10 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                 bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
             let utxo_output_type = output_set.out_type as usize;
             let _result = utxo_storage.add(utxo_key, output_set.clone(), utxo_output_type);
-            println!("UTXO ADDED TRANSFER")
+            match _result {
+                Ok() => {println!("UTXO ADDED TRANSFER")},
+                Err(err) => {println!("ERROR IN ADDING UTXO TRANSFER : {}", err)}
+            }
         }
 
         // let _ = utxo_storage.data_meta_update(height as usize);
