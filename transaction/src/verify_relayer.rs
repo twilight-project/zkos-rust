@@ -138,6 +138,7 @@ pub fn verify_query_order(
 // signature : Signature over the input_coin as Verifier view sent by trader
 // proof : Sigma proof of same value committed in Coin and Memo sent by the trader
 // order_msg: order message serialized. CreateTraderOrder struct should be passed here. Ideally this information should be Encrypted
+
 pub fn create_trade_order(
     input_coin: Input,
     output_memo: Output,
@@ -167,9 +168,9 @@ pub fn create_trade_order(
     //creating the program proof
     //cretae unsigned Tx with program proof
     let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs);
-    println!("result:{:?}", result);
+    // println!("result:{:?}", result);
     let (program, proof) = result.unwrap();
-    println!("program:{:?}, /n proof: {:?}", program, proof);
+    // println!("program:{:?}, /n proof: {:?}", program, proof);
 
     //get program call proof and address
     let (call_proof, address) = create_call_proof();
@@ -322,11 +323,11 @@ pub fn create_call_proof() -> (CallProof, Address) {
     let address_hex = address.as_hex();
 
     // create path for program3
-    let _path = Path::new(&progs, 2 as usize, &hasher).unwrap();
+    // let _path = Path::new(&progs, 2 as usize, &hasher).unwrap();
 
     // create call proof for program3
     let call_proof =
-        CallProof::create_call_proof(&progs, 2 as usize, &hasher, address_hex).unwrap();
+        CallProof::create_call_proof(&progs, 0 as usize, &hasher, address_hex).unwrap();
     (call_proof, address)
 }
 
