@@ -167,6 +167,7 @@ pub fn create_trade_order(
     //creating the program proof
     //cretae unsigned Tx with program proof
     let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs);
+    println!("result:{:?}", result);
     let (program, proof) = result.unwrap();
     println!("program:{:?}, /n proof: {:?}", program, proof);
 
