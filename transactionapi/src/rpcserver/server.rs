@@ -9,7 +9,7 @@ use jsonrpc_http_server::{hyper, ServerBuilder};
 use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 use std::collections::HashMap;
 use transaction::Transaction;
-use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key};
+use utxo_in_memory::blockoperations::blockprocessing::{verify_utxo, search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key, all_coin_type_utxo};
 use transaction::reference_tx::verify_transaction;
 use quisquislib::ristretto::RistrettoPublicKey;
 use zkvm::zkos_types::Utxo;
@@ -120,6 +120,20 @@ pub fn rpcserver() {
         }
         else {
             let result = format!("{{ Error: Utxo not available for provided address}}");
+            let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
+            Ok(response_body)
+        }       
+    });
+
+
+    io.add_method_with_meta("allUtxos", move |params: Params, _meta: Meta| async move {
+        let utxos = all_coin_type_utxo();
+        if utxos.len() > 0 {
+            let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+            Ok(response_body)
+        }
+        else {
+            let result = format!("{{ Error: UTXO do not exist for this type}}");
             let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
             Ok(response_body)
         }       
