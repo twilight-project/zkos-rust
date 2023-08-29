@@ -267,7 +267,11 @@ pub fn all_coin_type_utxo() -> Vec<String>  {
     let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
     for (key, output_data) in utxos{
         match bincode::deserialize(&key) {
-            Ok(value) => {result.push(value.to_hex())},
+            Ok(value) => {
+                let utxo: Utxo = value;
+                let hex_str: String = utxo.to_hex();
+                result.push(hex_str)
+            },
             Err(args) => {
                 let err = format!("Deserialization error, {:?}", args);
                 println!("{}", err)
