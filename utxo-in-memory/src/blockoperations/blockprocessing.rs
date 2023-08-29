@@ -281,6 +281,26 @@ pub fn all_coin_type_utxo() -> Vec<String>  {
     return result
 }
 
+pub fn all_coin_type_output() -> String {
+    let mut result: Vec<Output> = Vec::new();
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Coin as usize;
+    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    for (key, output_data) in utxos{
+        match bincode::deserialize(&output_data) {
+            Ok(value) => {
+                result.push(value)
+            },
+            Err(args) => {
+                let err = format!("Deserialization error, {:?}", args);
+                println!("{}", err)
+            }
+        } 
+    }
+    hex::encode(result);
+    return result
+}
+
 
 pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>  {
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
