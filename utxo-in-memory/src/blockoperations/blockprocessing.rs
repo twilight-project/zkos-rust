@@ -297,7 +297,8 @@ pub fn all_coin_type_output() -> String {
             }
         } 
     }
-    return hex::encode(result);
+    let bytes = bincode::serialize(result).unwrap();
+    return hex::encode(bytes);
 }
 
 
