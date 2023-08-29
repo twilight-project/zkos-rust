@@ -287,15 +287,7 @@ pub fn all_coin_type_output() -> String {
     let input_type = IOType::Coin as usize;
     let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
     for (key, output_data) in utxos{
-        match bincode::deserialize(&output_data) {
-            Ok(value) => {
-                result.push(value)
-            },
-            Err(args) => {
-                let err = format!("Deserialization error, {:?}", args);
-                println!("{}", err)
-            }
-        } 
+        result.push(output_data);
     }
     let bytes = bincode::serialize(&result).unwrap();
     return hex::encode(bytes);
