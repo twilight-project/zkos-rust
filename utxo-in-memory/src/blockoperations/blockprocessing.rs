@@ -297,8 +297,7 @@ pub fn all_coin_type_output() -> String {
             }
         } 
     }
-    hex::encode(result);
-    return result
+    return hex::encode(result);
 }
 
 
