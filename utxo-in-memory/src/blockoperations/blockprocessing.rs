@@ -261,7 +261,7 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
 }
 
 pub fn all_coin_type_utxo() -> Vec<Utxo>  {
-    let mut filtered_utxo: Vec<Utxo> = Vec::new();
+    let mut result: Vec<Utxo> = Vec::new();
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
     let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
