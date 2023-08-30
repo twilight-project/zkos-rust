@@ -224,12 +224,12 @@ pub fn process_trade_mint(transaction: TransactionMessage, height: u64, tx_resul
     let tx_id = TxID(Hash(tx_id.try_into().unwrap()));
     let utxo_key =
     bincode::serialize(&Utxo::new(tx_id, 0 as u8)).unwrap();
+    let mut qq_account_bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
+    let elgamal = qq_account_bytes.split_off(qq_account_bytes.len() - 64);
+    let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
+    let address = address::Standard::from_bytes(&qq_account_bytes[0..69]).unwrap();
 
     if transaction.mint_or_burn.unwrap() == true {
-        let mut qq_account_bytes = hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
-        let elgamal = qq_account_bytes.split_off(qq_account_bytes.len() - 64);
-        let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
-        let address = address::Standard::from_bytes(&qq_account_bytes[0..69]).unwrap();
         //let output = OutputData::Coin(OutputCoin{encrypt: elgamal, address:address.as_hex()});
         let output = Output::coin(OutputData::Coin(OutputCoin{encrypt: elgamal, owner:address.as_hex()}));
         utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
@@ -240,7 +240,13 @@ pub fn process_trade_mint(transaction: TransactionMessage, height: u64, tx_resul
         println!("UTXO ADDED TRADE")
     }
     else { 
-        utxo_storage.remove(utxo_key, IOType::Coin as usize);
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        let input_type = IOType::Coin as usize;
+        let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+        
+        //TODO need to fix this and ask a utxo in mint burn message
+
+        utxo_storage.remove(map.keys().next(), IOType::Coin as usize);
         tx_result.suceess_tx.push(tx_id);
         println!("UTXO REMOVED TRADE")
     }
