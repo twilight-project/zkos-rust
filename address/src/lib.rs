@@ -117,17 +117,16 @@ pub enum Address {
 }
 
 impl Address {
-    /// Recover the address type given an address bytes and the network.
     /// /// Create a standard address which is valid on the given network.
     pub fn standard_address(network: Network, public_key: RistrettoPublicKey) -> Address {
-        Self::Standard(Standard{
+        Self::Standard(Standard {
             network,
             addr_type: AddressType::default(),
             public_key,
         })
     }
 
-    pub fn set_standard_address(add: Standard)-> Self{
+    pub fn set_standard_address(add: Standard) -> Self {
         Address::Standard(add)
     }
 
@@ -168,13 +167,14 @@ impl Address {
             _ => panic!("Not a script address"),
         }
     }
-    pub fn as_c_address(&self) -> Standard {
+    pub fn as_coin_address(&self) -> Standard {
         match *self {
             Address::Standard(c) => c,
             _ => panic!("Not a coin address"),
         }
     }
-    pub fn from_hex(hex: &str, add_type:AddressType) -> Result<Address, &'static str> {
+    /// Recover the address type given an address bytes and the network.
+    pub fn from_hex(hex: &str, add_type: AddressType) -> Result<Address, &'static str> {
         let bytes = hex::decode(hex).map_err(|_| "Error::InvalidHex")?;
         match add_type {
             AddressType::Standard => Ok(Address::Standard(Standard::from_bytes(&bytes)?)),
@@ -197,6 +197,30 @@ impl Address {
 impl Default for Address {
     fn default() -> Address {
         Address::Standard(Standard::default())
+    }
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Address::Standard(ref c) => write!(f, "{}", c.as_base58()),
+            Address::Script(ref s) => write!(f, "{}", s.as_base58()),
+        }
+    }
+}
+//create standard mainnet address from public key
+impl From<RistrettoPublicKey> for Address {
+    fn from(pk: RistrettoPublicKey) -> Address {
+        Address::standard_address(Network::Mainnet, pk)
+    }
+}
+
+impl Into<RistrettoPublicKey> for Address {
+    fn into(self) -> RistrettoPublicKey {
+        match self {
+            Address::Standard(c) => c.public_key,
+            _ => panic!("Not a coin address"),
+        }
     }
 }
 
@@ -268,7 +292,6 @@ impl Standard {
         let bytes = hex::decode(s).map_err(|e| format!("Hex decode error: {}", e))?;
         Self::from_bytes(&bytes.as_slice()).map_err(|e| format!("From bytes error: {}", e))
     }
-    
 
     /// Convert Base58 address string to Address
     pub fn from_base58(s: &str) -> Self {
@@ -282,7 +305,10 @@ impl Default for Standard {
         Standard {
             network: Network::Mainnet,
             addr_type: AddressType::default(),
-            public_key: RistrettoPublicKey::new_from_pk(CompressedRistretto::default(),CompressedRistretto::default())
+            public_key: RistrettoPublicKey::new_from_pk(
+                CompressedRistretto::default(),
+                CompressedRistretto::default(),
+            ),
         }
     }
 }
@@ -333,12 +359,11 @@ impl Script {
 }
 impl Default for Script {
     fn default() -> Script {
-        Script { 
-            network: Network::Testnet, 
-            addr_type: AddressType::Script, 
-            root: [b'0';32] 
+        Script {
+            network: Network::Testnet,
+            addr_type: AddressType::Script,
+            root: [b'0'; 32],
         }
-
     }
 }
 /// Deserialize a public key from a slice. The input slice is 64 bytes

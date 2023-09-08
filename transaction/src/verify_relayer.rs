@@ -41,7 +41,7 @@ pub fn verify_trade_lend_order(
     //extract publickey from owner address of input coin
     let owner: String = input.as_owner_address().unwrap().to_owned();
     let address: Address = Address::from_hex(&owner, AddressType::default()).unwrap();
-    let pk: RistrettoPublicKey = address.as_c_address().public_key;
+    let pk: RistrettoPublicKey = address.as_coin_address().public_key;
 
     //create the Verifier View of the Coin and set the Witness to 0
     let input_sign = input.as_input_for_signing();
@@ -73,7 +73,7 @@ pub fn verify_settle_requests(input: Input, signature: Signature) -> Result<(), 
     //extract publickey from owner address of input memo
     let owner: String = input.as_owner_address().unwrap().to_owned();
     let address: Address = Address::from_hex(&owner, AddressType::default()).unwrap();
-    let pk: RistrettoPublicKey = address.as_c_address().public_key;
+    let pk: RistrettoPublicKey = address.as_coin_address().public_key;
 
     // create verifier and signature view for the input
     // Verifier view is created by converting the Input Commitment to a  Compressed point
@@ -122,7 +122,7 @@ pub fn verify_query_order(
     //extract Address from hex
     let add: Address = Address::from_hex(&address, AddressType::default()).unwrap();
     //extract the public key from address
-    let pk: RistrettoPublicKey = add.as_c_address().public_key;
+    let pk: RistrettoPublicKey = add.as_coin_address().public_key;
     //verify the signature
     let verify = pk.verify_msg(message, &signature, ("PublicKeySign").as_bytes());
 
@@ -166,7 +166,7 @@ pub fn deploy_relayer_contract(
     //create the input coin
     //get pk from address
     let address: Address = Address::from_hex(&owner_address, AddressType::default()).unwrap();
-    let pk: RistrettoPublicKey = address.as_c_address().public_key;
+    let pk: RistrettoPublicKey = address.as_coin_address().public_key;
     //create commitment
     let enc = ElGamalCommitment::generate_commitment(&pk, scalar.clone(), Scalar::from(amount));
     //create coin
@@ -306,7 +306,7 @@ pub fn settle_trader_order(
     let out_address: String = input_memo.as_owner_address().unwrap().to_owned();
     let out_pk: RistrettoPublicKey = Address::from_hex(&out_address, AddressType::default())
         .unwrap()
-        .as_c_address()
+        .as_coin_address()
         .public_key;
     let (_, out_encryption_scalar) = input_memo
         .input
