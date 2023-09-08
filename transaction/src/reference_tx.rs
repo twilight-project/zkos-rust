@@ -306,7 +306,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
         inputs.push(inp.clone());
     }
 
-    let updated_balance_reciever: Vec<u64> = vec![5, 2, 1];
+    let updated_balance_reciever: Vec<u64> = vec![5];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransaction
     let transfer = TransferTransaction::create_dark_transaction(

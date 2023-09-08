@@ -604,7 +604,7 @@ impl OutputCoin {
     pub fn to_quisquis_account(&self) -> Account {
         let add: address::Address =
             address::Address::from_hex(&self.owner, address::AddressType::Standard).unwrap();
-        let pub_key: RistrettoPublicKey = add.as_c_address().public_key;
+        let pub_key: RistrettoPublicKey = add.as_coin_address().public_key;
         Account::set_account(pub_key.clone(), self.encrypt.clone())
     }
 }
