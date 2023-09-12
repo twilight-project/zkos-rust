@@ -181,6 +181,18 @@ impl Address {
             AddressType::Script => Err("Error::ScriptAddress can not be re-created from hex"),
         }
     }
+
+    /// Recover the address type given an address bytes and the network.
+    pub fn from_base58(base_58: &str, add_type: AddressType) -> Result<Address, &'static str> {
+        let bytes = bs58::decode(base_58)
+            .into_vec()
+            .map_err(|_| "Error::Invalid Base58 address")?;
+
+        match add_type {
+            AddressType::Standard => Ok(Address::Standard(Standard::from_bytes(&bytes)?)),
+            AddressType::Script => Err("Error::ScriptAddress can not be re-created from Base58"),
+        }
+    }
     pub fn get_standard_address(&self) -> Result<Standard, &'static str> {
         match *self {
             Address::Standard(c) => Ok(c),
