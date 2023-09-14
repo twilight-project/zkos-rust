@@ -41,7 +41,7 @@ pub fn verify_trade_lend_order(
     //extract publickey from owner address of input coin
     let owner: String = input.as_owner_address().unwrap().to_owned();
     let address: Address = Address::from_hex(&owner, AddressType::default()).unwrap();
-    let pk: RistrettoPublicKey = address.as_c_address().public_key;
+    let pk: RistrettoPublicKey = address.as_coin_address().public_key;
 
     //create the Verifier View of the Coin and set the Witness to 0
     let input_sign = input.as_input_for_signing();
@@ -73,7 +73,7 @@ pub fn verify_settle_requests(input: Input, signature: Signature) -> Result<(), 
     //extract publickey from owner address of input memo
     let owner: String = input.as_owner_address().unwrap().to_owned();
     let address: Address = Address::from_hex(&owner, AddressType::default()).unwrap();
-    let pk: RistrettoPublicKey = address.as_c_address().public_key;
+    let pk: RistrettoPublicKey = address.as_coin_address().public_key;
 
     // create verifier and signature view for the input
     // Verifier view is created by converting the Input Commitment to a  Compressed point
@@ -122,7 +122,7 @@ pub fn verify_query_order(
     //extract Address from hex
     let add: Address = Address::from_hex(&address, AddressType::default()).unwrap();
     //extract the public key from address
-    let pk: RistrettoPublicKey = add.as_c_address().public_key;
+    let pk: RistrettoPublicKey = add.as_coin_address().public_key;
     //verify the signature
     let verify = pk.verify_msg(message, &signature, ("PublicKeySign").as_bytes());
 
@@ -132,12 +132,65 @@ pub fn verify_query_order(
         Err("Signature verification failed")
     }
 }
+/// Chain Transaction to deploy Relayer Contract
+/// Initializes the state.
+/// This transaction should be run to fire the relayer on chain. No relayer operation can happen without doing this.
+/// Pre-req:: Create a Trading to funding account transaction to create ZkosAccount first.
+/// The amount inside the ZkosAccount will be used to initialize the Relayer Pool and deploy Relayer Contract on chain
+///
+/// Locks inital Amount into the TVL and TPS.
+///
+/*******  Inputs *******/
+// Address:: Hex qq account Address of the relayer
+// Amount:: Amount to be locked in the TVL and TPS. Assuming the relayer wants to lock the whole amount
+// Scalar:: Scalar to be used for creating the ecryption(Coin) and commitment(Memo) for the SigmaProof
+///
+/*******  Ouputs *******/
+//Transaction :: Complete chain transaction with the program and proof to be relayed to the Chain
+//Scalar:: rscalar to be used for creating the proof for the next state update. Most recent Stored by relayer
+//Output:: OutputMemo to be stored by the relayer for future use. If he loses it. He loses all his money
+///
+pub fn deploy_relayer_contract(
+    utxo: String,          //get from ZkosOracle
+    owner_address: String, //Hex string
+    amount: u64,
+    scalar_hex: String, //Hex string. Get from chain
+) /*-> (Transaction, Scalar, Output)*/
+{
+    //recreate scalar from hex
+    let scalar_bytes = hex::decode(&scalar_hex).unwrap();
+    let scalar = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
+    // recreate utxo from json
+    //let utxo: Utxo = serde_json::from_str(&utxo).unwrap();
+
+    //create the input coin
+    //get pk from address
+    let address: Address = Address::from_hex(&owner_address, AddressType::default()).unwrap();
+    let pk: RistrettoPublicKey = address.as_coin_address().public_key;
+    //create commitment
+    let enc = ElGamalCommitment::generate_commitment(&pk, scalar.clone(), Scalar::from(amount));
+    //create coin
+    let out_coin = OutputCoin::new(enc.clone(), owner_address.clone());
+    //create Coin input with witness index = 0
+    //let input: Input = Input::coin(InputData::coin(utxo, out_coin, 0));
+    //create script address
+
+    //create output Memo
+    // let output_memo =
+    //   OutputMemo::new_from_wasm(script_address, owner_address, balance, order_size, scalar);
+}
+
 /// Creates the ScriptTransaction for creating the trade order on relayer for chain
+///
+/*******  Inputs *******/
 // input_coin :  Input received from the trader
 // output_memo : Output Memo created by the trader
 // signature : Signature over the input_coin as Verifier view sent by trader
 // proof : Sigma proof of same value committed in Coin and Memo sent by the trader
 // order_msg: order message serialized. CreateTraderOrder struct should be passed here. Ideally this information should be Encrypted
+
+/*******  Ouputs *******/
+//Transaction :: Complete chain transaction with the program and proof to be relayed to the Chain
 pub fn create_trade_order(
     input_coin: Input,
     output_memo: Output,
@@ -163,13 +216,15 @@ pub fn create_trade_order(
 
     //get the program
     let correct_program = self::get_trader_order_program();
+    println!("Program \n{:?}", correct_program);
 
     //creating the program proof
     //cretae unsigned Tx with program proof
     let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs);
     let (program, proof) = result.unwrap();
     //get program call proof and address
-    let (call_proof, address) = create_call_proof();
+    let address_str = create_script_address();
+    let call_proof = create_call_proof(address_str);
     let script_tx = ScriptTransaction::set_script_transaction(
         0u64,
         0u64,
@@ -190,6 +245,8 @@ pub fn create_trade_order(
 }
 
 /// Creates the ScriptTransaction for creating the Lend order on relayer for chain
+///
+/*******  Inputs *******/
 // input_coin :  Input received from the trader
 // output_memo : Output Memo created by the trader
 // signature : Signature over the input_coin as Verifier view sent by trader
@@ -198,6 +255,11 @@ pub fn create_trade_order(
 // old_total_pool_share: u64, TPS_0. should always be a decimal number
 // new_total_locked_value:  TLV_1  if in BTC convert to SATS
 // new_total_poolshare_value: TPS_1 should always be a decimal number
+///
+/*******  Ouputs *******/
+//Transaction:: Complete chain transaction with the program and proof to be relayed to the Chain
+//Output: Output Memo to be sent to the trader. Store in the order_id -> (Output, TxId) DB
+//Scalar: rscalar to be used for creating the proof for the next state update. Most recent Stored by relayer
 pub fn create_lend_order(
     input_coin: Input,
     output_memo: Output,
@@ -210,13 +272,11 @@ pub fn create_lend_order(
     rscalar: Scalar,
 ) /*-> Transaction, Output, Scalar */
 {
-    /*Outputs */
-    //Transaction:: Complete chain transaction with the program and proof to be relayed to the Chain
-    //Output: Output Memo to be sent to the trader. Store in the order_id -> (Output, TxId) DB
-    //Scalar: rscalar to be used for creating the proof for the next state update. Most recent Stored by relayer
 }
 
 /// Creates the ScriptTransaction for Sttlement request for Trader or Liquidation
+///
+/*******  Inputs *******/
 // input_memo : Input Memo created and sent by the trader
 // Signature : Signature over the input_memo as Prover view sent by trader
 // Available_margin:  Available margin of the trader for the current order  in SATS
@@ -225,6 +285,11 @@ pub fn create_lend_order(
 // old_total_locked_value: TLV_0 if in BTC convert to SATS
 // new_total_locked_value:  TLV_1  if in BTC convert to SATS
 //  total_pool_share: u64, TPS_0    should always be a decimal number. No calculation is done. ONLY NEEDED FOR CREATING THE PROOF
+///
+/*******  Ouputs *******/
+//Transaction:: Complete chain transaction with the program and proof to be relayed to the Chain
+//Output: Output Coin to be sent to the trader. Store in the order_id -> (Output, TxId) DB
+//Scalar: rscalar to be used for creating the proof for the next state update. Most recent Stored by relayer
 pub fn settle_trader_order(
     input_memo: Input,
     signature: Signature,
@@ -237,16 +302,11 @@ pub fn settle_trader_order(
     rscalar: Scalar,
 ) /*-> (Transaction, Output, Scalar)*/
 {
-    /*Outputs */
-    //Transaction:: Complete chain transaction with the program and proof to be relayed to the Chain
-    //Output: Output Coin to be sent to the trader. Store in the order_id -> (Output, TxId) DB
-    //Scalar: rscalar to be used for creating the proof for the next state update. Most recent Stored by relayer
-
     //create coin and same value proof for the output based on the payment amount
     let out_address: String = input_memo.as_owner_address().unwrap().to_owned();
     let out_pk: RistrettoPublicKey = Address::from_hex(&out_address, AddressType::default())
         .unwrap()
-        .as_c_address()
+        .as_coin_address()
         .public_key;
     let (_, out_encryption_scalar) = input_memo
         .input
@@ -305,10 +365,23 @@ pub fn get_trader_order_program() -> Program {
     return order_prog;
 }
 
-pub fn create_call_proof() -> (CallProof, Address) {
+pub fn create_call_proof(address_str: String) -> CallProof {
     // create a tree of programs
     let hasher = Hasher::new(b"ZkOS.MerkelTree");
 
+    let prog1 = self::get_trader_order_program();
+    let progs = vec![prog1.clone()];
+
+    // create call proof for program3
+    let call_proof =
+        CallProof::create_call_proof(&progs, 0 as usize, &hasher, address_str).unwrap();
+    call_proof
+}
+
+pub fn create_script_address() -> String {
+    // create a tree of programs
+    //let hasher: Hasher<Program> = Hasher::new(b"ZkOS.MerkelTree");
+    // Add all the programs here
     let prog1 = self::get_trader_order_program();
     let progs = vec![prog1.clone()];
     //create tree root
@@ -316,15 +389,7 @@ pub fn create_call_proof() -> (CallProof, Address) {
     //convert root to address
     let address = Address::script_address(Network::Mainnet, root.0);
     //script address as hex
-    let address_hex = address.as_hex();
-
-    // create path for program3
-    let _path = Path::new(&progs, 2 as usize, &hasher).unwrap();
-
-    // create call proof for program3
-    let call_proof =
-        CallProof::create_call_proof(&progs, 2 as usize, &hasher, address_hex).unwrap();
-    (call_proof, address)
+    address.as_hex()
 }
 
 //
