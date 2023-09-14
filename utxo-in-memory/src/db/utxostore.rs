@@ -59,12 +59,14 @@ where
             .get_mut(&input_type)
             .unwrap()
             .insert(id.clone(), value.clone());
+        PGSQLData::new(id, value.clone()).add_into_sqldb(input_type);
         Ok(value)
     }
 
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
         match self.data.get_mut(&input_type).unwrap().remove(&id) {
             Some(value) => {
+                PGSQLData::new(id, value.clone()).remove_from_sqldb();
                 return Ok(value.clone());
             }
             None => {
