@@ -1,5 +1,6 @@
 pub mod blockoperations;
 pub mod db;
+pub mod pgsql;
 mod threadpool;
 //pub mod types;
 #[macro_use]
@@ -36,15 +37,17 @@ pub fn init_utxo() {
 
 pub fn zk_oracle_subscriber() {
     let (mut socket, response) =
-        connect(Url::parse("ws://165.232.134.41:7001/latestblock").unwrap()).expect("Can't connect");
+        connect(Url::parse("ws://165.232.134.41:7001/latestblock").unwrap())
+            .expect("Can't connect");
 
     loop {
         let msg = socket.read_message().expect("Error reading message");
         match msg {
             Message::Text(text) => {
-                let block: blockoperations::blockprocessing::Block = serde_json::from_str(&text).unwrap();
+                let block: blockoperations::blockprocessing::Block =
+                    serde_json::from_str(&text).unwrap();
                 let result = blockoperations::blockprocessing::process_block_for_utxo_insert(block);
-                if result.suceess_tx.len() > 0{
+                if result.suceess_tx.len() > 0 {
                     save_snapshot();
                 }
             }
@@ -57,7 +60,7 @@ pub fn zk_oracle_subscriber() {
     }
 }
 
-fn save_snapshot(){
+fn save_snapshot() {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     println!("get block height:{:#?}", utxo_storage.block_height);
     println!("get snap:{:#?}", utxo_storage.snaps);
