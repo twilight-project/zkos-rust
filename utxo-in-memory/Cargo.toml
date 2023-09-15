@@ -34,7 +34,7 @@ temp-env = "0.3.4"
 [dependencies.quisquis-rust]
 #path = "../../quisquis-rust"
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "qqtxapi-merged"
+branch = "update_dark_tx"
 
 [dependencies.transaction]
 path = "../transaction"
