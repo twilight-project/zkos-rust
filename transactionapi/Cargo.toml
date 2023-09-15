@@ -35,7 +35,7 @@ bincode = "1"
 #path = "../../quisquis-rust"
 # [dependencies.quisquis-rust]
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "qqtxapi-merged"
+branch = "update_dark_tx"
 
 
 [dependencies.transaction]

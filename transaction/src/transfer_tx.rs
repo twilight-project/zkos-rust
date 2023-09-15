@@ -235,6 +235,23 @@ impl TransferTransaction {
         let updated_delta_accounts =
             Account::update_delta_accounts(&account_vector, &delta_accounts)?;
         let sender_updated_delta_account = &updated_delta_accounts[..senders_count];
+
+        // update the delta_updated_accounts to create output for dark tx
+        let pk_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
+        let comm_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
+
+        let output_accounts = updated_delta_accounts
+            .iter()
+            .map(|account| {
+                Account::update_account(
+                    *account,
+                    Scalar::zero(),
+                    pk_update_scalar,
+                    comm_update_scalar,
+                )
+            })
+            .collect::<Vec<Account>>();
+        // create dark tx proof including the updated output accounts proof
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
             &value_vector_scalar,
@@ -248,13 +265,19 @@ impl TransferTransaction {
             senders_count,
             receivers_count,
             base_pk,
+            Some((
+                &output_accounts,
+                &updated_delta_accounts,
+                pk_update_scalar,
+                comm_update_scalar,
+            )),
         );
 
-        //create vec of Outputs -- Recievers in this case
+        //create vec of Outputs -- Senders + Recievers in this case
         let mut outputs: Vec<Output> = Vec::new();
         for i in 0..senders_count + receivers_count {
             //create address
-            let (pk, comm) = updated_delta_accounts[i].get_account();
+            let (pk, comm) = output_accounts[i].get_account();
             let owner: String = Address::standard_address(Network::Mainnet, pk).as_hex();
             let coin: OutputCoin = OutputCoin {
                 encrypt: comm,
@@ -386,6 +409,7 @@ impl TransferTransaction {
             senders_count,
             receivers_count,
             base_pk,
+            None,
         );
 
         let anonymity_index = 9 - anonymity_account_diff;
