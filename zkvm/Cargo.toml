@@ -55,7 +55,7 @@ features = ["yoloproofs"]
 [dependencies.quisquis-rust]
 #path ="../../quisquis-rust"
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "qqtxapi-merged"
+branch = "update_dark_tx"
 
 [features]
 default = []

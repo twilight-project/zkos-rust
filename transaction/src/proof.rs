@@ -14,7 +14,7 @@ use quisquislib::{
     shuffle::{shuffle::ROWS, Shuffle, ShuffleProof, ShuffleStatement},
 };
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Used in Dark Transaction and Quisquis Tx
 /// Store Dark Tx Proof
@@ -22,10 +22,13 @@ use serde::{Serialize, Deserialize};
 pub struct DarkTxProof {
     pub(super) delta_accounts: Vec<Account>,
     pub(super) epsilon_accounts: Vec<Account>,
+    pub(super) updated_delta_accounts: Vec<Account>,
     pub(super) delta_dleq: SigmaProof,
     pub(super) updated_sender_epsilon_accounts: Vec<Account>,
     pub(super) sender_account_dleq: SigmaProof,
     pub(super) range_proof: Vec<RangeProof>,
+    // Proof only needed for Dark Tx. None in case of Quisquis Tx
+    pub(super) updated_output_proof: Option<SigmaProof>,
     //ONLY FOR TESTING PURPOSES
     pub(super) receivers_count: usize, //SHOULD BE REMOVED LATER
 }
@@ -39,7 +42,7 @@ pub struct ShuffleTxProof {
     pub(super) input_shuffle_statement: ShuffleStatement,
     pub(super) updated_delta_dlog: SigmaProof,
     pub(super) zero_balance_dlog: Option<SigmaProof>,
-    pub(super) updated_delta_accounts: Vec<Account>,
+    // pub(super) updated_delta_accounts: Vec<Account>,
     pub(super) output_shuffle_proof: ShuffleProof,
     pub(super) output_shuffle_statement: ShuffleStatement,
 }
@@ -130,6 +133,10 @@ impl DarkTxProof {
         senders_count: usize,
         receivers_count: usize,
         base_pk: RistrettoPublicKey,
+        update_outputs_statement: Option<(&[Account], &[Account], Scalar, Scalar)>, //updated_outputs: Option<&[Account]>,
+                                                                                    //delta_updated_accounts: Option<&[Account]>,
+                                                                                    //updated_out_pk_rscalar: Option<Scalar>,
+                                                                                    //updated_out_comm_rscalar: Option<Scalar>,
     ) -> DarkTxProof {
         //enerate DLEQ proof for same balance value committed based on Epsilon and delta account
         let delta_dleq = Prover::verify_delta_compact_prover(
@@ -169,15 +176,77 @@ impl DarkTxProof {
         let range_proof =
             prover.verify_non_negative_sender_reciver_prover(&bl_rp_vector, &scalars_bp_vector);
 
-        DarkTxProof {
-            delta_accounts: delta_accounts.to_vec(),
-            epsilon_accounts: epsilon_accounts.to_vec(),
-            delta_dleq,
-            updated_sender_epsilon_accounts,
-            sender_account_dleq,
-            range_proof,
-            receivers_count,
+        // check if is is dark or quisquis tx
+        match update_outputs_statement {
+            Some((
+                updated_outputs,
+                delta_updated_accounts,
+                updated_out_pk_rscalar,
+                updated_out_comm_rscalar,
+            )) => {
+                let updated_output_proof = Prover::verify_update_account_dark_tx_prover(
+                    delta_updated_accounts,
+                    updated_outputs,
+                    updated_out_pk_rscalar,
+                    updated_out_comm_rscalar,
+                    prover,
+                );
+                DarkTxProof {
+                    delta_accounts: delta_accounts.to_vec(),
+                    epsilon_accounts: epsilon_accounts.to_vec(),
+                    delta_dleq,
+                    updated_sender_epsilon_accounts,
+                    sender_account_dleq,
+                    range_proof,
+                    updated_output_proof: Some(updated_output_proof),
+                    receivers_count,
+                }
+            }
+            None => DarkTxProof {
+                delta_accounts: delta_accounts.to_vec(),
+                epsilon_accounts: epsilon_accounts.to_vec(),
+                delta_dleq,
+                updated_sender_epsilon_accounts,
+                sender_account_dleq,
+                range_proof,
+                updated_output_proof: None,
+                receivers_count,
+            },
         }
+
+        // if updated_outputs.is_some() && delta_updated_accounts.is_some() {
+        //     // Dark TX
+        //     // if dark tx then create updated output proof
+
+        //     let updated_output_proof = prover.verify_update_account_dark_tx_prover(
+        //         delta_updated_accounts,
+        //         updated_outputs,
+        //         updated_out_pk_rscalar,
+        //         updated_out_comm_rscalar,
+        //     );
+        //     DarkTxProof {
+        //         delta_accounts: delta_accounts.to_vec(),
+        //         epsilon_accounts: epsilon_accounts.to_vec(),
+        //         delta_dleq,
+        //         updated_sender_epsilon_accounts,
+        //         sender_account_dleq,
+        //         range_proof,
+        //         updated_output_proof: Some(updated_output_proof),
+        //         receivers_count,
+        //     }
+        // } else {
+        //     // QuisQuis TX
+        //     DarkTxProof {
+        //         delta_accounts: delta_accounts.to_vec(),
+        //         epsilon_accounts: epsilon_accounts.to_vec(),
+        //         delta_dleq,
+        //         updated_sender_epsilon_accounts,
+        //         sender_account_dleq,
+        //         range_proof,
+        //         updated_output_proof: None,
+        //         receivers_count,
+        //     }
+        // }
     }
 
     ///
@@ -188,6 +257,7 @@ impl DarkTxProof {
         updated_input: &Vec<Account>, //Updated_input = input in case of Dark Tx.
         //     updated_delta_account_sender: &[Account],
         updated_delta_account: &Vec<Account>, //updated_delta = Output in the cas eof dark Tx
+        update_output_proof_statement: Option<(&[Account], &[Account])>,
     ) -> Result<(), &'static str> {
         let base_pk = RistrettoPublicKey::generate_base_pk();
         //identity check function to verify the construction of epsilon accounts using correct rscalars
@@ -262,7 +332,33 @@ impl DarkTxProof {
                 )
                 .is_ok())
         }
-        Ok(())
+        // check if verifying the proof for Dark Tx or Quisquis Tx
+        match update_output_proof_statement {
+            Some((updated_outputs, delta_updated_accounts)) => {
+                // Dark TX
+                // verify the updated output proof
+                let updated_output_proof = self.updated_output_proof.clone().unwrap();
+                let (z_vector, x) = updated_output_proof.get_dlog();
+                let check = Verifier::verify_update_account_dark_tx_verifier(
+                    delta_updated_accounts,
+                    updated_outputs,
+                    &z_vector,
+                    &x,
+                    verifier,
+                );
+                match check {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err("Updated Output Account: DLOG Proof Verify: Failed"),
+                }
+            }
+            None => {
+                Ok(())
+                // Quisquis TX
+                // do nothing
+            }
+        }
+
+        //  Ok(())
     }
 }
 
@@ -355,7 +451,7 @@ impl ShuffleTxProof {
 
         ShuffleTxProof {
             input_dash_accounts: input_shuffle.get_outputs_vector(),
-            
+
             input_shuffle_proof,
             input_shuffle_statement,
             updated_delta_dlog,
@@ -555,7 +651,39 @@ mod test {
         //create DarkTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
         let mut prover = Prover::new(b"DarkTx", &mut transcript);
-        // create proof
+        // create proof for QuisQuis variant
+        // let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
+        //     &mut prover,
+        //     &value_vector,
+        //     &delta_accounts,
+        //     &epsilon_accounts,
+        //     &delta_rscalar_vector,
+        //     &sender_updated_delta_account,
+        //     &sender_updated_balance,
+        //     &reciever_updated_balance,
+        //     &sender_sk,
+        //     2,
+        //     2,
+        //     base_pk,
+        //     None,
+        // );
+
+        // update the delta_updated_accounts to create output for dark tx
+        let pk_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
+        let comm_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
+
+        let outputs = updated_delta_accounts
+            .iter()
+            .map(|account| {
+                Account::update_account(
+                    *account,
+                    Scalar::zero(),
+                    pk_update_scalar,
+                    comm_update_scalar,
+                )
+            })
+            .collect::<Vec<Account>>();
+        // create proof for Dark Tx variant
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
             &value_vector,
@@ -569,6 +697,12 @@ mod test {
             2,
             2,
             base_pk,
+            Some((
+                &outputs,
+                &updated_delta_accounts,
+                pk_update_scalar,
+                comm_update_scalar,
+            )),
         );
 
         //verify the proof
@@ -580,8 +714,21 @@ mod test {
         //create updated senders delta account slice
         // let updated_senders_delta_account = &dark_tx_proof.delta_accounts[..2];
 
-        let verify =
-            dark_tx_proof.verify(&mut verifier, &updated_accounts, &updated_delta_accounts);
+        // Standard verification in case of Quisquis Tx
+        // let verify = dark_tx_proof.verify(
+        //     &mut verifier,
+        //     &updated_accounts,
+        //     &updated_delta_accounts,
+        //     None,
+        // );
+        // Veification in case of Dark Tx
+
+        let verify = dark_tx_proof.verify(
+            &mut verifier,
+            &updated_accounts,
+            &updated_delta_accounts,
+            Some((&outputs, &updated_delta_accounts)),
+        );
         println!("{:?}", verify);
         assert!(verify.is_ok())
     }
