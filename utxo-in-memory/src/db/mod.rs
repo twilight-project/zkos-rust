@@ -2,9 +2,7 @@
 #![allow(unused_variables)]
 mod snap_rules;
 mod snapshot;
-mod sql;
 pub use self::snapshot::*;
-pub use self::sql::*;
 
 pub use self::snapshot::SnapShot;
 mod utxostore;
