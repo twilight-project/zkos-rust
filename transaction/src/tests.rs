@@ -1,3 +1,4 @@
+// Unit tests for transaction module
 use crate::vm_run::{Prover, Verifier};
 
 use address::{Address, Network};
@@ -5,10 +6,10 @@ use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::Account;
 use quisquislib::elgamal::ElGamalCommitment;
 use quisquislib::{
+    // accounts::prover::Prover as QuisquisProver,
     keys::{PublicKey, SecretKey},
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
-
 use zkvm::merkle::{CallProof, Hasher, MerkleTree, Path};
 use zkvm::zkos_types::{Input, InputData, Output, OutputCoin, OutputData, OutputMemo, Utxo};
 use zkvm::{Commitment, Program, String};
@@ -225,11 +226,20 @@ fn trade_order_tx_input_output_test() {
 
 #[test]
 fn test_dark_transaction_single_sender_reciever() {
+    let mut rng = rand::thread_rng();
+
     // create sender and reciever
     // lets say bob wants to sent 500 tokens to alice from his account
     let (bob_account_1, bob_sk_account_1) =
         Account::generate_random_account_with_value(1000u64.into());
-    let alice_account = Account::generate_random_account_with_value(0u64.into()).0;
+    //create alice account with 0 balance
+    let alice_pk = RistrettoPublicKey::generate_base_pk();
+    let alice_comm_scalar = Scalar::random(&mut rng);
+    let alice_commitment =
+        ElGamalCommitment::generate_commitment(&alice_pk, alice_comm_scalar, Scalar::from(0u64));
+
+    let alice_account = Account::set_account(alice_pk, alice_commitment);
+
     // create sender array
     let alice_reciever = crate::Receiver::set_receiver(500, alice_account);
     let bob_sender = crate::Sender::set_sender(-500, bob_account_1, vec![alice_reciever]);
@@ -250,15 +260,24 @@ fn test_dark_transaction_single_sender_reciever() {
     let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1]; //, bob_sk_account_2];
 
     // create input from account vector
-    let utxo = Utxo::default();
-    let inputs: Vec<Input> = account_vector
-        .iter()
-        .map(|acc| Input::input_from_quisquis_account(acc, utxo, 0, Network::default()))
-        .collect();
+    let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
+    let bob_input =
+        Input::input_from_quisquis_account(&bob_account_1, bob_utxo, 0, Network::default());
+
+    //Simulating a non UTXO input. Provide a valid witness index and Zero balance proof
+    let alice_input =
+        Input::input_from_quisquis_account(&alice_account, Utxo::default(), 0, Network::default());
+    let inputs: Vec<Input> = vec![bob_input, alice_input];
+
+    // let utxo = Utxo::default();
+    // let inputs: Vec<Input> = account_vector
+    //     .iter()
+    //     .map(|acc| Input::input_from_quisquis_account(acc, utxo, 0, Network::default()))
+    //     .collect();
 
     let reciever_value_balance: Vec<u64> = vec![500];
     //println!("Data : {:?}", sender_count);
-    //create quisquis transfertransaction
+    //create quisquis transfertransactio
     let dark_transfer = crate::TransferTransaction::create_dark_transaction(
         &value_vector,
         &account_vector,
@@ -268,6 +287,7 @@ fn test_dark_transaction_single_sender_reciever() {
         &sk_sender,
         sender_count,
         receiver_count,
+        Some(&vec![alice_comm_scalar]),
     );
 
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
@@ -278,4 +298,190 @@ fn test_dark_transaction_single_sender_reciever() {
     // Verify the transaction
     let verify = tx.verify();
     println!("Verify : {:?}", verify);
+    assert!(verify.is_ok());
+}
+
+#[test]
+fn test_dark_transaction_pow_2() {
+    let mut rng = rand::thread_rng();
+
+    // create mutiple sender and recievers
+    // lets say bob wants to sent 500 tokens to alice from his account
+    // and fay 300 from other account
+    let (bob_account_1, bob_sk_account_1) =
+        Account::generate_random_account_with_value(1000u64.into());
+    // create bob account 2
+    let (bob_account_2, bob_sk_account_2) =
+        Account::generate_random_account_with_value(500u64.into());
+
+    //create alice and fay account with 0 balance
+    let base_pk = RistrettoPublicKey::generate_base_pk();
+    let alice_key = PublicKey::update_public_key(&base_pk, Scalar::random(&mut rng));
+
+    let (alice_account, alice_comm_rscalar) = Account::generate_account(alice_key.clone());
+    let (fay_account, fay_comm_rscalar) = Account::generate_account(PublicKey::update_public_key(
+        &alice_key,
+        Scalar::random(&mut rng),
+    ));
+
+    // create sender array
+    let alice_reciever = crate::Receiver::set_receiver(500, alice_account);
+    let fay_reciever = crate::Receiver::set_receiver(300, fay_account);
+
+    let bob_sender = crate::Sender::set_sender(-500, bob_account_1, vec![alice_reciever]);
+    let bob_sender_2 = crate::Sender::set_sender(-300, bob_account_2, vec![fay_reciever]);
+    let tx_vector: Vec<crate::Sender> = vec![bob_sender, bob_sender_2];
+
+    let (value_vector, account_vector, sender_count, receiver_count) =
+        crate::Sender::generate_value_and_account_vector(tx_vector).unwrap();
+    println!(
+        "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
+        value_vector, sender_count, receiver_count
+    );
+    // no need for anonymity as it is dark transaction
+    //Create sender updated account vector for the verification of sk and bl-v
+    let bl_first_sender = 1000 - 500; //bl-v
+    let bl_second_sender = 500 - 300; //bl-v
+    let updated_balance_sender: Vec<u64> = vec![bl_first_sender, bl_second_sender];
+    //Create vector of sender secret keys
+    let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1, bob_sk_account_2];
+
+    // create input from account vector
+    let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
+    let bob_input_1 =
+        Input::input_from_quisquis_account(&bob_account_1, bob_utxo, 0, Network::default());
+    let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
+    let bob_input_2 =
+        Input::input_from_quisquis_account(&bob_account_2, bob_utxo, 0, Network::default());
+
+    //Simulating a non UTXO input. Provide a valid witness index and Zero balance proof
+    let alice_input =
+        Input::input_from_quisquis_account(&alice_account, Utxo::default(), 0, Network::default());
+    let fay_input =
+        Input::input_from_quisquis_account(&fay_account, Utxo::default(), 1, Network::default());
+
+    let inputs: Vec<Input> = vec![bob_input_1, bob_input_2, alice_input, fay_input];
+
+    let reciever_value_balance: Vec<u64> = vec![500, 300];
+    //println!("Data : {:?}", sender_count);
+    //create quisquis transfertransactio
+    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+        &value_vector,
+        &account_vector,
+        &updated_balance_sender,
+        &reciever_value_balance,
+        &inputs,
+        &sk_sender,
+        sender_count,
+        receiver_count,
+        Some(&vec![alice_comm_rscalar, fay_comm_rscalar]),
+    );
+
+    let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
+        dark_transfer.unwrap(),
+    ));
+    //  println!("Transaction : {:?}", tx);
+
+    // Verify the transaction
+    let verify = tx.verify();
+    println!("Verify : {:?}", verify);
+    assert!(verify.is_ok());
+}
+
+#[test]
+fn test_dark_transaction_odd() {
+    let mut rng = rand::thread_rng();
+
+    // create mutiple sender and recievers
+    // lets say bob wants to sent 300 tokens to alice and 200 to jay from his account
+    // and fay 300 from other account
+    let (bob_account_1, bob_sk_account_1) =
+        Account::generate_random_account_with_value(1000u64.into());
+    // create bob account 2
+    let (bob_account_2, bob_sk_account_2) =
+        Account::generate_random_account_with_value(500u64.into());
+
+    //create alice and fay account with 0 balance
+    let base_pk = RistrettoPublicKey::generate_base_pk();
+    let alice_key = PublicKey::update_public_key(&base_pk, Scalar::random(&mut rng));
+
+    let (alice_account, alice_comm_rscalar) = Account::generate_account(alice_key.clone());
+    let (fay_account, fay_comm_rscalar) = Account::generate_account(PublicKey::update_public_key(
+        &alice_key,
+        Scalar::random(&mut rng),
+    ));
+    let (jay_account, jay_comm_rscalar) = Account::generate_account(PublicKey::update_public_key(
+        &alice_key,
+        Scalar::random(&mut rng),
+    ));
+
+    // create sender array
+    let alice_reciever = crate::Receiver::set_receiver(300, alice_account);
+    let fay_reciever = crate::Receiver::set_receiver(300, fay_account);
+    let jay_reciever = crate::Receiver::set_receiver(200, jay_account);
+
+    let bob_sender =
+        crate::Sender::set_sender(-500, bob_account_1, vec![alice_reciever, jay_reciever]);
+    let bob_sender_2 = crate::Sender::set_sender(-300, bob_account_2, vec![fay_reciever]);
+    let tx_vector: Vec<crate::Sender> = vec![bob_sender, bob_sender_2];
+
+    let (value_vector, account_vector, sender_count, receiver_count) =
+        crate::Sender::generate_value_and_account_vector(tx_vector).unwrap();
+    println!(
+        "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
+        value_vector, sender_count, receiver_count
+    );
+    // no need for anonymity as it is dark transaction
+    //Create sender updated account vector for the verification of sk and bl-v
+    let bl_first_sender = 1000 - 500; //bl-v
+    let bl_second_sender = 500 - 300; //bl-v
+    let updated_balance_sender: Vec<u64> = vec![bl_first_sender, bl_second_sender];
+    //Create vector of sender secret keys
+    let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1, bob_sk_account_2];
+
+    // create input from account vector
+    let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
+    let bob_input_1 =
+        Input::input_from_quisquis_account(&bob_account_1, bob_utxo, 0, Network::default());
+    let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
+    let bob_input_2 =
+        Input::input_from_quisquis_account(&bob_account_2, bob_utxo, 0, Network::default());
+
+    //Simulating a non UTXO input. Provide a valid witness index and Zero balance proof
+    let alice_input =
+        Input::input_from_quisquis_account(&alice_account, Utxo::default(), 0, Network::default());
+    let fay_input =
+        Input::input_from_quisquis_account(&fay_account, Utxo::default(), 2, Network::default());
+    let jay_input =
+        Input::input_from_quisquis_account(&jay_account, Utxo::default(), 1, Network::default());
+
+    let inputs: Vec<Input> = vec![bob_input_1, bob_input_2, alice_input, jay_input, fay_input];
+
+    let reciever_value_balance: Vec<u64> = vec![300, 200, 300];
+    //println!("Data : {:?}", sender_count);
+    //create quisquis transfertransactio
+    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+        &value_vector,
+        &account_vector,
+        &updated_balance_sender,
+        &reciever_value_balance,
+        &inputs,
+        &sk_sender,
+        sender_count,
+        receiver_count,
+        Some(&vec![
+            alice_comm_rscalar,
+            jay_comm_rscalar,
+            fay_comm_rscalar,
+        ]),
+    );
+
+    let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
+        dark_transfer.unwrap(),
+    ));
+
+    // Verify the transaction
+    let verify = tx.verify();
+    println!("Verify : {:?}", verify);
+    assert!(verify.is_ok());
 }

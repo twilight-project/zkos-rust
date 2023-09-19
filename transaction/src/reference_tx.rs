@@ -319,6 +319,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
         &sk_sender,
         sender_count,
         receiver_count,
+        None,
     );
 
     Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
@@ -533,6 +534,7 @@ pub fn create_dark_reference_tx_for_utxo_test(
         &sk_sender,
         sender_count,
         receiver_count,
+        None,
     );
 
     Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
