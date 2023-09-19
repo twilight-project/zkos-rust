@@ -1,3 +1,5 @@
+// ignore warnings
+#![allow(warnings)]
 use bulletproofs::r1cs::ConstraintSystem;
 use bulletproofs::r1cs::{self, R1CSProof};
 use bulletproofs::{BulletproofGens, PedersenGens};
@@ -15,7 +17,7 @@ use crate::predicate::Predicate;
 use crate::program::{Program, ProgramItem};
 use crate::tx::{TxHeader, UnsignedTx};
 use crate::vm::{Delegate, VMScript, VM};
-use crate::zkos_types::{Input, Output};
+//use crate::zkos_types::{Input, Output};
 
 /// This is the entry point API for creating a transaction.
 /// Prover passes the list of instructions through the VM,
@@ -177,6 +179,3 @@ impl<'g> Prover<'g> {
     //     Ok((bytecode, proof))
     // }
 }
-
-
-

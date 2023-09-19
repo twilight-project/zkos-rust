@@ -2,7 +2,7 @@ use address::{Address, Network};
 use bulletproofs::{BulletproofGens, PedersenGens};
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED;
 use curve25519_dalek::scalar::Scalar;
-use zkschnorr::{SigningKey, VerificationKey};
+//use zkschnorr::{SigningKey, VerificationKey};
 use merlin::Transcript;
 use quisquislib::accounts::Account;
 use quisquislib::elgamal::ElGamalCommitment;
@@ -10,17 +10,17 @@ use quisquislib::{
     keys::{PublicKey, SecretKey},
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
-use rand::Rng;
+//use rand::Rng;
 use starsig::Signature;
-use std::{fmt, ops::Add};
+//use std::{fmt, ops::Add};
 use zkvm::zkos_types::{
     Input, InputData, Output, OutputCoin, OutputData, OutputState, StateWitness, Utxo,
     ValueWitness, Witness,
 };
 
 use zkvm::{
-    Anchor, Commitment, CommitmentWitness, Contract, PortableItem, Predicate, PredicateTree,
-    Program, Prover, String, Tx, TxHeader, TxID, TxLog, UnsignedTx, VMError, Value, VerifiedTx,
+    Anchor, Commitment, Contract, PortableItem, Predicate, Program, Prover, String, TxHeader,
+    VMError, Value, VerifiedTx,
 };
 
 // TODO(vniu): move builder convenience functions into separate crate,
@@ -56,8 +56,8 @@ impl ProgramHelper for Program {
         self
     }
 
-    fn cloak_helper(&mut self, input_count: usize, outputs: Vec<(u64, Scalar)>) -> &mut Self {
-        let output_count = outputs.len();
+    fn cloak_helper(&mut self, _input_count: usize, outputs: Vec<(u64, Scalar)>) -> &mut Self {
+        let _output_count = outputs.len();
 
         for (qty, flv) in outputs {
             self.push(Commitment::blinded(qty));
@@ -76,7 +76,7 @@ impl ProgramHelper for Program {
 }
 
 /// Generates a secret Scalar / key Predicate pair
-fn generate_predicate() -> (Predicate, Scalar) {
+fn _generate_predicate() -> (Predicate, Scalar) {
     let scalar = Scalar::from(0u64);
     let pred = Predicate::Key(starsig::VerificationKey::from_secret(&scalar));
     (pred, scalar)
@@ -102,7 +102,7 @@ fn generate_predicates(pred_num: usize) -> (Vec<Predicate>, Vec<Scalar>) {
 
 /// Returns the secret Scalar and Predicate used to issue
 /// a flavor, along with the flavor Scalar.
-fn make_flavor() -> (Scalar, Predicate, Scalar) {
+fn _make_flavor() -> (Scalar, Predicate, Scalar) {
     let scalar = Scalar::from(100u64);
     let predicate = Predicate::Key(starsig::VerificationKey::from_secret(&scalar));
     let flavor = Value::issue_flavor(&predicate, String::default());
@@ -127,7 +127,7 @@ fn build_and_verify(
     inputs: &[Input],
     outputs: &[Output],
 ) -> Result<VerifiedTx, VMError> {
-    let (txlog, tx) = {
+    let (_txlog, tx) = {
         // Build tx
         let bp_gens = BulletproofGens::new(256, 1);
         let header = TxHeader {
@@ -712,7 +712,7 @@ fn order_message() {
         0,
     );
     let coin_in: Input = Input::coin(in_data);
-    let input: Vec<Input> = vec![coin_in];
+    let _input: Vec<Input> = vec![coin_in];
     let sk_out: RistrettoSecretKey = SecretKey::random(&mut rng);
     let pk_out = RistrettoPublicKey::from_secret_key(&sk_out, &mut rng);
     let add_out: Address = Address::standard_address(Network::default(), pk_out);
@@ -727,7 +727,7 @@ fn order_message() {
     };
     let out_data = OutputData::Coin(coin_out);
     let coin_out = Output::coin(out_data);
-    let output: Vec<Output> = vec![coin_out];
+    let _output: Vec<Output> = vec![coin_out];
 
     //let unsignedtx = build_and_verify_without_signature(correct_program, &input, &output).unwrap();
     // print!("{:?}", unsignedtx);
@@ -741,8 +741,8 @@ fn order_message_old() {
     let input: Vec<Input> = vec![];
     let output: Vec<Output> = vec![];
     //useless predicates
-    let (preds, scalars) = generate_predicates(3);
-    let res =
+    let (_preds, scalars) = generate_predicates(3);
+    let _res =
         build_and_verify(correct_program, &vec![scalars[1].clone()], &input, &output).unwrap();
 }
 
@@ -750,14 +750,11 @@ fn order_message_old() {
 fn state_witness_test() {
     let mut rng = rand::thread_rng();
     let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
-    let r = Scalar::random(&mut rng);
+    let _r = Scalar::random(&mut rng);
     let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
     //let (g, h) = pk_in.as_point();
 
-    let add: Address = Address::standard_address(
-        Network::default(),
-        pk_in.clone(),
-    );
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
     //create first Cimmtment Witness
     let commit_1: Commitment = Commitment::blinded(0u64);
     let commit_2: Commitment = Commitment::blinded(0u64);
@@ -788,7 +785,7 @@ fn state_witness_test() {
         None,
         1,
     );
-    let input : Input = Input::state(in_data);
+    let input: Input = Input::state(in_data);
     let witness = Witness::State(StateWitness::create_state_witness(
         input.clone(),
         sk_in,
@@ -807,12 +804,11 @@ fn value_witness_test() {
     let mut rng = rand::thread_rng();
     let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
     let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
-   
-   
+
     let add: Address = Address::standard_address(Network::default(), pk_in.clone());
     let rscalar: Scalar = Scalar::random(&mut rng);
     // create input coin
-    let commit_in = ElGamalCommitment::generate_commitment(&pk_in , rscalar, Scalar::from(10u64));
+    let commit_in = ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(10u64));
     let enc_acc = Account::set_account(pk_in, commit_in);
 
     let out_coin = OutputCoin {
@@ -832,7 +828,7 @@ fn value_witness_test() {
 
     //create OutputMemo
 
-    let out_memo = zkvm::zkos_types::OutputMemo {
+    let _out_memo = zkvm::zkos_types::OutputMemo {
         script_address: add.as_hex(),
         owner: add.as_hex(),
         commitment: Commitment::blinded(10u64),

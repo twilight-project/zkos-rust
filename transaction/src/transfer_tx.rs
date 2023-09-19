@@ -3,13 +3,12 @@
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
 use crate::script_tx::ScriptTransaction;
-use address::{Address, Network};
 use merlin::Transcript;
-use zkvm::zkos_types::{Input, InputData, Output, OutputCoin, OutputData, Utxo, Witness};
+use zkvm::zkos_types::{Input, Output, Witness};
 
 use serde::{Deserialize, Serialize};
 
-use bulletproofs::r1cs::R1CSProof;
+//use bulletproofs::r1cs::R1CSProof;
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::{
     accounts::prover::Prover,
@@ -17,122 +16,8 @@ use quisquislib::{
     accounts::Account,
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
-    shuffle::Shuffle,
+    // shuffle::Shuffle,
 };
-
-/// A complete twilight Transactiont valid for a specific network.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Transaction {
-    /// Defines the Tx type.
-    pub tx_type: TransactionType,
-    /// The Tx data corresponding to the Tx type.
-    pub tx: TransactionData,
-}
-
-impl Transaction {
-    pub fn new(tx_type: TransactionType, tx: TransactionData) -> Transaction {
-        Transaction { tx_type, tx }
-    }
-
-    /// Create a QuisQuis tx .
-    pub fn transaction_transfer(data: TransactionData) -> Transaction {
-        Transaction {
-            tx_type: TransactionType::default(),
-            tx: data,
-        }
-    }
-    /// Create a Script tx .
-    pub fn transaction_script(data: TransactionData) -> Transaction {
-        Transaction {
-            tx_type: TransactionType::Script,
-            tx: data,
-        }
-    }
-    /// return tx Input values
-    pub fn get_tx_inputs(&self) -> Vec<Input> {
-        match self.tx.clone() {
-            TransactionData::TransactionTransfer(transfer_transaction) => {
-                transfer_transaction.get_input_values().clone()
-            }
-            TransactionData::TransactionScript(script_transaction) => {
-                script_transaction.get_input_values().clone()
-            }
-        }
-    }
-    /// return tx Output values
-    pub fn get_tx_outputs(&self) -> Vec<Output> {
-        match self.tx.clone() {
-            TransactionData::TransactionTransfer(transfer_transaction) => {
-                transfer_transaction.get_output_values()
-            }
-            TransactionData::TransactionScript(script_transaction) => {
-                script_transaction.get_output_values()
-            }
-        }
-    }
-}
-
-/// Transaction type: Transfer. Script, Vault
-///
-/// TransactionType implements [`Default`] and returns [`TransactionType::Transfer`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
-pub enum TransactionType {
-    Transfer,
-    Script,
-    Vault,
-}
-
-impl TransactionType {
-    pub fn from_u8(byte: u8) -> Result<TransactionType, &'static str> {
-        use TransactionType::*;
-        match byte {
-            0 => Ok(Transfer),
-            1 => Ok(Script),
-            2 => Ok(Vault),
-            _ => Err("Error::InvalidTransactionType"),
-        }
-    }
-}
-impl Default for TransactionType {
-    fn default() -> TransactionType {
-        TransactionType::Transfer
-    }
-}
-
-impl From<ScriptTransaction> for Transaction {
-    fn from(tx_script: ScriptTransaction) -> Transaction {
-        Transaction {
-            tx_type: TransactionType::Script,
-            tx: TransactionData::TransactionScript(tx_script),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TransactionData {
-    TransactionTransfer(TransferTransaction),
-    TransactionScript(ScriptTransaction),
-    //TransactionCreate,
-    //TransactionVault,
-}
-
-impl TransactionData {
-    /// Downcasts Transaction to `Transfer` type.
-    pub fn to_transfer(self) -> Result<TransferTransaction, &'static str> {
-        match self {
-            TransactionData::TransactionTransfer(x) => Ok(x),
-            _ => Err("Invalid Transfer Transaction"),
-        }
-    }
-
-    /// Downcasts Transaction to `Script` type.
-    pub fn to_script(self) -> Result<ScriptTransaction, &'static str> {
-        match self {
-            TransactionData::TransactionScript(x) => Ok(x),
-            _ => Err("Invalid Script Transaction"),
-        }
-    }
-}
 
 ///
 /// Store for TransactionTransfer
@@ -259,33 +144,26 @@ impl TransferTransaction {
             &epsilon_accounts,
             &delta_rscalar,
             sender_updated_delta_account,
+            &updated_delta_accounts,
             &sender_updated_balance,
             &reciever_updated_balance,
             &sender_sk,
             senders_count,
             receivers_count,
             base_pk,
-            Some((
-                &output_accounts,
-                &updated_delta_accounts,
-                pk_update_scalar,
-                comm_update_scalar,
-            )),
+            Some((&output_accounts, pk_update_scalar, comm_update_scalar)),
         );
+
+        // Create ZERO account proof as witness in Tx
+        // create proof for recievers.
+        //CONFIRM FROM GAURAV
 
         //create vec of Outputs -- Senders + Recievers in this case
         let mut outputs: Vec<Output> = Vec::new();
-        for i in 0..senders_count + receivers_count {
-            //create address
-            let (pk, comm) = output_accounts[i].get_account();
-            let owner: String = Address::standard_address(Network::Mainnet, pk).as_hex();
-            let coin: OutputCoin = OutputCoin {
-                encrypt: comm,
-                owner,
-            };
-            let out = Output::coin(OutputData::coin(coin));
-            outputs.push(out.clone());
+        for out in output_accounts.iter() {
+            outputs.push(Output::from(out.clone()));
         }
+
         let version = 1u64;
         let maturity = 0u64;
         let input_count = input_vector.len();
@@ -308,7 +186,9 @@ impl TransferTransaction {
     pub fn verify_dark_tx(
         &self,
         inputs: &[Account],
-        outputs: &[Account],
+        // Outpus is updated in case of Dark Tx. So we need to pass the updated output accounts
+        // None in case of Quisquis Tx
+        outputs: Option<&[Account]>,
     ) -> Result<(), &'static str> {
         //create DarkTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
@@ -321,173 +201,173 @@ impl TransferTransaction {
         //TODO::CONVERT INPUS AND OUTPUTS TO ACCOUNTS
         //verify the proof
         self.proof
-            .verify(&mut verifier, &inputs.to_vec(), &outputs.to_vec())?;
+            .verify(&mut verifier, &inputs.to_vec(), outputs)?;
         Ok(())
     }
 
-    pub fn create_quisquis_transaction(
-        utxo_vector: &[Utxo],
-        value_vector: &[i64],
-        account_vector: &[Account],
-        sender_updated_balance: &[u64],
-        reciever_updated_balance: &[u64],
-        sender_sk: &[RistrettoSecretKey],
-        senders_count: usize,
-        receivers_count: usize,
-        anonymity_comm_scalar: &[Scalar],
-        anonymity_account_diff: usize,
-    ) -> Result<TransferTransaction, &'static str> {
-        //convert the valur vector into scalar type to create the proof
-        let mut value_vector_scalar = Vec::<Scalar>::new();
-        for v in value_vector.iter() {
-            if v >= &0 {
-                value_vector_scalar.push(Scalar::from(*v as u64));
-            } else {
-                value_vector_scalar.push(-Scalar::from((-*v) as u64));
-            }
-        }
-        //create base pk for epsilon accounts
-        let base_pk = RistrettoPublicKey::generate_base_pk();
-        //Step 1. update & shuffle input accounts
-        let input_shuffle = Shuffle::input_shuffle(account_vector)?;
-        let updated_accounts = input_shuffle.get_outputs_vector();
-        //create Inputs from shuffle
-        //create vec of Inputs
-        let input_account_vector = input_shuffle.get_inputs_vector();
+    // pub fn create_quisquis_transaction(
+    //     utxo_vector: &[Utxo],
+    //     value_vector: &[i64],
+    //     account_vector: &[Account],
+    //     sender_updated_balance: &[u64],
+    //     reciever_updated_balance: &[u64],
+    //     sender_sk: &[RistrettoSecretKey],
+    //     senders_count: usize,
+    //     receivers_count: usize,
+    //     anonymity_comm_scalar: &[Scalar],
+    //     anonymity_account_diff: usize,
+    // ) -> Result<TransferTransaction, &'static str> {
+    //     //convert the valur vector into scalar type to create the proof
+    //     let mut value_vector_scalar = Vec::<Scalar>::new();
+    //     for v in value_vector.iter() {
+    //         if v >= &0 {
+    //             value_vector_scalar.push(Scalar::from(*v as u64));
+    //         } else {
+    //             value_vector_scalar.push(-Scalar::from((-*v) as u64));
+    //         }
+    //     }
+    //     //create base pk for epsilon accounts
+    //     let base_pk = RistrettoPublicKey::generate_base_pk();
+    //     //Step 1. update & shuffle input accounts
+    //     let input_shuffle = Shuffle::input_shuffle(account_vector)?;
+    //     let updated_accounts = input_shuffle.get_outputs_vector();
+    //     //create Inputs from shuffle
+    //     //create vec of Inputs
+    //     let input_account_vector = input_shuffle.get_inputs_vector();
 
-        //THE UTXO SHOULD BE SHUFFLED ACCORDINGLY LATER. USING UTXO as zero for the time being
-        let mut inputs: Vec<Input> = Vec::new();
-        for (i, input) in input_account_vector.iter().enumerate() {
-            //create inputs
-            let (pk, enc) = input.get_account();
-            let out_coin = OutputCoin {
-                encrypt: enc,
-                owner: Address::standard_address(Network::default(), pk).as_hex(),
-            };
-            let inp = Input::coin(InputData::coin(
-                utxo_vector[i],
-                // Address::coin_address(Network::default(), pk).as_hex(),
-                // enc,
-                out_coin,
-                0,
-            ));
-            inputs.push(inp.clone());
-        }
+    //     //THE UTXO SHOULD BE SHUFFLED ACCORDINGLY LATER. USING UTXO as zero for the time being
+    //     let mut inputs: Vec<Input> = Vec::new();
+    //     for (i, input) in input_account_vector.iter().enumerate() {
+    //         //create inputs
+    //         let (pk, enc) = input.get_account();
+    //         let out_coin = OutputCoin {
+    //             encrypt: enc,
+    //             owner: Address::standard_address(Network::default(), pk).as_hex(),
+    //         };
+    //         let inp = Input::coin(InputData::coin(
+    //             utxo_vector[i],
+    //             // Address::coin_address(Network::default(), pk).as_hex(),
+    //             // enc,
+    //             out_coin,
+    //             0,
+    //         ));
+    //         inputs.push(inp.clone());
+    //     }
 
-        //create QuisQuisTx Prover merlin transcript
-        let mut transcript = Transcript::new(b"TxProof");
-        let mut prover = Prover::new(b"QuisQuisTx", &mut transcript);
+    //     //create QuisQuisTx Prover merlin transcript
+    //     let mut transcript = Transcript::new(b"TxProof");
+    //     let mut prover = Prover::new(b"QuisQuisTx", &mut transcript);
 
-        //create delta_and_epsilon_accounts
-        let (delta_accounts, epsilon_accounts, delta_rscalar) =
-            Account::create_delta_and_epsilon_accounts(
-                &updated_accounts,
-                &value_vector_scalar,
-                base_pk,
-            );
+    //     //create delta_and_epsilon_accounts
+    //     let (delta_accounts, epsilon_accounts, delta_rscalar) =
+    //         Account::create_delta_and_epsilon_accounts(
+    //             &updated_accounts,
+    //             &value_vector_scalar,
+    //             base_pk,
+    //         );
 
-        //identity check function to verify the construction of epsilon accounts using correct rscalars
-        Verifier::verify_delta_identity_check(&epsilon_accounts)?;
+    //     //identity check function to verify the construction of epsilon accounts using correct rscalars
+    //     Verifier::verify_delta_identity_check(&epsilon_accounts)?;
 
-        //update delta_accounts to reflect the change in balance
-        //updated_delta_accounts = Output account for DarkTx
-        let updated_delta_accounts =
-            Account::update_delta_accounts(&updated_accounts, &delta_accounts)?;
+    //     //update delta_accounts to reflect the change in balance
+    //     //updated_delta_accounts = Output account for DarkTx
+    //     let updated_delta_accounts =
+    //         Account::update_delta_accounts(&updated_accounts, &delta_accounts)?;
 
-        let sender_updated_delta_account = &updated_delta_accounts[..senders_count];
-        //create Dark Proof
-        let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
-            &mut prover,
-            &value_vector_scalar,
-            &delta_accounts,
-            &epsilon_accounts,
-            &delta_rscalar,
-            &sender_updated_delta_account,
-            &sender_updated_balance,
-            &reciever_updated_balance,
-            &sender_sk,
-            senders_count,
-            receivers_count,
-            base_pk,
-            None,
-        );
+    //     let sender_updated_delta_account = &updated_delta_accounts[..senders_count];
+    //     //create Dark Proof
+    //     let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
+    //         &mut prover,
+    //         &value_vector_scalar,
+    //         &delta_accounts,
+    //         &epsilon_accounts,
+    //         &delta_rscalar,
+    //         &sender_updated_delta_account,
+    //         &sender_updated_balance,
+    //         &reciever_updated_balance,
+    //         &sender_sk,
+    //         senders_count,
+    //         receivers_count,
+    //         base_pk,
+    //         None,
+    //     );
 
-        let anonymity_index = 9 - anonymity_account_diff;
-        let updated_accounts_slice = &updated_accounts[anonymity_index..9];
-        let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
-        let rscalars_slice = &delta_rscalar[anonymity_index..9];
-        //for anonymity zero account proof
-        let input_anonymity_account_slice = &account_vector[anonymity_index..9];
-        //Shuffle accounts
-        let output_shuffle = Shuffle::output_shuffle(&updated_delta_accounts)?;
+    //     let anonymity_index = 9 - anonymity_account_diff;
+    //     let updated_accounts_slice = &updated_accounts[anonymity_index..9];
+    //     let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
+    //     let rscalars_slice = &delta_rscalar[anonymity_index..9];
+    //     //for anonymity zero account proof
+    //     let input_anonymity_account_slice = &account_vector[anonymity_index..9];
+    //     //Shuffle accounts
+    //     let output_shuffle = Shuffle::output_shuffle(&updated_delta_accounts)?;
 
-        let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
-            &mut prover,
-            &updated_accounts,
-            &updated_delta_accounts,
-            &delta_rscalar,
-            &input_anonymity_account_slice,
-            &anonymity_comm_scalar,
-            &input_shuffle,
-            &output_shuffle,
-        );
+    //     let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
+    //         &mut prover,
+    //         &updated_accounts,
+    //         &updated_delta_accounts,
+    //         &delta_rscalar,
+    //         &input_anonymity_account_slice,
+    //         &anonymity_comm_scalar,
+    //         &input_shuffle,
+    //         &output_shuffle,
+    //     );
 
-        let output_final = output_shuffle.get_outputs_vector();
-        //create vec of Outputs -- Recievers in this case
-        let mut outputs: Vec<Output> = Vec::new();
-        for out in output_final.iter() {
-            //create address
-            let (pk, comm) = out.get_account();
-            let coin: OutputCoin = OutputCoin {
-                encrypt: comm,
-                owner: Address::standard_address(Network::default(), pk).as_hex(),
-            };
-            let out = Output::coin(OutputData::coin(coin));
-            outputs.push(out.clone());
-        }
+    //     let output_final = output_shuffle.get_outputs_vector();
+    //     //create vec of Outputs -- Recievers in this case
+    //     let mut outputs: Vec<Output> = Vec::new();
+    //     for out in output_final.iter() {
+    //         //create address
+    //         let (pk, comm) = out.get_account();
+    //         let coin: OutputCoin = OutputCoin {
+    //             encrypt: comm,
+    //             owner: Address::standard_address(Network::default(), pk).as_hex(),
+    //         };
+    //         let out = Output::coin(OutputData::coin(coin));
+    //         outputs.push(out.clone());
+    //     }
 
-        Ok(TransferTransaction::set_tranfer_transaction(
-            0u64,
-            0u64,
-            senders_count as u8,
-            receivers_count as u8,
-            0u8,
-            inputs,
-            outputs,
-            dark_tx_proof,
-            Some(shuffle_proof),
-            None,
-        ))
-    }
+    //     Ok(TransferTransaction::set_tranfer_transaction(
+    //         0u64,
+    //         0u64,
+    //         senders_count as u8,
+    //         receivers_count as u8,
+    //         0u8,
+    //         inputs,
+    //         outputs,
+    //         dark_tx_proof,
+    //         Some(shuffle_proof),
+    //         None,
+    //     ))
+    // }
 
-    pub fn verify_quisquis_tx(
-        &self,
-        inputs: &[Account],
-        outputs: &[Account],
-    ) -> Result<(), &'static str> {
-        //create QuisQUisTx Prover merlin transcript
-        let mut transcript = Transcript::new(b"TxProof");
-        let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
+    // pub fn verify_quisquis_tx(
+    //     &self,
+    //     inputs: &[Account],
+    //     outputs: &[Account],
+    // ) -> Result<(), &'static str> {
+    //     //create QuisQUisTx Prover merlin transcript
+    //     let mut transcript = Transcript::new(b"TxProof");
+    //     let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
 
-        //find the number of senders
-        // let senders_count = self.proof.updated_sender_epsilon_accounts.len();
-        //create updated senders delta account slice
-        // let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
-        //extract shuffle proof
-        let shuffle_proof = self.shuffle_proof.as_ref().unwrap();
-        //verify the Dark Proof first
-        self.proof.verify(
-            &mut verifier,
-            &shuffle_proof.input_dash_accounts,
-            //  &updated_senders_delta_account,
-            &shuffle_proof.updated_delta_accounts,
-        )?;
-        let anonymity_index = self.proof.range_proof.len();
-        //verify the shuffle proof
-        shuffle_proof.verify(&mut verifier, &inputs, &outputs, anonymity_index)?;
+    //     //find the number of senders
+    //     // let senders_count = self.proof.updated_sender_epsilon_accounts.len();
+    //     //create updated senders delta account slice
+    //     // let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
+    //     //extract shuffle proof
+    //     let shuffle_proof = self.shuffle_proof.as_ref().unwrap();
+    //     //verify the Dark Proof first
+    //     self.proof.verify(
+    //         &mut verifier,
+    //         &shuffle_proof.input_dash_accounts,
+    //         //  &updated_senders_delta_account,
+    //         &shuffle_proof.updated_delta_accounts,
+    //     )?;
+    //     let anonymity_index = self.proof.range_proof.len();
+    //     //verify the shuffle proof
+    //     shuffle_proof.verify(&mut verifier, &inputs, &outputs, anonymity_index)?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     //created for utxo-in-memory
     pub fn get_input_values(&self) -> Vec<Input> {
@@ -495,5 +375,30 @@ impl TransferTransaction {
     }
     pub fn get_output_values(&self) -> Vec<Output> {
         self.outputs.clone()
+    }
+
+    pub fn verify(&self) -> Result<(), &'static str> {
+        //convert Inputs and Outputs to Just Accounts
+        let inputs = self.get_input_values();
+        let outputs = self.get_output_values();
+
+        let mut input_accounts = Vec::<Account>::new();
+        let mut output_accounts = Vec::<Account>::new();
+
+        for (inp, out) in inputs.iter().zip(outputs.iter()) {
+            let inp_acc = inp.to_quisquis_account()?;
+            let out_acc = out.to_quisquis_account()?;
+            input_accounts.push(inp_acc);
+            output_accounts.push(out_acc);
+        }
+
+        if self.shuffle_proof.is_none() {
+            //verify Dark transaction
+            self.verify_dark_tx(&input_accounts, Some(&output_accounts))
+        } else {
+            //verify QQ Transaction
+            // tx_data.verify_quisquis_tx(&inputs, &outputs)
+            Err("Tx Verification failed. Transaction Type is not valid.")
+        }
     }
 }

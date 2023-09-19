@@ -194,7 +194,7 @@ pub enum VMError {
     #[error("Witness  is not a State Witness")]
     TypeNotStateWitness,
 
-    /// This error occurs when tx attempts to convert Witness into SigmaProof.
+    /// This error occurs when tx attempts to convert Witness into ValueWitness.
     #[error("Witness  is not a Value Witness")]
     TypeNotValueWitness,
 
@@ -207,4 +207,8 @@ pub enum VMError {
     /// This error occurs when tx input State does not have a corresponding output State.
     #[error("Invalid Input Output State value")]
     InvalidInputOutputState,
+
+    /// This error occurs when tx attempts to convert Witness into SigmaProof.
+    #[error("Witness is not a sigma proof")]
+    TypeNotSigmaProof,
 }

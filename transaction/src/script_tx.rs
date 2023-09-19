@@ -1,21 +1,21 @@
-use address::{Address, Network};
+//use address::{Address, Network};
 use merlin::Transcript;
-use quisquislib::{keys::PublicKey, ristretto::RistrettoSecretKey};
+//use quisquislib::{keys::PublicKey, ristretto::RistrettoSecretKey};
 use serde::{Deserialize, Serialize};
 use zkvm::{
-    zkos_types::{Input, InputData, Output, OutputCoin, OutputData, Utxo, Witness},
-    IOType, Program,
+    zkos_types::{Input, Output, Witness}, // OutputCoin, Utxo},
+    Program,
 };
 
 use bulletproofs::r1cs::R1CSProof;
-use bulletproofs::BulletproofGens;
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::scalar::Scalar;
+// use bulletproofs::BulletproofGens;
+// use curve25519_dalek::ristretto::CompressedRistretto;
+// use curve25519_dalek::scalar::Scalar;
 
-use bincode;
-use std::fmt;
-use zkschnorr::{Signature, VerificationKey};
-use zkvm::merkle::{CallProof, Hash, MerkleItem, MerkleTree};
+// use bincode;
+// use std::fmt;
+//use zkschnorr::{Signature, VerificationKey};
+use zkvm::merkle::CallProof; //, Hash, MerkleItem, MerkleTree};
 
 ///
 /// Store for TransactionScript
@@ -75,7 +75,11 @@ pub struct ScriptTransaction {
 
 impl ScriptTransaction {
     /// run the program and create a proof
-    pub fn create_script_tx_without_witness(prog: Program, inputs: &[Input], outputs: &[Output]) {
+    pub fn create_script_tx_without_witness(
+        _prog: Program,
+        _inputs: &[Input],
+        _outputs: &[Output],
+    ) {
 
         //Run the program and create a proof
     }
@@ -169,13 +173,9 @@ impl ScriptTransaction {
         )
     }
 
-    pub fn verify_script_tx(
-        &self,
-        inputs: &[Input],
-        outputs: &[Output],
-    ) -> Result<(), &'static str> {
+    pub fn verify(&self, _inputs: &[Input], _outputs: &[Output]) -> Result<(), &'static str> {
         //create QuisQUisTx Prover merlin transcript
-        let mut transcript = Transcript::new(b"TxProof");
+        let mut _transcript = Transcript::new(b"TxProof");
         // let mut verifier = Verifier::new(b"QuisQuisTx", &mut transcript);
 
         //verify the Dark Proof first
