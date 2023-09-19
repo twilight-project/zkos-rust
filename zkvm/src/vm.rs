@@ -1,3 +1,6 @@
+// ignore warnings for now
+#![allow(warnings)]
+
 use bulletproofs::r1cs;
 use core::iter;
 use core::iter::FromIterator;
@@ -17,7 +20,7 @@ use crate::program::ProgramItem;
 use crate::scalar_witness::ScalarWitness;
 use crate::tx::{TxEntry, TxHeader, TxID, TxLog};
 use crate::types::*;
-use crate::zkos_types::{IOType, Input, Output, OutputCoin, OutputData, OutputMemo, OutputState};
+use crate::zkos_types::{IOType, Input, Output, OutputCoin, OutputMemo};
 use rangeproof;
 use rangeproof::BitRange;
 use std::mem;

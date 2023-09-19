@@ -2,6 +2,7 @@ use crate::vm_run::{Prover, Verifier};
 
 use address::{Address, Network};
 use curve25519_dalek::scalar::Scalar;
+use quisquislib::accounts::Account;
 use quisquislib::elgamal::ElGamalCommitment;
 use quisquislib::{
     keys::{PublicKey, SecretKey},
@@ -11,6 +12,7 @@ use quisquislib::{
 use zkvm::merkle::{CallProof, Hasher, MerkleTree, Path};
 use zkvm::zkos_types::{Input, InputData, Output, OutputCoin, OutputData, OutputMemo, Utxo};
 use zkvm::{Commitment, Program, String};
+
 #[test]
 fn call_proof_test() {
     // create a tree of programs
@@ -219,4 +221,61 @@ fn trade_order_tx_input_output_test() {
     let (prog_bytes, proof) = result.unwrap();
     let verify = Verifier::verify_r1cs_proof(proof, prog_bytes, &input, &output);
     println!("{:?}", verify);
+}
+
+#[test]
+fn test_dark_transaction_single_sender_reciever() {
+    // create sender and reciever
+    // lets say bob wants to sent 500 tokens to alice from his account
+    let (bob_account_1, bob_sk_account_1) =
+        Account::generate_random_account_with_value(1000u64.into());
+    let alice_account = Account::generate_random_account_with_value(0u64.into()).0;
+    // create sender array
+    let alice_reciever = crate::Receiver::set_receiver(500, alice_account);
+    let bob_sender = crate::Sender::set_sender(-500, bob_account_1, vec![alice_reciever]);
+    let tx_vector: Vec<crate::Sender> = vec![bob_sender];
+
+    let (value_vector, account_vector, sender_count, receiver_count) =
+        crate::Sender::generate_value_and_account_vector(tx_vector).unwrap();
+    println!(
+        "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
+        value_vector, sender_count, receiver_count
+    );
+    // no need for anonymity as it is dark transaction
+    //Create sender updated account vector for the verification of sk and bl-v
+    let bl_first_sender = 1000 - 500; //bl-v
+                                      //let bl_second_sender = 20 - 3; //bl-v
+    let updated_balance_sender: Vec<u64> = vec![bl_first_sender]; //, bl_second_sender];
+                                                                  //Create vector of sender secret keys
+    let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1]; //, bob_sk_account_2];
+
+    // create input from account vector
+    let utxo = Utxo::default();
+    let inputs: Vec<Input> = account_vector
+        .iter()
+        .map(|acc| Input::input_from_quisquis_account(acc, utxo, 0, Network::default()))
+        .collect();
+
+    let reciever_value_balance: Vec<u64> = vec![500];
+    //println!("Data : {:?}", sender_count);
+    //create quisquis transfertransaction
+    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+        &value_vector,
+        &account_vector,
+        &updated_balance_sender,
+        &reciever_value_balance,
+        &inputs,
+        &sk_sender,
+        sender_count,
+        receiver_count,
+    );
+
+    let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
+        dark_transfer.unwrap(),
+    ));
+    println!("Transaction : {:?}", tx);
+
+    // Verify the transaction
+    let verify = tx.verify();
+    println!("Verify : {:?}", verify);
 }

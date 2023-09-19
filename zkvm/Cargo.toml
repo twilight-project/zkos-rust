@@ -53,9 +53,9 @@ branch = "develop"
 features = ["yoloproofs"]
 
 [dependencies.quisquis-rust]
-#path ="../../quisquis-rust"
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "update_dark_tx"
+path ="../../quisquis-rust"
+#git = "ssh://github.com/twilight-project/quisquis-rust.git"
+#branch = "update_dark_tx"
 
 [features]
 default = []

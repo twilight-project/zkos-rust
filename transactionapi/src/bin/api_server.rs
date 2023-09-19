@@ -1,11 +1,11 @@
 use rpcclient::method::Method;
 use rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use rpcserver::*;
+use std::thread;
+use std::time::Duration;
 use transaction::Transaction;
 use transactionapi::TransactionStatusId;
 use transactionapi::{rpcclient, rpcserver};
-use std::thread;
-use std::time::Duration;
 #[macro_use]
 extern crate lazy_static;
 use transaction::reference_tx::{
@@ -17,7 +17,7 @@ fn main() {
         .name(String::from("rpc request"))
         .spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(5000));
-            let tx = create_qq_reference_transaction();
+            let tx = create_dark_reference_transaction();
 
             let tx_send: RpcBody<Transaction> = RpcRequest::new(tx, Method::TxCommit);
             let res = tx_send.send("http://127.0.0.1:3030".to_string());

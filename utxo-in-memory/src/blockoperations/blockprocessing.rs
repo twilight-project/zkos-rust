@@ -15,9 +15,8 @@ use std::fmt;
 use transaction::reference_tx::{
     convert_output_to_input, create_dark_reference_tx_for_utxo_test, RecordUtxo,
 };
-use transaction::script_tx::ScriptTransaction;
-use transaction::transfer_tx::{Transaction, TransactionData};
-use transaction::TransactionType;
+
+use transaction::{ScriptTransaction, Transaction, TransactionData, TransactionType};
 use zkvm::constraints::Commitment;
 use zkvm::tx::TxID;
 use zkvm::zkos_types::{

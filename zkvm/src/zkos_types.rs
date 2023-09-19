@@ -6,7 +6,6 @@ use crate::constraints::Commitment;
 use crate::encoding::*;
 use crate::tx::TxID;
 use crate::types::String as ZkvmString;
-use crate::verifier;
 use bincode;
 use bincode::{deserialize, serialize};
 use bulletproofs::PedersenGens;
@@ -19,7 +18,7 @@ use quisquislib::ristretto::RistrettoPublicKey;
 use quisquislib::ristretto::RistrettoSecretKey;
 use serde::{Deserialize, Serialize};
 use zkschnorr::Signature;
-use zkschnorr::VerificationKey;
+
 /// Identification of transaction in a block.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct TxPointer {
@@ -571,6 +570,26 @@ impl Input {
             )),
         }
     }
+    // Works only for Coin Input Type
+    pub fn to_quisquis_account(&self) -> Result<Account, &'static str> {
+        match self.input {
+            InputData::Coin { ref out_coin, .. } => Ok(out_coin.to_quisquis_account()),
+            _ => Err("Error::InvalidInputType. Only allowed for Coin type"),
+        }
+    }
+    // Works only for Coin Input Type
+    pub fn input_from_quisquis_account(
+        account: &Account,
+        utxo: Utxo,
+        witness_index: u8,
+        net: address::Network,
+    ) -> Self {
+        let (pk, encryption) = account.get_account();
+        // create address from publickey
+        let address = address::Address::standard_address(net, pk);
+        let out_coin = OutputCoin::new(encryption, address.as_hex());
+        Input::coin(InputData::coin(utxo, out_coin, witness_index))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -926,22 +945,37 @@ impl Output {
             _ => None,
         }
     }
-}
-// impl Default for Output {
-//     fn default() -> Self {
-//         let out_type = OutputType::default();
 
-//         Self::Coin {
-//             account: Default::default(),
-//         }
-//     }
-// }
+    pub fn to_quisquis_account(&self) -> Result<Account, &'static str> {
+        match self.output {
+            OutputData::Coin(ref out_coin) => Ok(out_coin.to_quisquis_account()),
+            _ => Err("Error::InvalidOutputType. Only allowed for Coin type"),
+        }
+    }
+}
+impl From<Account> for Output {
+    fn from(account: Account) -> Self {
+        let (pk, comm) = account.get_account();
+        let owner: String =
+            address::Address::standard_address(address::Network::default(), pk).as_hex();
+        let coin: OutputCoin = OutputCoin {
+            encrypt: comm,
+            owner,
+        };
+        Output::coin(OutputData::coin(coin))
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Witness {
+    // Signature in Script Tx
     Signature(Signature),
+    // Signature ands Proof over state inputs ScriptTx
     State(StateWitness),
+    // Signature and proof over Coin/Memo inputs for same value in ScriptTx
     ValueWitness(ValueWitness),
+    // Zero balance proof for TransferTx
+    Proof(SigmaProof),
 }
 use crate::VMError;
 impl Witness {
@@ -969,6 +1003,13 @@ impl Witness {
             _ => Err(VMError::TypeNotValueWitness),
         }
     }
+    // Downcasts Witness to `SigmaProof` type.
+    pub fn to_sigma_proof(self) -> Result<SigmaProof, VMError> {
+        match self {
+            Witness::Proof(x) => Ok(x),
+            _ => Err(VMError::TypeNotSigmaProof),
+        }
+    }
 }
 //Upcast Signature to Witness
 impl From<Signature> for Witness {
@@ -988,6 +1029,13 @@ impl From<StateWitness> for Witness {
 impl From<ValueWitness> for Witness {
     fn from(x: ValueWitness) -> Self {
         Witness::ValueWitness(x)
+    }
+}
+
+// Upcast SigmaProof to Witness
+impl From<SigmaProof> for Witness {
+    fn from(x: SigmaProof) -> Self {
+        Witness::Proof(x)
     }
 }
 
