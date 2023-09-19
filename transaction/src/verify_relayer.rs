@@ -4,23 +4,23 @@
 use ::zkschnorr::Signature;
 use address::{Address, AddressType, Network};
 use curve25519_dalek::{ristretto::CompressedRistretto, scalar::Scalar};
-use merlin::Transcript;
+//use merlin::Transcript;
 use quisquislib::{
-    accounts::prover::{Prover, SigmaProof},
-    accounts::verifier::Verifier,
+    accounts::prover::SigmaProof,
+    // accounts::verifier::Verifier,
     accounts::Account,
     elgamal::ElGamalCommitment,
     keys::PublicKey,
-    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+    ristretto::RistrettoPublicKey,
 };
-use serde::{Deserialize, Serialize};
-use zkvm::merkle::{CallProof, Hasher, MerkleTree, Path};
+//use serde::{Deserialize, Serialize};
+use zkvm::merkle::{CallProof, Hasher, MerkleTree};
 use zkvm::{
-    zkos_types::{Input, InputData, Output, OutputCoin, OutputData, Utxo, ValueWitness, Witness},
+    zkos_types::{Input, InputData, Output, OutputCoin, OutputData, ValueWitness, Witness},
     IOType, Program,
 };
 
-use crate::{ScriptTransaction, Transaction, TransactionData};
+use crate::{ScriptTransaction, Transaction};
 
 ///Verifies the create_trade_order or create_lend_order
 /// Input = Coin Input carrying the ZkosAccount
@@ -151,7 +151,7 @@ pub fn verify_query_order(
 //Output:: OutputMemo to be stored by the relayer for future use. If he loses it. He loses all his money
 ///
 pub fn deploy_relayer_contract(
-    utxo: String,          //get from ZkosOracle
+    _utxo: String,         //get from ZkosOracle
     owner_address: String, //Hex string
     amount: u64,
     scalar_hex: String, //Hex string. Get from chain
@@ -170,7 +170,7 @@ pub fn deploy_relayer_contract(
     //create commitment
     let enc = ElGamalCommitment::generate_commitment(&pk, scalar.clone(), Scalar::from(amount));
     //create coin
-    let out_coin = OutputCoin::new(enc.clone(), owner_address.clone());
+    let _out_coin = OutputCoin::new(enc.clone(), owner_address.clone());
     //create Coin input with witness index = 0
     //let input: Input = Input::coin(InputData::coin(utxo, out_coin, 0));
     //create script address
@@ -261,15 +261,15 @@ pub fn create_trade_order(
 //Output: Output Memo to be sent to the trader. Store in the order_id -> (Output, TxId) DB
 //Scalar: rscalar to be used for creating the proof for the next state update. Most recent Stored by relayer
 pub fn create_lend_order(
-    input_coin: Input,
-    output_memo: Output,
-    signature: Signature,
-    proof: SigmaProof,
-    old_total_locked_value: u64,
-    old_total_pool_share: u64,
-    new_total_locked_value: u64,
-    new_total_pool_share: u64,
-    rscalar: Scalar,
+    _input_coin: Input,
+    _output_memo: Output,
+    _signature: Signature,
+    _proof: SigmaProof,
+    _old_total_locked_value: u64,
+    _old_total_pool_share: u64,
+    _new_total_locked_value: u64,
+    _new_total_pool_share: u64,
+    _rscalar: Scalar,
 ) /*-> Transaction, Output, Scalar */
 {
 }
@@ -292,14 +292,14 @@ pub fn create_lend_order(
 //Scalar: rscalar to be used for creating the proof for the next state update. Most recent Stored by relayer
 pub fn settle_trader_order(
     input_memo: Input,
-    signature: Signature,
-    available_margin: u64,
+    _signature: Signature,
+    _available_margin: u64,
     payment: u64,
     liquidation_price: Option<u64>,
-    old_total_locked_value: u64,
-    new_total_locked_value: u64,
-    total_pool_share: u64,
-    rscalar: Scalar,
+    _old_total_locked_value: u64,
+    _new_total_locked_value: u64,
+    _total_pool_share: u64,
+    _rscalar: Scalar,
 ) /*-> (Transaction, Output, Scalar)*/
 {
     //create coin and same value proof for the output based on the payment amount
@@ -317,7 +317,7 @@ pub fn settle_trader_order(
         .unwrap();
 
     match liquidation_price {
-        Some(liquidation_price) => {
+        Some(_liquidation_price) => {
             //Liquidation
             let out_encryption = ElGamalCommitment::generate_commitment(
                 &out_pk,
@@ -325,7 +325,7 @@ pub fn settle_trader_order(
                 Scalar::from(0u64),
             );
 
-            let out_coin = Output::coin(OutputData::coin(OutputCoin::new(
+            let _out_coin = Output::coin(OutputData::coin(OutputCoin::new(
                 out_encryption,
                 out_address.clone(),
             )));
@@ -339,7 +339,7 @@ pub fn settle_trader_order(
                 Scalar::from(payment),
             );
 
-            let out_coin = Output::coin(OutputData::coin(OutputCoin::new(
+            let _out_coin = Output::coin(OutputData::coin(OutputCoin::new(
                 out_encryption,
                 out_address.clone(),
             )));
@@ -403,10 +403,11 @@ mod test {
     use quisquislib::keys::SecretKey;
     use rand::rngs::OsRng;
     use zkvm::zkos_types::OutputMemo;
+
     #[test]
     fn test_verify_query_order() {
         let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
-        let (pk, enc) = acc.get_account();
+        let (pk, _enc) = acc.get_account();
         let message = ("0a000000000000006163636f756e745f6964040000008c0000000000000022306366363661623465306432373239626538373835333366376663313866336364313862316337383764396230336262343163303263326235316561353239373437326330633433323934646131653035643736353235633234393336383234303636356565353632353363656435333466656362616536313437336130343737663631613866616634224000000000000000180bdfbb82e758e70684c3125b011a10b2205db929867c7507e3b156ff96be2f6a2aaeb522576b54743fdf5f10bc7ecb88328d15d35c98a2b0512b60fc0da405").as_bytes();
         let signature: Signature = pk.sign_msg(&message, &prv, ("PublicKeySign").as_bytes());
         //Verification
@@ -420,7 +421,7 @@ mod test {
     #[test]
     fn TEST_verify_settle_requests() {
         let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
-        let (pk, enc) = acc.get_account();
+        let (pk, _enc) = acc.get_account();
         let message = ("0a000000000000006163636f756e745f6964040000008c0000000000000022306366363661623465306432373239626538373835333366376663313866336364313862316337383764396230336262343163303263326235316561353239373437326330633433323934646131653035643736353235633234393336383234303636356565353632353363656435333466656362616536313437336130343737663631613866616634224000000000000000180bdfbb82e758e70684c3125b011a10b2205db929867c7507e3b156ff96be2f6a2aaeb522576b54743fdf5f10bc7ecb88328d15d35c98a2b0512b60fc0da405").as_bytes();
         let signature: Signature = pk.sign_msg(&message, &prv, ("PublicKeySign").as_bytes());
         //Verification
@@ -430,12 +431,12 @@ mod test {
         println!("verify_query: {:?}", verify_query);
         assert!(verify_query.is_ok());
     }
-    use zkvm::Commitment;
+    use zkvm::{Commitment, Utxo};
     #[test]
     fn test_verify_trade_lend_order() {
         //create the input coin
         let mut rng = rand::thread_rng();
-        let sk: RistrettoSecretKey = SecretKey::random(&mut rng);
+        let sk: quisquislib::ristretto::RistrettoSecretKey = SecretKey::random(&mut rng);
         let pk = RistrettoPublicKey::from_secret_key(&sk, &mut rng);
         let comm_scalar = Scalar::random(&mut OsRng);
         let enc =

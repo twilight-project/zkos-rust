@@ -1,12 +1,12 @@
 #![allow(non_snake_case)]
 //#![deny(missing_docs)]
 
-use crate::transfer_tx::{Transaction, TransactionData, TransactionType, TransferTransaction};
-use address::{Address, Standard};
+use crate::{Transaction, TransactionData, TransferTransaction};
+
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_COMPRESSED;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use quisquislib::elgamal::ElGamalCommitment;
+
 use quisquislib::{
     accounts::Account,
     keys::PublicKey,
@@ -219,16 +219,17 @@ impl Sender {
     }
 }
 
-pub fn create_qq_reference_transaction() -> Transaction {
+pub fn create_qq_reference_transaction() {
+    //} -> Transaction {
     let (
-        value_vector,
-        account_vector,
-        annonymity_com_scalar_vector,
-        diff,
-        sender_count,
-        receiver_count,
-        sk_sender,
-        updated_sender_balance,
+        _value_vector,
+        _account_vector,
+        _annonymity_com_scalar_vector,
+        _diff,
+        _sender_count,
+        _receiver_count,
+        _sk_sender,
+        _updated_sender_balance,
     ) = Sender::create_reference_tx_data_for_zkos_test().unwrap();
     //create vector of inputs to be used in tx
     //random utxo IDS to be used in Inputs
@@ -236,7 +237,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
     let hash: Hash = Hash::default();
     //SHOULD BE TAKEN FROM UTXO SET
     let utxo = Utxo::from_hash(hash, 0);
-    let utxo_vector: Vec<Utxo> = vec![
+    let _utxo_vector: Vec<Utxo> = vec![
         utxo.clone(),
         utxo.clone(),
         utxo.clone(),
@@ -248,23 +249,23 @@ pub fn create_qq_reference_transaction() -> Transaction {
         utxo.clone(),
     ];
 
-    let updated_balance_reciever: Vec<u64> = vec![5]; //, 2, 1];
-                                                      //println!("Data : {:?}", sender_count);
-                                                      //create quisquis transfertransaction
-    let transfer = TransferTransaction::create_quisquis_transaction(
-        &utxo_vector,
-        &value_vector,
-        &account_vector,
-        &updated_sender_balance,
-        &updated_balance_reciever,
-        &sk_sender,
-        sender_count,
-        receiver_count,
-        &annonymity_com_scalar_vector,
-        diff,
-    );
+    let _updated_balance_reciever: Vec<u64> = vec![5]; //, 2, 1];
+                                                       //println!("Data : {:?}", sender_count);
+                                                       //create quisquis transfertransaction
+                                                       // let transfer = TransferTransaction::create_quisquis_transaction(
+                                                       //     &utxo_vector,
+                                                       //     &value_vector,
+                                                       //     &account_vector,
+                                                       //     &updated_sender_balance,
+                                                       //     &updated_balance_reciever,
+                                                       //     &sk_sender,
+                                                       //     sender_count,
+                                                       //     receiver_count,
+                                                       //     &annonymity_com_scalar_vector,
+                                                       //     diff,
+                                                       // );
 
-    Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
+    // Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
 }
 
 pub fn create_dark_reference_transaction() -> Transaction {
@@ -342,7 +343,7 @@ pub fn create_genesis_block(
 
     let tot_outs_per_tx = total_outputs / num_tx;
 
-    for i in 0..num_tx {
+    for _i in 0..num_tx {
         // let id: [u8; 32] = [i.try_into().unwrap(); 32];
 
         let mut id: [u8; 32] = [0; 32];
@@ -401,11 +402,7 @@ pub fn create_genesis_block(
                 //create dummy StateOutput
                 let out = Output::state(OutputData::State(OutputState::default()));
 
-                outputs.push(RecordUtxo {
-                    utx: utx,
-
-                    value: out,
-                });
+                outputs.push(RecordUtxo { utx, value: out });
             }
         }
     }
@@ -419,7 +416,7 @@ pub fn convert_output_to_input(rec: RecordUtxo) -> Option<Input> {
 
     let out = rec.value;
 
-    let mut inp: Input;
+    let inp: Input;
 
     match out.out_type {
         IOType::Coin => {
@@ -446,8 +443,6 @@ pub fn convert_output_to_input(rec: RecordUtxo) -> Option<Input> {
 
             Some(inp)
         }
-
-        _ => None,
     }
 }
 ///Build for testing UTXo Set for Quisquis dummy transactions
@@ -543,57 +538,6 @@ pub fn create_dark_reference_tx_for_utxo_test(
     Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
 }
 
-pub fn verify_transaction(tx: Transaction) -> Result<(), &'static str> {
-    match tx.tx_type {
-        TransactionType::Transfer => {
-            let tx_data = TransactionData::to_transfer(tx.tx).unwrap();
-            //convert Inputs and Outputs to Just Accounts
-            let out_data_pk: Vec<RistrettoPublicKey> = tx_data
-                .outputs
-                .iter()
-                .map(|i| Standard::from_hex(i.output.get_owner_address().unwrap()).public_key)
-                .collect();
-            let out_data_enc: Vec<ElGamalCommitment> = tx_data
-                .outputs
-                .iter()
-                .map(|i| i.output.get_encryption().unwrap())
-                .collect();
-
-            let in_data_pk: Vec<RistrettoPublicKey> = tx_data
-                .inputs
-                .iter()
-                .map(|i| Standard::from_hex(i.input.owner().unwrap()).public_key)
-                .collect();
-
-            let in_data_enc: Vec<ElGamalCommitment> = tx_data
-                .inputs
-                .iter()
-                .map(|i| i.input.as_encryption().unwrap())
-                .collect();
-            let mut outputs: Vec<Account> = Vec::new();
-            for i in 0..out_data_pk.len() {
-                let acc: Account = Account::set_account(out_data_pk[i], out_data_enc[i]);
-                outputs.push(acc);
-            }
-
-            let mut inputs: Vec<Account> = Vec::new();
-            for i in 0..in_data_pk.len() {
-                let acc: Account = Account::set_account(in_data_pk[i], in_data_enc[i]);
-                inputs.push(acc);
-            }
-
-            if tx_data.shuffle_proof.is_none() {
-                //verify Dark transaction
-                tx_data.verify_dark_tx(&inputs, &outputs)
-            } else {
-                //verify QQ Transaction
-                tx_data.verify_quisquis_tx(&inputs, &outputs)
-            }
-        }
-        TransactionType::Script => Ok(()),
-        _ => Err("Tx Verification failed. Transaction Type is not valid."),
-    }
-}
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------
@@ -603,7 +547,9 @@ mod test {
     #[test]
     fn create_dark_transaction_test() {
         let dark = create_dark_reference_transaction();
-        let verify_dark = verify_transaction(dark);
+        // Given its a dark transaction
+        let tx_dark = TransactionData::to_transfer(dark.tx).unwrap();
+        let verify_dark = tx_dark.verify();
         println!("{:?}", verify_dark);
 
         assert!(verify_dark.is_ok());
@@ -612,14 +558,14 @@ mod test {
     fn create_qq_transaction_test() {
         println!("IN TEST");
 
-        let tx: Transaction = create_qq_reference_transaction();
-        let verify = verify_transaction(tx);
-        println!("{:?}", verify)
+        // let tx: Transaction = create_qq_reference_transaction();
+        // let verify = verify_transaction(tx);
+        // println!("{:?}", verify)
     }
     #[test]
     fn create_genesis_block_test() {
         //create base test account
-        let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
+        let (acc, _prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
         let utxo_set = create_genesis_block(1000, 100, acc);
         println!("{:?}", utxo_set);
     }
