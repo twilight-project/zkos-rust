@@ -2,7 +2,6 @@
 //#![deny(missing_docs)]
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
-use crate::script_tx::ScriptTransaction;
 use merlin::Transcript;
 use zkvm::zkos_types::{Input, Output, Witness};
 
@@ -12,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::{
     accounts::prover::Prover,
-    accounts::verifier::Verifier,
     accounts::Account,
+    accounts::{verifier::Verifier, SigmaProof},
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
     // shuffle::Shuffle,
@@ -87,6 +86,9 @@ impl TransferTransaction {
         sender_sk: &[RistrettoSecretKey],
         senders_count: usize,
         receivers_count: usize,
+        // carries the witness for zero balance reciever accounts if they exist. otherwise none
+        // setting the witness index properly in the input is the resposibility of the client
+        witness_comm_scalar: Option<&[Scalar]>,
     ) -> Result<TransferTransaction, &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
@@ -154,10 +156,6 @@ impl TransferTransaction {
             Some((&output_accounts, pk_update_scalar, comm_update_scalar)),
         );
 
-        // Create ZERO account proof as witness in Tx
-        // create proof for recievers.
-        //CONFIRM FROM GAURAV
-
         //create vec of Outputs -- Senders + Recievers in this case
         let mut outputs: Vec<Output> = Vec::new();
         for out in output_accounts.iter() {
@@ -169,26 +167,79 @@ impl TransferTransaction {
         let input_count = input_vector.len();
         let output_count = outputs.len();
 
-        Ok(TransferTransaction::set_tranfer_transaction(
-            version,
-            maturity,
-            input_count as u8,
-            output_count as u8,
-            0u8,
-            input_vector.to_vec(),
-            outputs,
-            dark_tx_proof,
-            None,
-            None,
-        ))
+        // Create Zero account proof for Reciever accounts as witness in Tx
+        // required if new account has been created for the reciever.
+        // Not required if the account used for reciever is already present in the UTXO Set
+        // get the reciever inputs
+        match witness_comm_scalar {
+            Some(scalar_vector) => {
+                let mut witnesses = Vec::<Witness>::new();
+                let mut scalar_index = 0;
+                let reciever_inputs =
+                    input_vector[senders_count..senders_count + receivers_count].to_vec();
+                for inp in reciever_inputs.iter() {
+                    // check if utxo exists
+                    if inp.get_utxo() == zkvm::Utxo::default() {
+                        // UTXO does not exist. So create a witness proof for the reciever account
+                        // get the account
+                        let rec = inp.to_quisquis_account()?;
+                        //create proof
+                        let witness_proof = Prover::zero_balance_account_prover(
+                            rec,
+                            scalar_vector[scalar_index],
+                            &mut prover,
+                        );
+                        scalar_index += 1;
+                        witnesses.push(Witness::Proof(witness_proof));
+                    }
+                }
+                Ok(TransferTransaction::set_tranfer_transaction(
+                    version,
+                    maturity,
+                    input_count as u8,
+                    output_count as u8,
+                    0u8,
+                    input_vector.to_vec(),
+                    outputs,
+                    dark_tx_proof,
+                    None,
+                    Some(witnesses.to_vec()),
+                ))
+            }
+            None => Ok(TransferTransaction::set_tranfer_transaction(
+                version,
+                maturity,
+                input_count as u8,
+                output_count as u8,
+                0u8,
+                input_vector.to_vec(),
+                outputs,
+                dark_tx_proof,
+                None,
+                None,
+            )),
+        }
+
+        // Ok(TransferTransaction::set_tranfer_transaction(
+        //     version,
+        //     maturity,
+        //     input_count as u8,
+        //     output_count as u8,
+        //     0u8,
+        //     input_vector.to_vec(),
+        //     outputs,
+        //     dark_tx_proof,
+        //     None,
+        //     witnesses,
+        // ))
     }
 
     pub fn verify_dark_tx(
         &self,
-        inputs: &[Account],
+        input_accounts: &[Account],
         // Outpus is updated in case of Dark Tx. So we need to pass the updated output accounts
         // None in case of Quisquis Tx
-        outputs: Option<&[Account]>,
+        output_accounts: Option<&[Account]>,
     ) -> Result<(), &'static str> {
         //create DarkTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
@@ -198,10 +249,45 @@ impl TransferTransaction {
         // let senders_count = self.proof.updated_sender_epsilon_accounts.len();
         //create updated senders delta account slice
         // let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
-        //TODO::CONVERT INPUS AND OUTPUTS TO ACCOUNTS
-        //verify the proof
+
+        //verify the dark tx proof
         self.proof
-            .verify(&mut verifier, &inputs.to_vec(), outputs)?;
+            .verify(&mut verifier, &input_accounts, output_accounts)?;
+
+        //verify the witnesses if they exist
+        // check for inputs with utxo::default()
+        // get inputs first
+        let inputs = self.inputs.clone();
+        for inp in inputs.iter() {
+            if inp.get_utxo() == zkvm::Utxo::default() {
+                // UTXO does not exist. Check the witness proof
+                // get the account
+                let rec = inp.to_quisquis_account()?;
+
+                // witness is present
+                match &self.witness {
+                    Some(witnesses) => {
+                        let index = inp.get_witness_index();
+                        if index as usize >= witnesses.len() {
+                            return Err("Tx Verification failed. Witness index is not valid.");
+                        }
+                        let witness_proof: SigmaProof = match witnesses[index as usize].clone() {
+                            Witness::Proof(proof) => proof,
+                            _ => return Err("Tx Verification failed. Witness is not valid."),
+                        };
+                        let (z_vector, x) = witness_proof.get_dlog();
+                        Verifier::zero_balance_account_verifier(
+                            rec,
+                            z_vector[0],
+                            x,
+                            &mut verifier,
+                        )?;
+                    }
+                    None => return Err("Tx Verification failed. Witness is not valid."),
+                }
+            }
+        }
+
         Ok(())
     }
 
