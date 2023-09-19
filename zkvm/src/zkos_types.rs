@@ -80,6 +80,16 @@ impl Utxo {
     pub fn tx_id_to_vec(&self) -> Vec<u8> {
         self.txid.0 .0.to_vec()
     }
+
+    pub fn random() -> Self {
+        let mut rng = rand::thread_rng();
+        let txid: [u8; 32] = rand::Rng::gen(&mut rng);
+        let hash: Hash = merkle::Hash(txid);
+        Utxo {
+            txid: TxID(hash),
+            output_index: 0,
+        }
+    }
 }
 ///Default returns a Utxo with id = 0 and witness index = 0
 ///
@@ -309,6 +319,14 @@ impl InputData {
             Self::State { utxo, .. } => Some(utxo),
         }
     }
+
+    pub fn get_utxo(&self) -> Utxo {
+        match self {
+            Self::Coin { utxo, .. } => utxo.clone(),
+            Self::Memo { utxo, .. } => utxo.clone(),
+            Self::State { utxo, .. } => utxo.clone(),
+        }
+    }
     pub const fn as_utxo_id(&self) -> Option<&TxID> {
         match self {
             Self::Coin { utxo, .. } => Some(&utxo.txid),
@@ -351,11 +369,12 @@ impl InputData {
             _ => None,
         }
     }
-    pub const fn as_witness_index(&self) -> Option<&u8> {
+
+    pub fn get_witness_index(&self) -> u8 {
         match self {
-            InputData::Coin { witness, .. } => Some(witness),
-            InputData::Memo { witness, .. } => Some(witness),
-            InputData::State { witness, .. } => Some(witness),
+            InputData::Coin { witness, .. } => *witness,
+            InputData::Memo { witness, .. } => *witness,
+            InputData::State { witness, .. } => *witness,
         }
     }
 
@@ -473,6 +492,10 @@ impl Input {
     pub fn as_utxo(&self) -> Option<&Utxo> {
         self.input.as_utxo()
     }
+
+    pub fn get_utxo(&self) -> Utxo {
+        self.input.get_utxo()
+    }
     pub fn as_utxo_id(&self) -> Option<&TxID> {
         self.input.as_utxo_id()
     }
@@ -493,8 +516,8 @@ impl Input {
         self.input.as_nonce()
     }
 
-    pub fn as_witness_index(&self) -> Option<&u8> {
-        self.input.as_witness_index()
+    pub fn get_witness_index(&self) -> u8 {
+        self.input.get_witness_index()
     }
 
     pub fn as_timebounds(&self) -> Option<&u32> {

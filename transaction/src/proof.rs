@@ -175,7 +175,7 @@ impl DarkTxProof {
             .collect();
         //Generate range proof over sender/reciever account values. i.,e balance >=0 for all
         let range_proof =
-            prover.verify_non_negative_sender_reciver_prover(&bl_rp_vector, &scalars_bp_vector);
+            prover.verify_non_negative_sender_receiver_prover(&bl_rp_vector, &scalars_bp_vector);
 
         // check if is is dark or quisquis tx
         match update_outputs_statement {
@@ -254,7 +254,7 @@ impl DarkTxProof {
     pub fn verify(
         &self,
         verifier: &mut Verifier,
-        updated_input: &Vec<Account>, //Updated_input = input in case of Dark Tx. In case of quisquis tx, it is input' from shuffle
+        updated_input: &[Account], //Updated_input = input in case of Dark Tx. In case of quisquis tx, it is input' from shuffle
         // Used in case of Dark tx. In case of quisquis tx, it is None. Shuffle takes care of the update
         update_output_accounts: Option<&[Account]>,
     ) -> Result<(), &'static str> {
@@ -324,10 +324,10 @@ impl DarkTxProof {
 
         let reciever_epsilon_accounts_slice =
             &self.epsilon_accounts[senders_count..senders_count + self.receivers_count].to_vec();
-        println!(
-            "Reciever epsilon accounts {:?}",
-            reciever_epsilon_accounts_slice
-        );
+        //println!(
+        //  "Reciever epsilon accounts {:?}",
+        //  reciever_epsilon_accounts_slice
+        //);
         //prepare epsilon account vector for sender + reciver
         let bp_epsilon_vec: Vec<Account> = self
             .updated_sender_epsilon_accounts
@@ -335,7 +335,7 @@ impl DarkTxProof {
             .cloned()
             .chain(reciever_epsilon_accounts_slice.iter().cloned())
             .collect();
-        println!("BP Epsilon Vector {:?}", bp_epsilon_vec);
+        //println!("BP Epsilon Vector {:?}", bp_epsilon_vec);
 
         //check if batched bulletproof or vector proof
         println!("Range Proof Length {:?}", self.range_proof.len());
