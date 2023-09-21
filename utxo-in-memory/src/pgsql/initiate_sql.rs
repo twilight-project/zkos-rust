@@ -1,6 +1,4 @@
-#![feature(array_methods)]
 use crate::ThreadPool;
-use core::slice::SlicePattern;
 use r2d2_postgres::postgres::NoTls;
 use r2d2_postgres::PostgresConnectionManager;
 use std::sync::{Arc, Mutex};
@@ -104,32 +102,20 @@ mod test {
     }
 }
 
-pub fn psql_utxo_logs(data: String, a: Vec<u8>, b: Vec<u8>, c: Vec<u8>) {
+pub fn psql_utxo_logs_remove(data: String, a: Vec<Vec<u8>>) {
     //creating static connection
     let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
 
-    // let query = format!(
-    //     "INSERT INTO public.utxo_logs(utxo,output key, payload) VALUES ({},'{}',$1);",
-    //     data.offset, data.key
-    // );
-
-    client.execute(&data, &[&a, &b, &c]).unwrap();
+    client.execute(&data, &[&a]).unwrap();
 }
 
-pub fn psql_utxo_logs1(data: String, params: Vec<Vec<u8>>) {
+pub fn psql_utxo_logs_insert(data: String, mut vec_params: Vec<Vec<u8>>) {
     //creating static connection
+    let mut params: Vec<&(dyn ToSql + Sync)> = Vec::new();
+    for mut value in vec_params.iter_mut() {
+        params.push(value);
+    }
     let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
-
-    // let query = format!(
-    //     "INSERT INTO public.utxo_logs(utxo,output key, payload) VALUES ({},'{}',$1);",
-    //     data.offset, data.key
-    // );
-    // let v = vec![1, 2, 3, 4, 5];
-    // let boxed_slice: Box<[u8]> = params.into_boxed_slice();
-    let arr: [Vec<u8>; 4] = params.try_into().unwrap();
-    client
-        .execute(&data, &arr.each_ref().map(|p| p as &(dyn ToSql + Sync)))
-        .unwrap();
+    client.execute(&data, &params).unwrap();
 }
-// use postgres_types::ToSql;
 use r2d2_postgres::postgres::types::ToSql;
