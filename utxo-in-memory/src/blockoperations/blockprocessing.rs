@@ -3,7 +3,10 @@
 //! Block processing to update Utxo set.
 
 use crate::db::*;
-use crate::pgsql::{PGSQLDataInsert, PGSQLTransaction};
+/***************** POstgreSQL Insert Code *********/
+use crate::pgsql::{PGSQLDataInsert, PGSQLTransaction, THREADPOOL_SQL_QUEUE};
+/**************** POstgreSQL Insert Code End **********/
+
 use crate::UTXO_STORAGE;
 use hex;
 
@@ -184,11 +187,14 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 
     if utxo_verified {
+        /***************** POstgreSQL Insert Code *********/
+        /************************************************ */
         let mut pg_insert_data = PGSQLTransaction::default();
         pg_insert_data.txid = transaction.tx_id.clone();
         pg_insert_data.block_height = height;
-        // pg_insert_data.io_type
-        //remove all input
+        pg_insert_data.io_type = tx_input[0].clone().in_type as usize;
+        /**************** POstgreSQL Insert Code End **********/
+        /**************************************************** */
         for input in tx_input {
             let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
             let utxo_input_type = input.in_type as usize;
@@ -198,7 +204,11 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                 let _result = utxo_storage.remove(utxo_key.clone(), utxo_input_type);
                 match _result {
                     Ok(_) => {
+                        /***************** POstgreSQL Insert Code *********/
+                        /************************************************ */
                         pg_insert_data.remove_utxo.push(utxo_key.clone());
+                        /**************** POstgreSQL Insert Code End **********/
+                        /**************************************************** */
                         println!("UTXO REMOVED TRANSFER")
                     }
                     Err(err) => {
@@ -215,6 +225,8 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             let _result = utxo_storage.add(utxo_key.clone(), output_set.clone(), utxo_output_type);
             match _result {
                 Ok(_) => {
+                    /***************** POstgreSQL Insert Code *********/
+                    /************************************************ */
                     match utxo_output_type {
                         0 => {
                             pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
@@ -248,7 +260,8 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                         }
                         _ => {}
                     }
-
+                    /**************** POstgreSQL Insert Code End **********/
+                    /**************************************************** */
                     println!("UTXO ADDED TRANSFER")
                     //add vout here
                 }
@@ -259,7 +272,16 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         }
 
         // let _ = utxo_storage.data_meta_update(height as usize);
-        let _ = pg_insert_data.update_utxo_log();
+
+        /***************** POstgreSQL Insert Code *********/
+        /************************************************ */
+        let treadpool_sql_queue = THREADPOOL_SQL_QUEUE.lock().unwrap();
+        treadpool_sql_queue.execute(move || {
+            let _ = pg_insert_data.update_utxo_log();
+        });
+        drop(treadpool_sql_queue);
+        /**************** POstgreSQL Insert Code End **********/
+        /**************************************************** */
         tx_result.suceess_tx.push(TxID(Hash(tx_id)));
     } else {
         tx_result.failed_tx.push(TxID(Hash(tx_id)));
@@ -272,8 +294,9 @@ pub fn process_trade_mint(
     tx_result: &mut BlockResult,
 ) {
     println!("{:?}", transaction);
+
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    let tx_id = hex::decode(transaction.tx_id).expect("error decoding tx id");
+    let tx_id = hex::decode(transaction.tx_id.clone()).expect("error decoding tx id");
     let tx_id = TxID(Hash(tx_id.try_into().unwrap()));
     let utxo_key = bincode::serialize(&Utxo::new(tx_id, 0 as u8)).unwrap();
     let mut qq_account_bytes =
@@ -288,11 +311,31 @@ pub fn process_trade_mint(
             encrypt: elgamal,
             owner: address.as_hex(),
         }));
-        utxo_storage.add(utxo_key, output.clone(), output.out_type as usize);
+        utxo_storage.add(utxo_key.clone(), output.clone(), output.out_type as usize);
 
         let pk = address.as_hex();
         tx_result.suceess_tx.push(tx_id);
 
+        /***************** POstgreSQL Insert Code *********/
+        //*********************************************** */
+        let mut pg_insert_data = PGSQLTransaction::default();
+        pg_insert_data.txid = transaction.tx_id.clone();
+        pg_insert_data.block_height = height;
+        pg_insert_data.io_type = output.out_type as usize;
+        pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+            utxo_key,
+            bincode::serialize(&output.clone()).unwrap(),
+            bincode::serialize(output.output.get_owner_address().unwrap()).unwrap(),
+            &"".to_string(),
+            0,
+        ));
+        let treadpool_sql_queue = THREADPOOL_SQL_QUEUE.lock().unwrap();
+        treadpool_sql_queue.execute(move || {
+            let _ = pg_insert_data.update_utxo_log();
+        });
+        drop(treadpool_sql_queue);
+        /**************** POstgreSQL Insert Code End **********/
+        /**************************************************** */
         println!("UTXO ADDED TRADE")
     } else {
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
@@ -301,9 +344,24 @@ pub fn process_trade_mint(
 
         //TODO need to fix this and ask a utxo in mint burn message
 
-        let result = utxo_storage.remove(utxo_key, IOType::Coin as usize);
+        let result = utxo_storage.remove(utxo_key.clone(), IOType::Coin as usize);
         if result.is_ok() {
             tx_result.suceess_tx.push(tx_id);
+
+            /***************** POstgreSQL Insert Code *********/
+            /************************************************ */
+            let mut pg_insert_data = PGSQLTransaction::default();
+            pg_insert_data.txid = transaction.tx_id.clone();
+            pg_insert_data.block_height = height;
+            pg_insert_data.io_type = IOType::Coin as usize;
+            pg_insert_data.remove_utxo.push(utxo_key.clone());
+            let treadpool_sql_queue = THREADPOOL_SQL_QUEUE.lock().unwrap();
+            treadpool_sql_queue.execute(move || {
+                let _ = pg_insert_data.update_utxo_log();
+            });
+            drop(treadpool_sql_queue);
+            /**************** POstgreSQL Insert Code End **********/
+            /**************************************************** */
             println!("UTXO REMOVED TRADE")
         }
     }
