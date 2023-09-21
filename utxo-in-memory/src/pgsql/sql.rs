@@ -54,7 +54,7 @@ pub struct PGSQLTransaction {
     pub insert_utxo: Vec<PGSQLDataInsert>,
     pub txid: String,
     pub block_height: u64,
-    pub io_type: i64,
+    pub io_type: usize,
 }
 
 impl PGSQLTransaction {
@@ -63,7 +63,7 @@ impl PGSQLTransaction {
         insert_utxo: Vec<PGSQLDataInsert>,
         txid: String,
         block_height: u64,
-        io_type: i64,
+        io_type: usize,
     ) -> Self {
         PGSQLTransaction {
             remove_utxo,
@@ -90,33 +90,45 @@ impl PGSQLTransaction {
         match self.io_type {
             0 => {
                 let table_name = "public.utxo_coin_logs";
-                remove_bulk_utxo_in_psql(remove_utxo, table_name);
-                insert_bulk_utxo_in_psql(
-                    insert_utxo,
-                    self.txid.clone(),
-                    self.block_height,
-                    table_name,
-                );
+                if remove_utxo.len() > 0 {
+                    remove_bulk_utxo_in_psql(remove_utxo, table_name);
+                }
+                if insert_utxo.len() > 0 {
+                    insert_bulk_utxo_in_psql_coin(
+                        insert_utxo,
+                        self.txid.clone(),
+                        self.block_height,
+                        table_name,
+                    );
+                }
             }
             1 => {
                 let table_name = "public.utxo_memo_logs";
-                remove_bulk_utxo_in_psql(remove_utxo, table_name);
-                insert_bulk_utxo_in_psql(
-                    insert_utxo,
-                    self.txid.clone(),
-                    self.block_height,
-                    table_name,
-                );
+                if remove_utxo.len() > 0 {
+                    remove_bulk_utxo_in_psql(remove_utxo, table_name);
+                }
+                if insert_utxo.len() > 0 {
+                    insert_bulk_utxo_in_psql_memo_or_state(
+                        insert_utxo,
+                        self.txid.clone(),
+                        self.block_height,
+                        table_name,
+                    );
+                }
             }
             2 => {
                 let table_name = "public.utxo_state_logs";
-                remove_bulk_utxo_in_psql(remove_utxo, table_name);
-                insert_bulk_utxo_in_psql(
-                    insert_utxo,
-                    self.txid.clone(),
-                    self.block_height,
-                    table_name,
-                );
+                if remove_utxo.len() > 0 {
+                    remove_bulk_utxo_in_psql(remove_utxo, table_name);
+                }
+                if insert_utxo.len() > 0 {
+                    insert_bulk_utxo_in_psql_memo_or_state(
+                        insert_utxo,
+                        self.txid.clone(),
+                        self.block_height,
+                        table_name,
+                    );
+                }
             }
             _ => {}
         }
@@ -125,7 +137,7 @@ impl PGSQLTransaction {
     }
 }
 
-pub fn insert_bulk_utxo_in_psql(
+pub fn insert_bulk_utxo_in_psql_coin(
     mut insert_utxo: Vec<PGSQLDataInsert>,
     tx_id: String,
     block_height: u64,
@@ -148,6 +160,44 @@ pub fn insert_bulk_utxo_in_psql(
             index_count + 1,
             index_count + 2,
             index_count + 3,
+            tx_id.clone(),
+            raw_utxo.vout,
+            block_height
+        );
+
+        index_count += 3;
+        params_vec.push(&raw_utxo.key);
+        params_vec.push(&raw_utxo.data);
+        params_vec.push(&raw_utxo.owner_address);
+    }
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
+    client.execute(&bulk_query_insert, &params_vec).unwrap();
+}
+
+pub fn insert_bulk_utxo_in_psql_memo_or_state(
+    mut insert_utxo: Vec<PGSQLDataInsert>,
+    tx_id: String,
+    block_height: u64,
+    table_name: &str,
+) {
+    let mut bulk_query_insert: String = format!(
+        "INSERT INTO {}(utxo, output, owner_address, script_address, txid, vout, block_height) VALUES",
+        table_name
+    );
+    let mut index_count = 0;
+    let mut params_vec: Vec<&(dyn ToSql + Sync)> = Vec::new();
+
+    for raw_utxo in insert_utxo.iter_mut() {
+        if index_count != 0 {
+            bulk_query_insert = format!("{},", bulk_query_insert);
+        }
+        bulk_query_insert = format!(
+            "{} (${}, ${}, ${},'{}', '{}', {}, {})",
+            bulk_query_insert,
+            index_count + 1,
+            index_count + 2,
+            index_count + 3,
+            raw_utxo.script_address,
             tx_id.clone(),
             raw_utxo.vout,
             block_height
@@ -205,7 +255,7 @@ mod test {
         let test_transaction = deserialize_tx_string();
         let tx_input = test_transaction.get_tx_inputs();
         let tx_output = test_transaction.get_tx_outputs();
-
+        pg_insert_data.io_type = 0;
         for input in tx_input {
             let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
             let utxo_input_type = input.in_type as usize;
