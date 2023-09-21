@@ -1,8 +1,8 @@
 use crate::db::KeyId;
-use crate::pgsql::{psql_utxo_logs_insert, psql_utxo_logs_remove, THREADPOOL_SQL_QUEUE};
+use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUEUE};
 use crate::ThreadPool;
+use r2d2_postgres::postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PGSQLDataInsert {
     pub key: KeyId,
@@ -86,6 +86,7 @@ impl PGSQLTransaction {
     pub fn update_utxo_log(&mut self) -> bool {
         let remove_utxo = self.remove_utxo.clone();
         let insert_utxo = self.insert_utxo.clone();
+
         match self.io_type {
             0 => {
                 let table_name = "public.utxo_coin_logs";
@@ -125,20 +126,19 @@ impl PGSQLTransaction {
 }
 
 pub fn insert_bulk_utxo_in_psql(
-    insert_utxo: Vec<PGSQLDataInsert>,
+    mut insert_utxo: Vec<PGSQLDataInsert>,
     tx_id: String,
     block_height: u64,
     table_name: &str,
 ) {
-    // public.utxo_coin_logs
     let mut bulk_query_insert: String = format!(
         "INSERT INTO {}(utxo, output, owner_address, txid, vout, block_height) VALUES",
         table_name
     );
     let mut index_count = 0;
-    let mut params_vec: Vec<Vec<u8>> = Vec::new();
+    let mut params_vec: Vec<&(dyn ToSql + Sync)> = Vec::new();
 
-    for raw_utxo in insert_utxo {
+    for raw_utxo in insert_utxo.iter_mut() {
         if index_count != 0 {
             bulk_query_insert = format!("{},", bulk_query_insert);
         }
@@ -154,17 +154,20 @@ pub fn insert_bulk_utxo_in_psql(
         );
 
         index_count += 3;
-        params_vec.push(raw_utxo.key);
-        params_vec.push(raw_utxo.data);
-        params_vec.push(raw_utxo.owner_address);
+        params_vec.push(&raw_utxo.key);
+        params_vec.push(&raw_utxo.data);
+        params_vec.push(&raw_utxo.owner_address);
     }
-    crate::pgsql::psql_utxo_logs_insert(bulk_query_insert.clone(), params_vec);
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
+    client.execute(&bulk_query_insert, &params_vec).unwrap();
 }
 
 pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str) {
     let mut bulk_query_remove: String = format!("DELETE FROM {} WHERE utxo = any($1);", table_name);
-    crate::pgsql::psql_utxo_logs_remove(bulk_query_remove.clone(), remove_utxo);
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
+    client.execute(&bulk_query_remove, &[&remove_utxo]).unwrap();
 }
+
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------

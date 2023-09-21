@@ -101,21 +101,3 @@ mod test {
         init_psql();
     }
 }
-
-pub fn psql_utxo_logs_remove(data: String, a: Vec<Vec<u8>>) {
-    //creating static connection
-    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
-
-    client.execute(&data, &[&a]).unwrap();
-}
-
-pub fn psql_utxo_logs_insert(data: String, mut vec_params: Vec<Vec<u8>>) {
-    //creating static connection
-    let mut params: Vec<&(dyn ToSql + Sync)> = Vec::new();
-    for mut value in vec_params.iter_mut() {
-        params.push(value);
-    }
-    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
-    client.execute(&data, &params).unwrap();
-}
-use r2d2_postgres::postgres::types::ToSql;
