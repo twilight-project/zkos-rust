@@ -16,13 +16,17 @@ pub struct UtxoHexDecodeResult {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoHexEncodedResult {
-    pub result: String,
+    pub result: Option<String>,
 }
 
 impl UtxoHexEncodedResult {
     pub fn encode_to_hex(decoded_data: Vec<UtxoOutputRaw>) -> Self {
-        UtxoHexEncodedResult {
-            result: hex::encode(&bincode::serialize(&decoded_data).unwrap()),
+        if decoded_data.len() > 0 {
+            UtxoHexEncodedResult {
+                result: Some(hex::encode(&bincode::serialize(&decoded_data).unwrap())),
+            }
+        } else {
+            UtxoHexEncodedResult { result: None }
         }
     }
 }
