@@ -12,7 +12,9 @@ lazy_static! {
         r2d2::Pool::new(manager).unwrap()
     };
     pub static ref THREADPOOL_SQL_QUEUE: Mutex<ThreadPool> =
-        Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_SQL_QUEUE")));
+        Mutex::new(ThreadPool::new(1, String::from("THREADPOOL_SQL_QUEUE")));
+    pub static ref THREADPOOL_SQL_QUERY: Mutex<ThreadPool> =
+        Mutex::new(ThreadPool::new(4, String::from("THREADPOOL_SQL_QUEUE")));
 }
 pub fn init_psql() {
     match create_utxo_coin_table() {
