@@ -1,21 +1,28 @@
 use super::service;
 // use crate::rpcserver::types::*;
 use crate::{TransactionStatusId, TxResponse};
+use bincode::deserialize;
 use jsonrpc_core::futures_util::future::ok;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
 use jsonrpc_http_server::{hyper, ServerBuilder};
+use quisquislib::ristretto::RistrettoPublicKey;
 use std::collections::HashMap;
 use transaction::{Transaction, TransactionData};
 use utxo_in_memory::blockoperations::blockprocessing::{
     all_coin_type_output, all_coin_type_utxo, search_coin_type_utxo_by_address,
     search_coin_type_utxo_by_utxo_key, verify_utxo,
 };
-use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 
-use bincode::deserialize;
-use quisquislib::ristretto::RistrettoPublicKey;
+/***************** POstgreSQL Insert Code *********/
+use utxo_in_memory::pgsql::{
+    get_utxo_from_db_by_block_height_range, QueryUtxoFromDB, UtxoHexDecodeResult,
+    UtxoHexEncodedResult, UtxoOutputRaw,
+};
+/**************** POstgreSQL Insert Code End **********/
+
+use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 use zkvm::zkos_types::Utxo;
 #[derive(Default, Clone, Debug)]
 struct Meta {
@@ -201,6 +208,44 @@ pub fn rpcserver() {
 
         Ok(response_body)
     });
+
+    io.add_method_with_meta(
+        "getUtxosFromDB",
+        move |params: Params, _meta: Meta| async move {
+            match params.parse::<QueryUtxoFromDB>() {
+                Ok(queryparams) => {
+                    if queryparams.limit < 10001 {
+                        match get_utxo_from_db_by_block_height_range(
+                            queryparams.start_block,
+                            queryparams.end_block,
+                            queryparams.limit,
+                            queryparams.pagination,
+                        ) {
+                            Ok(value) => Ok(serde_json::to_value(
+                                &UtxoHexEncodedResult::encode_to_hex(value.result),
+                            )
+                            .unwrap()),
+                            Err(args) => {
+                                let err =
+                                    JsonRpcError::invalid_params(format!("Error: , {:?}", args));
+                                Err(err)
+                            }
+                        }
+                    } else {
+                        let err = JsonRpcError::invalid_params(format!(
+                            "Invalid parameters, max limit : 10000"
+                        ));
+                        Err(err)
+                    }
+                }
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                    Err(err)
+                }
+            }
+        },
+    );
 
     eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
     let server = ServerBuilder::new(io)
