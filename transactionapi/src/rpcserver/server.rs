@@ -220,6 +220,7 @@ pub fn rpcserver() {
                             queryparams.end_block,
                             queryparams.limit,
                             queryparams.pagination,
+                            queryparams.io_type,
                         ) {
                             Ok(value) => Ok(serde_json::to_value(
                                 &UtxoHexEncodedResult::encode_to_hex(value.result),
