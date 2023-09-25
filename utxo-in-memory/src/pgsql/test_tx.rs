@@ -1,4 +1,4 @@
-pub fn deserialize_tx_string() -> transaction::transfer_tx::Transaction {
+pub fn deserialize_tx_string() -> transaction::Transaction {
     bincode::deserialize(&hex::decode(return_transaction()).unwrap()).unwrap()
 }
 pub fn deserialize_tx_id() -> [u8; 32] {
