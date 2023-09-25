@@ -479,6 +479,9 @@ fn test_dark_transaction_odd() {
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
         dark_transfer.unwrap(),
     ));
+    // hex encode the tx
+    let tx_hex = hex::encode(bincode::serialize(&tx).unwrap());
+    println!("Transaction : {:?}", tx_hex);
 
     // Verify the transaction
     let verify = tx.verify();
