@@ -4,6 +4,7 @@ use crate::ThreadPool;
 use r2d2_postgres::postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc;
+use zkvm::zkos_types::IOType;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoOutputRaw {
     pub output: Vec<u8>,
@@ -40,24 +41,61 @@ impl UtxoHexDecodeResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryUtxoFromDB {
-    pub start_block: usize,
-    pub end_block: usize,
-    pub limit: usize,
-    pub pagination: usize,
+    pub start_block: i128,
+    pub end_block: i128,
+    pub limit: i64,
+    pub pagination: i64,
+    pub io_type: IOType,
 }
 
 pub fn get_utxo_from_db_by_block_height_range(
-    start_block: usize,
-    end_block: usize,
-    limit: usize,
-    pagination: usize,
+    start_block: i128,
+    end_block: i128,
+    limit: i64,
+    pagination: i64,
+    io_type: IOType,
 ) -> Result<UtxoHexDecodeResult, std::io::Error> {
     let public_threadpool = THREADPOOL_SQL_QUERY.lock().unwrap();
     let (sender, receiver) = mpsc::channel();
     public_threadpool.execute(move || {
+        let mut query:String="".to_string();
 
-        let query = format!("SELECT utxo, output, owner_address, txid, vout, block_height FROM public.utxo_coin_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
-println!("{}",query);
+        match io_type{
+            IOType::Coin=>{   
+                if end_block < 0 {
+                query = format!("SELECT  output, block_height FROM public.utxo_coin_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+                
+                 println!("{}",query);
+           }
+   
+           else {
+                query = format!("SELECT output, block_height FROM public.utxo_coin_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
+               println!("{}",query);
+           }
+   },
+            IOType::Memo=>{   if end_block < 0 {
+                query = format!("SELECT  output, block_height FROM public.utxo_memo_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+               println!("{}",query);
+           }
+   
+           else {
+                query = format!("SELECT output, block_height FROM public.utxo_memo_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
+               println!("{}",query);
+           }
+   },
+            IOType::State=>{   if end_block < 0 {
+                query = format!("SELECT  output, block_height FROM public.utxo_state_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+               println!("{}",query);
+           }
+   
+           else {
+                query = format!("SELECT output, block_height FROM public.utxo_state_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
+               println!("{}",query);
+           }
+   }
+        }
+    
+
         let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
         let mut result: Vec<UtxoOutputRaw> = Vec::new();
         match client.query(&query, &[]) {
@@ -100,7 +138,7 @@ mod test {
     // cargo test -- --nocapture --test create_psql_table_test --test-threads 1
     #[test]
     fn create_psql_table_test() {
-        let result = get_utxo_from_db_by_block_height_range(0, 5, 2, 0);
+        let result = get_utxo_from_db_by_block_height_range(0, 5, 2, 0, IOType::Coin);
 
         let mut file1 = File::create("create_psql_table_test.txt").unwrap();
         file1
