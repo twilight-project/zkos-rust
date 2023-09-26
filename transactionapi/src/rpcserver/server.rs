@@ -14,11 +14,12 @@ use utxo_in_memory::blockoperations::blockprocessing::{
     all_coin_type_output, all_coin_type_utxo, search_coin_type_utxo_by_address,
     search_coin_type_utxo_by_utxo_key, verify_utxo,
 };
-
+use utxo_in_memory::db::{LocalDBtrait, LocalStorage};
+use utxo_in_memory::UTXO_STORAGE;
 /***************** POstgreSQL Insert Code *********/
 use utxo_in_memory::pgsql::{
-    get_utxo_from_db_by_block_height_range, QueryUtxoFromDB, UtxoHexDecodeResult,
-    UtxoHexEncodedResult, UtxoOutputRaw,
+    get_utxo_from_db_by_block_height_range, QueryUtxoFromDB, TestCommand, TestCommandString,
+    UtxoHexDecodeResult, UtxoHexEncodedResult, UtxoOutputRaw,
 };
 /**************** POstgreSQL Insert Code End **********/
 
@@ -239,6 +240,36 @@ pub fn rpcserver() {
                         Err(err)
                     }
                 }
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));
+                    Err(err)
+                }
+            }
+        },
+    );
+
+    io.add_method_with_meta(
+        "TestCommand",
+        move |params: Params, _meta: Meta| async move {
+            match params.parse::<TestCommand>() {
+                Ok(queryparams) => match queryparams.test_command {
+                    TestCommandString::TakeSnapshotLevelDB => {
+                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        utxo_storage.take_snapshot();
+                        Ok(serde_json::to_value("".to_string()).unwrap())
+                    }
+                    TestCommandString::TakeSnapshotPostgreSQL => {
+                        utxo_in_memory::db::takesnapshotfrom_memory_to_postgresql_bulk();
+                        Ok(serde_json::to_value("".to_string()).unwrap())
+                    }
+                    _ => {
+                        let err = JsonRpcError::invalid_params(format!(
+                            "Invalid parameters, enum not exist"
+                        ));
+                        Err(err)
+                    }
+                },
                 Err(args) => {
                     let err =
                         JsonRpcError::invalid_params(format!("Invalid parameters, {:?}", args));

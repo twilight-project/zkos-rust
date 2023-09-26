@@ -47,6 +47,23 @@ pub struct QueryUtxoFromDB {
     pub pagination: i64,
     pub io_type: IOType,
 }
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Deserialize, Serialize)]
+pub enum TestCommandString{
+UtxoCoinDbLenght,
+UtxoMemoDbLenght,
+UtxoStateDbLenght,
+TakeSnapshotLevelDB,
+TakeSnapshotPostgreSQL,
+TakeBackupFromLevelDB,
+TakeBackupFromPostgreSQL,
+TransferDataFromLevelDBtoPostgreSQL
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestCommand {
+    pub test_command: TestCommandString,
+
+}
 
 pub fn get_utxo_from_db_by_block_height_range(
     start_block: i128,
@@ -144,5 +161,9 @@ mod test {
         file1
             .write_all(&serde_json::to_vec(&result.unwrap()).unwrap())
             .unwrap();
+    }
+    #[test]
+    fn create_set_genesis_sets_test() {
+       crate::blockoperations::set_genesis_sets();
     }
 }

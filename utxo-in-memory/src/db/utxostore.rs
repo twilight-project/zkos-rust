@@ -194,3 +194,55 @@ where
         true
     }
 }
+
+pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
+    let mut utxo_storage = crate::UTXO_STORAGE.lock().unwrap();
+
+    let snapshot_path = utxo_storage.snaps.snap_rules.path.clone();
+    let snap_path = format!("{}-snapmap", snapshot_path.clone());
+    let last_block = utxo_storage.block_height.clone();
+    // let new_snapshot_id = utxo_storage.snaps.lastsnapid + 1;
+    let mut snap_partition_clone: Vec<(usize, HashMap<KeyId, zkvm::zkos_types::Output>)> =
+        Vec::new();
+
+    let inner_snap_threadpool = ThreadPool::new(
+        if utxo_storage.partition_size >= 5 {
+            5
+        } else {
+            utxo_storage.partition_size + 1
+        },
+        String::from("inner_snap_threadpool"),
+    );
+
+    for i in 0..utxo_storage.partition_size {
+        snap_partition_clone.push((i, utxo_storage.data.get(&i).unwrap().clone()));
+    }
+    for (path, data) in snap_partition_clone {
+        inner_snap_threadpool.execute(move || {
+            for (key, output) in data.iter() {
+                let mut script_address: &String = &"".to_string();
+                if path != 0 {
+                    script_address = output.output.get_script_address().unwrap();
+                }
+                let utxo_key: zkvm::zkos_types::Utxo = bincode::deserialize(key).unwrap();
+                let mut insert_utxo = Vec::new();
+                let utxo_out: crate::pgsql::PGSQLDataInsert = crate::pgsql::PGSQLDataInsert::new(
+                    key.clone(),
+                    bincode::serialize(output).unwrap(),
+                    bincode::serialize(output.output.get_owner_address().unwrap()).unwrap(),
+                    script_address,
+                    utxo_key.output_index() as usize,
+                );
+                insert_utxo.push(utxo_out);
+                let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
+                    Vec::new(),
+                    insert_utxo,
+                    hex::encode(utxo_key.tx_id()),
+                    last_block as u64,
+                    path,
+                );
+                pgql_data.update_utxo_log();
+            }
+        });
+    }
+}
