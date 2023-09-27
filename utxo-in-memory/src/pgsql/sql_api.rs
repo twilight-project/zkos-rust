@@ -58,7 +58,8 @@ TakeSnapshotintoLevelDB,
 TakeSnapshotintoPostgreSQL,
 TakeBackupFromLevelDB,
 TakeBackupFromPostgreSQL,
-TransferDataFromLevelDBtoPostgreSQL
+TransferDataFromLevelDBtoPostgreSQL,
+LoadBackupFromLevelDB
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
