@@ -259,6 +259,11 @@ pub fn rpcserver() {
                         utxo_storage.take_snapshot();
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
+                    TestCommandString::LoadBackupFromLevelDB => {
+                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let _ = utxo_storage.load_from_snapshot();
+                        Ok(serde_json::to_value("".to_string()).unwrap())
+                    }
                     TestCommandString::TakeSnapshotintoPostgreSQL => {
                         utxo_in_memory::db::takesnapshotfrom_memory_to_postgresql_bulk();
                         Ok(serde_json::to_value("".to_string()).unwrap())
