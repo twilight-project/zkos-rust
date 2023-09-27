@@ -21,19 +21,20 @@ lazy_static! {
 pub fn init_utxo() {
     init_psql();
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    let _ = utxo_storage.load_from_snapshot();
+    // let _ = utxo_storage.load_from_snapshot();
+    let _ = utxo_storage.load_from_snapshot_from_psql();
     //load data from intial block from chain
-    if utxo_storage.block_height == 0 {
-        let recordutxo = crate::blockoperations::load_genesis_sets();
-        for utxo in recordutxo {
-            let _ = utxo_storage.add(
-                bincode::serialize(&utxo.utx).unwrap(),
-                utxo.value.clone(),
-                utxo.value.out_type as usize,
-            );
-        }
-        utxo_storage.block_height = 1;
-    }
+    // if utxo_storage.block_height == 0 {
+    //     let recordutxo = crate::blockoperations::load_genesis_sets();
+    //     for utxo in recordutxo {
+    //         let _ = utxo_storage.add(
+    //             bincode::serialize(&utxo.utx).unwrap(),
+    //             utxo.value.clone(),
+    //             utxo.value.out_type as usize,
+    //         );
+    //     }
+    //     utxo_storage.block_height = 1;
+    // }
 }
 
 pub fn zk_oracle_subscriber() {

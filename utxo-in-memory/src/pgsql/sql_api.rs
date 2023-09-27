@@ -1,8 +1,10 @@
 use crate::db::KeyId;
+use crate::db::UtxokeyidOutput;
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_SQL_QUEUE};
 use crate::ThreadPool;
 use r2d2_postgres::postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
+use zkvm::Output;
 use std::sync::mpsc;
 use zkvm::zkos_types::IOType;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,11 +51,11 @@ pub struct QueryUtxoFromDB {
 }
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Deserialize, Serialize)]
 pub enum TestCommandString{
-UtxoCoinDbLenght,
-UtxoMemoDbLenght,
-UtxoStateDbLenght,
-TakeSnapshotLevelDB,
-TakeSnapshotPostgreSQL,
+UtxoCoinDbLength,
+UtxoMemoDbLength,
+UtxoStateDbLength,
+TakeSnapshotintoLevelDB,
+TakeSnapshotintoPostgreSQL,
 TakeBackupFromLevelDB,
 TakeBackupFromPostgreSQL,
 TransferDataFromLevelDBtoPostgreSQL
@@ -143,6 +145,8 @@ pub fn get_utxo_from_db_by_block_height_range(
         }
     };
 }
+
+
 
 // ------------------------------------------------------------------------
 // Tests
