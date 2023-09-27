@@ -11,3 +11,4 @@ pub use self::utxostore::KeyId;
 pub use self::utxostore::LocalDBtrait;
 pub use self::utxostore::LocalStorage;
 pub use self::utxostore::SequenceNumber;
+pub use self::utxostore::UtxokeyidOutput;
