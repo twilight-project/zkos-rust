@@ -219,17 +219,16 @@ impl Sender {
     }
 }
 
-pub fn create_qq_reference_transaction() {
-    //} -> Transaction {
+pub fn create_qq_reference_transaction() -> Transaction {
     let (
-        _value_vector,
-        _account_vector,
-        _annonymity_com_scalar_vector,
-        _diff,
-        _sender_count,
-        _receiver_count,
-        _sk_sender,
-        _updated_sender_balance,
+        value_vector,
+        account_vector,
+        annonymity_com_scalar_vector,
+        diff,
+        sender_count,
+        receiver_count,
+        sk_sender,
+        updated_sender_balance,
     ) = Sender::create_reference_tx_data_for_zkos_test().unwrap();
     //create vector of inputs to be used in tx
     //random utxo IDS to be used in Inputs
@@ -237,7 +236,7 @@ pub fn create_qq_reference_transaction() {
     let hash: Hash = Hash::default();
     //SHOULD BE TAKEN FROM UTXO SET
     let utxo = Utxo::from_hash(hash, 0);
-    let _utxo_vector: Vec<Utxo> = vec![
+    let utxo_vector: Vec<Utxo> = vec![
         utxo.clone(),
         utxo.clone(),
         utxo.clone(),
@@ -249,23 +248,32 @@ pub fn create_qq_reference_transaction() {
         utxo.clone(),
     ];
 
-    let _updated_balance_reciever: Vec<u64> = vec![5]; //, 2, 1];
-                                                       //println!("Data : {:?}", sender_count);
-                                                       //create quisquis transfertransaction
-                                                       // let transfer = TransferTransaction::create_quisquis_transaction(
-                                                       //     &utxo_vector,
-                                                       //     &value_vector,
-                                                       //     &account_vector,
-                                                       //     &updated_sender_balance,
-                                                       //     &updated_balance_reciever,
-                                                       //     &sk_sender,
-                                                       //     sender_count,
-                                                       //     receiver_count,
-                                                       //     &annonymity_com_scalar_vector,
-                                                       //     diff,
-                                                       // );
+    let updated_balance_reciever: Vec<u64> = vec![5]; //, 2, 1];
+    println!("Data : {:?}", sender_count);
 
-    // Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
+    //create vec of Inputs -- Convert input accounts into Inputs
+    let mut inputs: Vec<Input> = Vec::new();
+    for inp in account_vector.iter() {
+        let input =
+            Input::input_from_quisquis_account(inp, utxo_vector[0], 0, address::Network::default());
+        inputs.push(input.clone());
+    }
+    // create quisquis transfer transaction
+    let transfer = TransferTransaction::create_quisquis_transaction(
+        &inputs,
+        &value_vector,
+        &account_vector,
+        &updated_sender_balance,
+        &updated_balance_reciever,
+        &sk_sender,
+        sender_count,
+        receiver_count,
+        &annonymity_com_scalar_vector,
+        diff,
+        None,
+    );
+
+    Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
 }
 
 pub fn create_dark_reference_transaction() -> Transaction {
