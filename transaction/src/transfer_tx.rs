@@ -15,7 +15,7 @@ use quisquislib::{
     accounts::{verifier::Verifier, SigmaProof},
     keys::PublicKey,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
-    // shuffle::Shuffle,
+    shuffle::{Permutation, Shuffle},
 };
 
 ///
@@ -77,11 +77,15 @@ impl TransferTransaction {
         }
     }
 
+    // pub fn create_witness_proof_transfer_tx(witness_comm_scalar: Option<&[Scalar]>) -> {
+
+    // }
+
     pub fn create_dark_transaction(
         value_vector: &[i64],
         account_vector: &[Account],
         sender_updated_balance: &[u64],
-        reciever_updated_balance: &[u64],
+        reciever_value_balance: &[u64],
         input_vector: &[Input],
         sender_sk: &[RistrettoSecretKey],
         senders_count: usize,
@@ -148,7 +152,7 @@ impl TransferTransaction {
             sender_updated_delta_account,
             &updated_delta_accounts,
             &sender_updated_balance,
-            &reciever_updated_balance,
+            &reciever_value_balance,
             &sender_sk,
             senders_count,
             receivers_count,
@@ -278,8 +282,59 @@ impl TransferTransaction {
         Ok(())
     }
 
+    fn set_quisquis_input_output_prover(
+        output_account_vector: &[Account],
+        // shuffled input accounts
+        input_account_vector: &[Account],
+        // initial inputs recieved from Client. Arranged as [sender..reciever..anonymity]
+        initial_inputs: &[Input],
+        // permutation function applied for input shuffling
+        input_permutation: Permutation,
+        // network type for addresses
+        network: address::Network,
+    ) -> (Vec<Input>, Vec<Output>) {
+        //get the permutation that was applied on accounts to create input accounts
+        let inverse_permutation = input_permutation.invert_permutation();
+        // apply the permutation on initial Inputs
+        //Convert Matrix to Vector in row major order
+        let permutation = inverse_permutation.as_row_major();
+
+        //shuffle Input accounts randomly using permutation matrix
+        let shuffled_inputs: Vec<_> = (0..initial_inputs.len())
+            .map(|i| initial_inputs[permutation[i] - 1].clone())
+            .collect();
+
+        let mut inputs: Vec<Input> = Vec::new();
+        //JUST SHUFFLE THE INPUT TO REPRESENT THE ACTUAL INPUTS
+        // for (i, input) in input_account_vector.iter().enumerate() {
+        //     //create inputs
+        //     let (pk, enc) = input.get_account();
+        //     let out_coin = OutputCoin {
+        //         encrypt: enc,
+        //         owner: Address::standard_address(Network::default(), pk).as_hex(),
+        //     };
+        //     let inp = Input::coin(InputData::coin(
+        //         utxo_vector[i],
+        //         // Address::coin_address(Network::default(), pk).as_hex(),
+        //         // enc,
+        //         out_coin,
+        //         0,
+        //     ));
+        //     inputs.push(inp.clone());
+        // }
+
+        //create vec of Outputs -- Recievers in this case
+        let mut outputs: Vec<Output> = Vec::new();
+        for out in output_account_vector.iter() {
+            let out = Output::from_quisquis_account(out.clone(), network);
+            outputs.push(out.clone());
+        }
+        (inputs, outputs)
+    }
+    /// Create a Quisquis tx .
+    /// This is a special case of Transfer Tx where the anonymity set is obtained from utxo set itself
     pub fn create_quisquis_transaction(
-        utxo_vector: &[zkvm::Utxo],
+        inputs: &[Input], // input vector as received from the client (may include zero utxo for reciever/s)
         value_vector: &[i64],
         account_vector: &[Account],
         sender_updated_balance: &[u64],
@@ -289,6 +344,10 @@ impl TransferTransaction {
         receivers_count: usize,
         anonymity_comm_scalar: &[Scalar],
         anonymity_account_diff: usize,
+
+        // carries the witness proofs for zero balance reciever accounts if they exist. otherwise none
+        // setting the witness index properly in the input is the resposibility of the client
+        witness: Option<Vec<Witness>>,
     ) -> Result<TransferTransaction, &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
@@ -301,54 +360,43 @@ impl TransferTransaction {
         }
         //create base pk for epsilon accounts
         let base_pk = RistrettoPublicKey::generate_base_pk();
+
         //Step 1. update & shuffle input accounts
         let input_shuffle = Shuffle::input_shuffle(account_vector)?;
-        let updated_accounts = input_shuffle.get_outputs_vector();
-        //create Inputs from shuffle
-        //create vec of Inputs
+
+        //get vec of Input Accounts arranged randomly
         let input_account_vector = input_shuffle.get_inputs_vector();
 
-        //THE UTXO SHOULD BE SHUFFLED ACCORDINGLY LATER. USING UTXO as zero for the time being
-        let mut inputs: Vec<Input> = Vec::new();
-        for (i, input) in input_account_vector.iter().enumerate() {
-            //create inputs
-            let (pk, enc) = input.get_account();
-            let out_coin = OutputCoin {
-                encrypt: enc,
-                owner: Address::standard_address(Network::default(), pk).as_hex(),
-            };
-            let inp = Input::coin(InputData::coin(
-                utxo_vector[i],
-                // Address::coin_address(Network::default(), pk).as_hex(),
-                // enc,
-                out_coin,
-                0,
-            ));
-            inputs.push(inp.clone());
-        }
+        // get vector of Input' accounts updated and arranged as [sender..reciever..anonymity]
+        let input_dash_accounts = input_shuffle.get_outputs_vector();
 
         //create QuisQuisTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
         let mut prover = Prover::new(b"QuisQuisTx", &mut transcript);
 
-        //create delta_and_epsilon_accounts
+        // Step 2. Create delta_and_epsilon_accounts
         let (delta_accounts, epsilon_accounts, delta_rscalar) =
             Account::create_delta_and_epsilon_accounts(
-                &updated_accounts,
+                &input_dash_accounts,
                 &value_vector_scalar,
                 base_pk,
             );
 
-        //identity check function to verify the construction of epsilon accounts using correct rscalars
+        //Step 3. identity check function to verify the construction of epsilon accounts using correct rscalars
         Verifier::verify_delta_identity_check(&epsilon_accounts)?;
 
-        //update delta_accounts to reflect the change in balance
-        //updated_delta_accounts = Output account for DarkTx
+        // Step 4. update delta_accounts to reflect the change in balance
         let updated_delta_accounts =
-            Account::update_delta_accounts(&updated_accounts, &delta_accounts)?;
+            Account::update_delta_accounts(&input_dash_accounts, &delta_accounts)?;
 
         let sender_updated_delta_account = &updated_delta_accounts[..senders_count];
-        //create Dark Proof
+
+        // Step 5. create Dark Proof. Entails proofs for
+        // 1. correct construction of epsilon and delta accounts (DLEQ)
+        // 2. correct construction of updated delta accounts
+        // 3. Knowledge of secret key for senders and correct update to their balance (DLOG)
+        // 4. Range proof on the updated sender balance and reciever values
+        // 5. Zero balance proof in case of new account creation for reciever
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
             &value_vector_scalar,
@@ -356,49 +404,48 @@ impl TransferTransaction {
             &epsilon_accounts,
             &delta_rscalar,
             &sender_updated_delta_account,
+            &updated_delta_accounts,
             &sender_updated_balance,
-            &reciever_updated_balance,
+            &reciever_value_balance,
             &sender_sk,
             senders_count,
             receivers_count,
             base_pk,
+            // Should always be none for Quisquis Tx. Only required for Dark Tx
             None,
         );
-
+        // assuming the number of accounts to be 9
         let anonymity_index = 9 - anonymity_account_diff;
-        let updated_accounts_slice = &updated_accounts[anonymity_index..9];
-        let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
-        let rscalars_slice = &delta_rscalar[anonymity_index..9];
-        //for anonymity zero account proof
-        let input_anonymity_account_slice = &account_vector[anonymity_index..9];
+        // get a list of anonymity accounts in the input' vector
+        let input_dash_accounts_anonymity_slice = &input_dash_accounts[anonymity_index..9];
+        // get a list of anonymity accounts in the updated delta accounts vector
+        let updated_delta_accounts_anonymity_slice = &updated_delta_accounts[anonymity_index..9];
+        // get of list of scalar witnesses for anonymity accounts in delta and epsilon accounts vector
+        let rscalars_anonymity_slice = &delta_rscalar[anonymity_index..9];
+        //for anonymity zero account proof. Not needed anymore
+        //let input_anonymity_account_slice = &account_vector[anonymity_index..9];
         //Shuffle accounts
         let output_shuffle = Shuffle::output_shuffle(&updated_delta_accounts)?;
 
         let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
             &mut prover,
-            &updated_accounts,
-            &updated_delta_accounts,
-            &delta_rscalar,
-            &input_anonymity_account_slice,
-            &anonymity_comm_scalar,
+            &input_dash_accounts_anonymity_slice,
+            &updated_delta_accounts_anonymity_slice,
+            &rscalars_anonymity_slice,
             &input_shuffle,
             &output_shuffle,
         );
 
         let output_final = output_shuffle.get_outputs_vector();
-        //create vec of Outputs -- Recievers in this case
-        let mut outputs: Vec<Output> = Vec::new();
-        for out in output_final.iter() {
-            //create address
-            let (pk, comm) = out.get_account();
-            let coin: OutputCoin = OutputCoin {
-                encrypt: comm,
-                owner: Address::standard_address(Network::default(), pk).as_hex(),
-            };
-            let out = Output::coin(OutputData::coin(coin));
-            outputs.push(out.clone());
-        }
 
+        // create vec of Inputs and Outputs
+        let (inputs, outputs) = Self::set_quisquis_input_output_prover(
+            &output_final,
+            &input_account_vector,
+            &inputs,
+            input_shuffle.get_permutation().to_owned(),
+            address::Network::default(),
+        );
         Ok(TransferTransaction::set_tranfer_transaction(
             0u64,
             0u64,
@@ -428,16 +475,19 @@ impl TransferTransaction {
         // let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
         //extract shuffle proof
         let shuffle_proof = self.shuffle_proof.as_ref().unwrap();
+
         //verify the Dark Proof first
-        self.proof.verify(
-            &mut verifier,
-            &shuffle_proof.input_dash_accounts,
-            //  &updated_senders_delta_account,
-            &shuffle_proof.updated_delta_accounts,
-        )?;
+        self.proof
+            .verify(&mut verifier, &shuffle_proof.input_dash_accounts, None)?;
         let anonymity_index = self.proof.range_proof.len();
         //verify the shuffle proof
-        shuffle_proof.verify(&mut verifier, &inputs, &outputs, anonymity_index)?;
+        shuffle_proof.verify(
+            &mut verifier,
+            &inputs,
+            &outputs,
+            &self.proof.updated_delta_accounts,
+            anonymity_index,
+        )?;
 
         Ok(())
     }
