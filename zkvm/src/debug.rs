@@ -16,7 +16,7 @@ use crate::predicate::Predicate;
 use crate::program::Program;
 use crate::tx::{Tx, TxID, VerifiedTx};
 use crate::types::{String, Value};
-
+use crate::zkos_types::OutputCoin;
 impl fmt::Debug for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let progslice: &[Instruction] = &self;
@@ -75,6 +75,12 @@ impl Value {
     }
 }
 
+impl OutputCoin {
+    pub(crate) fn fmt_as_pushdata(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "OutputCoin{{{:?},{:?}}}", self.encrypt, self.owner)
+    }
+}
+
 impl Instruction {
     pub(crate) fn fmt_with_lookahead(
         &self,
@@ -101,11 +107,11 @@ impl Instruction {
             Instruction::Drop => write!(f, "drop"),
             Instruction::Dup(i) => write!(f, "dup:{}", i),
             Instruction::Roll(i) => write!(f, "roll:{}", i),
-            Instruction::Const => write!(f, "const"),
-            Instruction::Var => write!(f, "var"),
+            Instruction::Scalar => write!(f, "scalar"),
+            Instruction::Commit => write!(f, "commit"),
             Instruction::Alloc(_) => write!(f, "alloc"),
-            Instruction::Mintime => write!(f, "mintime"),
-            Instruction::Maxtime => write!(f, "maxtime"),
+            //  Instruction::Mintime => write!(f, "mintime"),
+            // Instruction::Maxtime => write!(f, "maxtime"),
             Instruction::Expr => write!(f, "expr"),
             Instruction::Neg => write!(f, "neg"),
             Instruction::Add => write!(f, "add"),
@@ -120,7 +126,7 @@ impl Instruction {
             Instruction::Issue => write!(f, "issue"),
             Instruction::Borrow => write!(f, "borrow"),
             Instruction::Retire => write!(f, "retire"),
-          //  Instruction::Cloak(m, n) => write!(f, "cloak:{}:{}", m, n),
+            //  Instruction::Cloak(m, n) => write!(f, "cloak:{}:{}", m, n),
             Instruction::Fee => write!(f, "fee"),
             Instruction::Input => write!(f, "input"),
             Instruction::Output(k) => write!(f, "output:{}", k),
@@ -130,6 +136,8 @@ impl Instruction {
             Instruction::Signtx => write!(f, "signtx"),
             Instruction::Signid => write!(f, "signid"),
             Instruction::Signtag => write!(f, "signtag"),
+            Instruction::InputCoin(k) => write!(f, "inputcoin:{}", k),
+            Instruction::OutputCoin(k) => write!(f, "outputcoin:{}", k),
             Instruction::Ext(byte) => write!(f, "ext:{:x}", byte),
         }?;
 
@@ -165,6 +173,7 @@ impl fmt::Debug for PortableItem {
             PortableItem::String(s) => s.fmt_as_pushdata(f),
             PortableItem::Program(p) => write!(f, "[{:?}]", p),
             PortableItem::Value(v) => v.fmt_as_pushdata(f),
+            PortableItem::Coin(c) => c.fmt_as_pushdata(f),
         }
     }
 }

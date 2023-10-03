@@ -15,3 +15,11 @@ Cargo.lock
 
 #Ignore .DS_Store
 **/.DS_Store
+
+#Ignore Visual Studio Code Workspace
+**/*.code-workspace
+ZkOs.code-workspace
+transactionapi/target/*
+utxo-in-memory/target/*
+
+

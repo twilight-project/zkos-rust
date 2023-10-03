@@ -49,45 +49,45 @@ pub enum Instruction {
     /// Note: `roll:0` is a no-op, `roll:1` swaps the top two items.
     Roll(usize),
 
-    /// _a_ **const** → _expr_
+    /// _a_ **scalar** → _expr_
     ///
     /// 1. Pops a _scalar_ `a` from the stack.
     /// 2. Creates an _expression_ `expr` with weight `a` assigned to an R1CS constant `1`.
     /// 3. Pushes `expr` to the stack.
     ///
     /// Fails if `a` is not a valid _scalar_.
-    Const,
+    Scalar,
 
-    /// _P_ **var** → _v_
+    /// _P_ **commit** → _v_
     ///
     /// 1. Pops a _point_ `P` from the stack.
     /// 2. Creates a _variable_ `v` from a _Pedersen commitment_ `P`.
     /// 3. Pushes `v` to the stack.
     ///
     /// Fails if `P` is not a valid _point_.
-    Var,
+    Commit,
 
     /// **alloc** → _expr_
     ///
     /// 1. Allocates a low-level variable in the _constraint system_ and wraps it in the _expression_ with weight 1.
     /// 2. Pushes the resulting expression to the stack.
     ///
-    /// This is different from `var`: the variable created by `alloc` is _not_ represented by an individual Pedersen commitment and therefore can be chosen freely when the transaction is constructed.
+    /// This is different from `commit`: the variable created by `alloc` is _not_ represented by an individual Pedersen commitment and therefore can be chosen freely when the transaction is constructed.
     Alloc(Option<ScalarWitness>),
 
     /// **mintime** → _expr_
     ///
     /// Pushes an _expression_ `expr` corresponding to the _minimum time bound_ of the transaction.
     ///
-    /// The one-term expression represents time bound as a weight on the R1CS constant `1` (see `const`).
-    Mintime,
+    /// The one-term expression represents time bound as a weight on the R1CS constant `1` (see `scalar`).
+    // Mintime,
 
     /// **maxtime** → _expr_
     ///
     /// Pushes an _expression_ `expr` corresponding to the _maximum time bound_ of the transaction.
     ///
-    /// The one-term expression represents time bound as a weight on the R1CS constant `1` (see `const`).
-    Maxtime,
+    /// The one-term expression represents time bound as a weight on the R1CS constant `1` (see `scalar`).
+    // Maxtime,
 
     /// _var_ **expr** → _ex_
     ///
@@ -315,10 +315,12 @@ pub enum Instruction {
     /// 1. Pops `2·n` _points_ as pairs of _flavor_ and _quantity_ for each output value, flavor is popped first in each pair.
     /// 2. Pops `m` _wide values_ as input values.
     /// 3. Creates constraints and 64-bit range proofs for quantities per _Cloak protocol_.
-    /// 4. Pushes `n` _values_ to the stack, placing them in the same order as their corresponding commitments.
-    ///
+    /// 4. Pushes `n` _values_ to the stack, placing them in the **reverse** order as their corresponding commitments.
+    ///    ```ascii
+    ///    A B C → cloak → C B A
+    ///    ```
     /// Immediate data `m` and `n` are encoded as two _LE32_s.
-   // Cloak(usize, usize),
+    // Cloak(usize, usize),
 
     /// _qty_ **fee** → _widevalue_
     ///
@@ -490,6 +492,15 @@ pub enum Instruction {
     /// 4. or last item in the `payload` (`tag`) is not a _string_.
     Signtag,
 
+    /// **inputcoin:_i_** → _Input_
+    ///
+    /// Pushes a _input_coin_ from index `i` of transaction data.
+    InputCoin(usize),
+    /// **outputcoin:_i_** → _Input_
+    ///
+    /// Pushes a _output_coin_ from index `i` of transaction data.
+    OutputCoin(usize),
+
     /// Unassigned opcode.
     Ext(u8),
 }
@@ -508,16 +519,16 @@ pub enum Opcode {
     Dup = 0x03,
     /// A code for [Instruction::Roll].
     Roll = 0x04,
-    /// A code for [Instruction::Const].
-    Const = 0x05,
-    /// A code for [Instruction::Var]
-    Var = 0x06,
+    /// A code for [Instruction::Scalar].
+    Scalar = 0x05,
+    /// A code for [Instruction::Commit]
+    Commit = 0x06,
     /// A code for [Instruction::Alloc]
     Alloc = 0x07,
     /// A code for [Instruction::Mintime]
-    Mintime = 0x08,
+    //Mintime = 0x08,
     /// A code for [Instruction::Maxtime]
-    Maxtime = 0x09,
+    // Maxtime = 0x09,
     /// A code for [Instruction::Expr]
     Expr = 0x0a,
     /// A code for [Instruction::Neg]
@@ -565,10 +576,14 @@ pub enum Opcode {
     /// A code for [Instruction::Signid]
     Signid = 0x20,
     /// A code for [Instruction::Signtag]
-    Signtag = MAX_OPCODE,
+    Signtag = 0x21,
+    /// A code for [Instruction::InputCoin]
+    InputCoin = 0x22,
+    /// A code for [Instruction::OutputCoin]
+    OutputCoin = MAX_OPCODE,
 }
 
-const MAX_OPCODE: u8 = 0x21;
+const MAX_OPCODE: u8 = 0x23;
 
 impl Opcode {
     /// Converts the opcode to `u8`.
@@ -612,11 +627,11 @@ impl Encodable for Instruction {
                 write(Opcode::Roll)?;
                 w.write_u32(b"k", *idx as u32)?;
             }
-            Instruction::Const => write(Opcode::Const)?,
-            Instruction::Var => write(Opcode::Var)?,
+            Instruction::Scalar => write(Opcode::Scalar)?,
+            Instruction::Commit => write(Opcode::Commit)?,
             Instruction::Alloc(_) => write(Opcode::Alloc)?,
-            Instruction::Mintime => write(Opcode::Mintime)?,
-            Instruction::Maxtime => write(Opcode::Maxtime)?,
+            //  Instruction::Mintime => write(Opcode::Mintime)?,
+            //  Instruction::Maxtime => write(Opcode::Maxtime)?,
             Instruction::Expr => write(Opcode::Expr)?,
             Instruction::Neg => write(Opcode::Neg)?,
             Instruction::Add => write(Opcode::Add)?,
@@ -651,6 +666,14 @@ impl Encodable for Instruction {
             Instruction::Signtx => write(Opcode::Signtx)?,
             Instruction::Signid => write(Opcode::Signid)?,
             Instruction::Signtag => write(Opcode::Signtag)?,
+            Instruction::InputCoin(k) => {
+                write(Opcode::InputCoin)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
+            Instruction::OutputCoin(k) => {
+                write(Opcode::OutputCoin)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
             Instruction::Ext(x) => w.write_u8(b"ext", *x)?,
         };
         Ok(())
@@ -664,9 +687,11 @@ impl ExactSizeEncodable for Instruction {
             Instruction::Program(progitem) => 1 + 4 + progitem.encoded_size(),
             Instruction::Dup(_) => 1 + 4,
             Instruction::Roll(_) => 1 + 4,
-           // Instruction::Cloak(_, _) => 1 + 4 + 4,
+            // Instruction::Cloak(_, _) => 1 + 4 + 4,
             Instruction::Output(_) => 1 + 4,
             Instruction::Contract(_) => 1 + 4,
+            Instruction::InputCoin(_) => 1 + 4,
+            Instruction::OutputCoin(_) => 1 + 4,
             _ => 1,
         }
     }
@@ -711,11 +736,11 @@ impl Instruction {
                 let idx = program.read_size()?;
                 Ok(Instruction::Roll(idx))
             }
-            Opcode::Const => Ok(Instruction::Const),
-            Opcode::Var => Ok(Instruction::Var),
+            Opcode::Scalar => Ok(Instruction::Scalar),
+            Opcode::Commit => Ok(Instruction::Commit),
             Opcode::Alloc => Ok(Instruction::Alloc(None)),
-            Opcode::Mintime => Ok(Instruction::Mintime),
-            Opcode::Maxtime => Ok(Instruction::Maxtime),
+            // Opcode::Mintime => Ok(Instruction::Mintime),
+            // Opcode::Maxtime => Ok(Instruction::Maxtime),
             Opcode::Expr => Ok(Instruction::Expr),
             Opcode::Neg => Ok(Instruction::Neg),
             Opcode::Add => Ok(Instruction::Add),
@@ -730,7 +755,7 @@ impl Instruction {
             Opcode::Issue => Ok(Instruction::Issue),
             Opcode::Borrow => Ok(Instruction::Borrow),
             Opcode::Retire => Ok(Instruction::Retire),
-           /* Opcode::Cloak => {
+            /* Opcode::Cloak => {
                 let m = program.read_size()?;
                 let n = program.read_size()?;
                 Ok(Instruction::Cloak(m, n))
@@ -750,6 +775,14 @@ impl Instruction {
             Opcode::Signtx => Ok(Instruction::Signtx),
             Opcode::Signid => Ok(Instruction::Signid),
             Opcode::Signtag => Ok(Instruction::Signtag),
+            Opcode::InputCoin => {
+                let idx = program.read_size()?;
+                Ok(Instruction::InputCoin(idx))
+            }
+            Opcode::OutputCoin => {
+                let idx = program.read_size()?;
+                Ok(Instruction::OutputCoin(idx))
+            }
         }
     }
 }

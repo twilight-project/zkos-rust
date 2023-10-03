@@ -177,4 +177,38 @@ pub enum VMError {
     /// This error occurs when tx attempts to add a fee beyond the limit.
     #[error("Fee is too high")]
     FeeTooHigh,
+
+    /// This error occurs when tx attempts to add invalid input coin.
+    #[error("Input is not Coin")]
+    InvalidInputCoin,
+
+    /// This error occurs when tx attempts to add invalid output coin.
+    #[error("Output  is not Coin")]
+    InvalidOutputCoin,
+
+    /// This error occurs when tx attempts to convert Witness into Signature.
+    #[error("Witness  is not a Elgamal Signature")]
+    TypeNotSignature,
+
+    /// This error occurs when tx attempts to convert Witness into StateWitness.
+    #[error("Witness  is not a State Witness")]
+    TypeNotStateWitness,
+
+    /// This error occurs when tx attempts to convert Witness into ValueWitness.
+    #[error("Witness  is not a Value Witness")]
+    TypeNotValueWitness,
+
+    /// This error occurs when tx input coin does not have a corresponding output memo.
+    #[error("Input Coin and Output memo does not match")]
+    InvalidCoinMemo,
+    /// This error occurs when tx input Memo does carry a valid same value commitment.
+    #[error("Invalid Input Memo Commitment value")]
+    InvalidInputMemoCommitment,
+    /// This error occurs when tx input State does not have a corresponding output State.
+    #[error("Invalid Input Output State value")]
+    InvalidInputOutputState,
+
+    /// This error occurs when tx attempts to convert Witness into SigmaProof.
+    #[error("Witness is not a sigma proof")]
+    TypeNotSigmaProof,
 }
