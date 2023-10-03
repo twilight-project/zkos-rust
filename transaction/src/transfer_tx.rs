@@ -299,29 +299,19 @@ impl TransferTransaction {
         //Convert Matrix to Vector in row major order
         let permutation = inverse_permutation.as_row_major();
 
-        //shuffle Input accounts randomly using permutation matrix
+        //shuffle Input accounts using permutation matrix
         let shuffled_inputs: Vec<_> = (0..initial_inputs.len())
             .map(|i| initial_inputs[permutation[i] - 1].clone())
             .collect();
 
-        let mut inputs: Vec<Input> = Vec::new();
-        //JUST SHUFFLE THE INPUT TO REPRESENT THE ACTUAL INPUTS
-        // for (i, input) in input_account_vector.iter().enumerate() {
-        //     //create inputs
-        //     let (pk, enc) = input.get_account();
-        //     let out_coin = OutputCoin {
-        //         encrypt: enc,
-        //         owner: Address::standard_address(Network::default(), pk).as_hex(),
-        //     };
-        //     let inp = Input::coin(InputData::coin(
-        //         utxo_vector[i],
-        //         // Address::coin_address(Network::default(), pk).as_hex(),
-        //         // enc,
-        //         out_coin,
-        //         0,
-        //     ));
-        //     inputs.push(inp.clone());
-        // }
+        // check if permutation is correct
+        for i in 0..shuffled_inputs.len() {
+            let sender = input_account_vector[i].clone();
+            //let reciever = account_vector[senders_count].clone();
+            let sender_input = shuffled_inputs[i].clone();
+            let sender_input_account = sender_input.to_quisquis_account().unwrap();
+            assert_eq!(sender, sender_input_account);
+        }
 
         //create vec of Outputs -- Recievers in this case
         let mut outputs: Vec<Output> = Vec::new();
@@ -329,7 +319,7 @@ impl TransferTransaction {
             let out = Output::from_quisquis_account(out.clone(), network);
             outputs.push(out.clone());
         }
-        (inputs, outputs)
+        (shuffled_inputs, outputs)
     }
     /// Create a Quisquis tx .
     /// This is a special case of Transfer Tx where the anonymity set is obtained from utxo set itself
@@ -358,6 +348,7 @@ impl TransferTransaction {
                 value_vector_scalar.push(-Scalar::from((-*v) as u64));
             }
         }
+
         //create base pk for epsilon accounts
         let base_pk = RistrettoPublicKey::generate_base_pk();
 
@@ -416,6 +407,7 @@ impl TransferTransaction {
         );
         // assuming the number of accounts to be 9
         let anonymity_index = 9 - anonymity_account_diff;
+        println!("anonymity index: {}", anonymity_index);
         // get a list of anonymity accounts in the input' vector
         let input_dash_accounts_anonymity_slice = &input_dash_accounts[anonymity_index..9];
         // get a list of anonymity accounts in the updated delta accounts vector
@@ -449,8 +441,8 @@ impl TransferTransaction {
         Ok(TransferTransaction::set_tranfer_transaction(
             0u64,
             0u64,
-            senders_count as u8,
-            receivers_count as u8,
+            9u8,
+            9u8,
             0u8,
             inputs,
             outputs,
@@ -479,14 +471,14 @@ impl TransferTransaction {
         //verify the Dark Proof first
         self.proof
             .verify(&mut verifier, &shuffle_proof.input_dash_accounts, None)?;
-        let anonymity_index = self.proof.range_proof.len();
+        //let anonymity_index = self.proof.range_proof.len();
         //verify the shuffle proof
         shuffle_proof.verify(
             &mut verifier,
             &inputs,
             &outputs,
             &self.proof.updated_delta_accounts,
-            anonymity_index,
+            // anonymity_index,
         )?;
 
         Ok(())
@@ -520,8 +512,8 @@ impl TransferTransaction {
             self.verify_dark_tx(&input_accounts, Some(&output_accounts))
         } else {
             //verify QQ Transaction
-            // tx_data.verify_quisquis_tx(&inputs, &outputs)
-            Err("Tx Verification failed. Transaction Type is not valid.")
+            self.verify_quisquis_tx(&input_accounts, &output_accounts)
+            //Err("Tx Verification failed. Transaction Type is not valid.")
         }
     }
 }

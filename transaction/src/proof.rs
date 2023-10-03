@@ -456,7 +456,10 @@ impl ShuffleTxProof {
 
         let (input_shuffle_proof, input_shuffle_statement) =
             ShuffleProof::create_shuffle_proof(prover, input_shuffle, &pc_gens, &xpc_gens);
-
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Input Shuffle Proof created");
+        }
         // Step 2. generate DLOG proof on Anonymity accounts in Updated Delta accounts
         // prove that the anonymity delta accounts are Zero balance and created using correct rscalars
         let updated_delta_dlog = Prover::verify_update_account_prover(
@@ -465,7 +468,10 @@ impl ShuffleTxProof {
             &rscalars_slice,
             prover,
         );
-
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Updated Delta DLOG Proof created");
+        }
         //if annoymity accounts are created on the fly.
         //create zero balance proof for all the anonymity accounts
         /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
@@ -481,7 +487,10 @@ impl ShuffleTxProof {
         // }
         let (output_shuffle_proof, output_shuffle_statement) =
             ShuffleProof::create_shuffle_proof(prover, output_shuffle, &pc_gens, &xpc_gens);
-
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Output Shuffle Proof created");
+        }
         ShuffleTxProof {
             input_dash_accounts: input_shuffle.get_outputs_vector(),
             input_shuffle_proof,
@@ -501,7 +510,7 @@ impl ShuffleTxProof {
         input_accounts: &[Account],
         output_accounts: &[Account],
         updated_delta_accounts: &[Account],
-        anonymity_index: usize,
+        //anonymity_index: usize,
     ) -> Result<(), &'static str> {
         //Recreate Pedersen Commitment (PC) Genarater and Xtended PC (XPC) Gens
         //generate Xcomit generator points of length m+1
@@ -518,13 +527,23 @@ impl ShuffleTxProof {
             &pc_gens,
             &xpc_gens,
         )?;
-
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Input Shuffle Proof verified");
+        }
         // Verify DLOG proof on Anonymity accounts in Updated Delta accounts
         let (z_vector, x) = self.updated_delta_dlog.clone().get_dlog();
+        // ind the number of anonymity accounts
+        let num_anonymity_accounts = z_vector.len(); // Z vector contains z for each anonymity account at the prover time
+        let anonymity_index = updated_delta_accounts.len() - num_anonymity_accounts;
         let updated_accounts_slice = &self.input_dash_accounts[anonymity_index..9];
         let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
+
         //verify dlog proof
-        println!("BEFORE Anony index {:?}", anonymity_index);
+        #[cfg(feature = "debug_print")]
+        {
+            println!("BEFORE Anony index {:?}", anonymity_index);
+        }
         Verifier::verify_update_account_verifier(
             &updated_accounts_slice,
             &updated_delta_accounts_slice,
@@ -532,7 +551,10 @@ impl ShuffleTxProof {
             &x,
             verifier,
         )?;
-        println!("AFTER Anony index {:?}", anonymity_index);
+        #[cfg(feature = "debug_print")]
+        {
+            println!("AFTER Anony index {:?}", anonymity_index);
+        }
         /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
          //Step 7. if annoymity accounts are created on the fly.
          //create zero balance proof for all the anonymity accounts
@@ -556,7 +578,10 @@ impl ShuffleTxProof {
             &pc_gens,
             &xpc_gens,
         )?;
-
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Output Shuffle Proof verified");
+        }
         Ok(())
     }
     /// Serializes the proof into a byte array
