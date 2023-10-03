@@ -268,7 +268,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
         &sk_sender,
         sender_count,
         receiver_count,
-        &annonymity_com_scalar_vector,
+        // &annonymity_com_scalar_vector,
         diff,
         None,
     );

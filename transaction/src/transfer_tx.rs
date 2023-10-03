@@ -332,12 +332,12 @@ impl TransferTransaction {
         sender_sk: &[RistrettoSecretKey],
         senders_count: usize,
         receivers_count: usize,
-        anonymity_comm_scalar: &[Scalar],
+        //anonymity_comm_scalar: &[Scalar],
         anonymity_account_diff: usize,
 
         // carries the witness proofs for zero balance reciever accounts if they exist. otherwise none
         // setting the witness index properly in the input is the resposibility of the client
-        witness: Option<Vec<Witness>>,
+        witness_comm_scalar: Option<&[Scalar]>,
     ) -> Result<TransferTransaction, &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();

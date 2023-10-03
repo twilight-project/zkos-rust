@@ -564,7 +564,7 @@ fn test_quisquis_transaction_single_sender_reciever() {
         &sk_sender,
         senders_count,
         receivers_count,
-        &anonymity_scalar_vector,
+        // &anonymity_scalar_vector,
         diff,
         None,
     );
