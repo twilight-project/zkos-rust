@@ -64,27 +64,27 @@ macro_rules! def_op {
 }
 
 macro_rules! def_op_inner {
-    ($func_name:ident, $op:ident, $doc_expr:expr) => (
+    ($func_name:ident, $op:ident, $doc_expr:expr) => {
         #[doc = $doc_expr]
-        pub fn $func_name(&mut self) -> &mut Program{
+        pub fn $func_name(&mut self) -> &mut Program {
             self.0.push(Instruction::$op);
             self
         }
-    );
-    ($func_name:ident, $op:ident, $arg_type:ty, $doc_expr:expr) => (
+    };
+    ($func_name:ident, $op:ident, $arg_type:ty, $doc_expr:expr) => {
         #[doc = $doc_expr]
-        pub fn $func_name(&mut self, arg :$arg_type) -> &mut Program {
+        pub fn $func_name(&mut self, arg: $arg_type) -> &mut Program {
             self.0.push(Instruction::$op(arg));
             self
         }
-    );
-    ($func_name:ident, $op:ident, $arg_type1:ty, $arg_type2:ty, $doc_expr:expr) => (
+    };
+    ($func_name:ident, $op:ident, $arg_type1:ty, $arg_type2:ty, $doc_expr:expr) => {
         #[doc = $doc_expr]
         pub fn $func_name(&mut self, arg1: $arg_type1, arg2: $arg_type2) -> &mut Program {
             self.0.push(Instruction::$op(arg1, arg2));
             self
         }
-    );
+    };
 }
 
 impl Encodable for Program {
@@ -157,11 +157,11 @@ impl Program {
     def_op!(drop, Drop, "drop");
     def_op!(dup, Dup, usize, "dup:k");
     def_op!(roll, Roll, usize, "roll:k");
-    def_op!(r#const, Const, "const");
-    def_op!(var, Var, "var");
+    def_op!(scalar, Scalar, "scalar");
+    def_op!(commit, Commit, "commit");
     def_op!(alloc, Alloc, Option::<ScalarWitness>, "alloc");
-    def_op!(mintime, Mintime, "mintime");
-    def_op!(maxtime, Maxtime, "maxtime");
+    // def_op!(mintime, Mintime, "mintime");
+    //def_op!(maxtime, Maxtime, "maxtime");
     def_op!(expr, Expr, "expr");
     def_op!(neg, Neg, "neg");
     def_op!(add, Add, "add");
@@ -179,7 +179,7 @@ impl Program {
     def_op!(borrow, Borrow, "borrow");
     def_op!(retire, Retire, "retire");
 
-   // def_op!(cloak, Cloak, usize, usize, "cloak:m:n");
+    // def_op!(cloak, Cloak, usize, usize, "cloak:m:n");
     def_op!(fee, Fee, "fee");
     def_op!(input, Input, "input");
     def_op!(output, Output, usize, "output:k");
@@ -191,6 +191,8 @@ impl Program {
     def_op!(signtx, Signtx, "signtx");
     def_op!(signid, Signid, "signid");
     def_op!(signtag, Signtag, "signtag");
+    def_op!(inputcoin, InputCoin, usize, "inputcoin:k");
+    def_op!(outputcoin, OutputCoin, usize, "outputcoin:k");
 
     /// Takes predicate tree and index of program in Merkle tree to verify
     /// the program's membership in that Merkle tree and call the program.

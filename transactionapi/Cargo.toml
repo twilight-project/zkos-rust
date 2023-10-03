@@ -1,0 +1,61 @@
+[package]
+name = "transactionapi"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "api_server"
+[dependencies]
+serde = { version = "1.0.131", feature = ["derive"]}
+serde_derive = "1.0.131"
+serde_json = "1.0.68"
+dotenv = "0.15.0"
+jsonrpc = "0.12.1"
+jsonrpc-http-server = "18.0"
+jsonrpc-core = "18.0.0"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+lazy_static = "1.4.0"
+hex = "0.4"
+tokio = { version = "1", features = ["full"] }
+
+jsonrpsee = "0.16.2"
+
+curve25519-dalek = { version = "3", features = ["serde"] }
+merlin = "2"
+getrandom = { version = "0.2", default-features = false, features = ["js"] }
+uuid = { version = "0.8.2", features = ["v4", "serde"] } #https://github.com/serde-rs/serde/issues/324
+sha3 = "0.9.1"
+
+bincode = "1"
+# tendermint-rpc = "0.28.0"
+# check bitcoin core rpc 
+
+[dependencies.quisquis-rust]
+path = "../../quisquis-rust"
+#git = "ssh://github.com/twilight-project/quisquis-rust.git"
+#branch = "update_dark_tx"
+
+
+[dependencies.transaction]
+path = "../transaction"
+
+[dependencies.utxo-in-memory]
+path = "../utxo-in-memory"
+
+[dependencies.address]
+path = "../address"
+
+[dependencies.zkvm]
+path = "../zkvm"
+
+
+[dependencies.bulletproofs]
+git = "https://github.com/dalek-cryptography/bulletproofs"
+branch = "develop"
+features = ["yoloproofs"]
+
+[features]
+default = []
+nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
+
