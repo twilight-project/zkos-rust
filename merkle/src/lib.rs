@@ -1,6 +1,7 @@
-#![deny(missing_docs)]
+#![allow(missing_docs)]
 
 //! API for operations on merkle binary trees.
+use address::{Address,Script};
 use core::marker::PhantomData;
 use merlin::Transcript;
 use readerwriter::*;
@@ -9,7 +10,7 @@ use std::fmt;
 use subtle::ConstantTimeEq;
 
 /// Merkle hash of a node.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default,Serialize, Deserialize)]
 pub struct Hash(pub [u8; 32]);
 
 /// MerkleItem defines an item in the Merkle tree.
@@ -439,52 +440,107 @@ impl DoubleEndedIterator for Directions {
     }
 }
 
-impl Serialize for Hash {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_bytes(&self.0)
-    }
+// impl Serialize for Hash {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         serializer.serialize_bytes(&self.0)
+//     }
+// }
+
+// impl<'de> serde::Deserialize<'de> for Hash {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: serde::Deserializer<'de>,
+//     {
+//         struct BytesVisitor;
+
+//         impl<'de> serde::de::Visitor<'de> for BytesVisitor {
+//             type Value = Hash;
+
+//             fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+//                 formatter.write_str("a valid 32-byte string")
+//             }
+
+//             fn visit_bytes<E>(self, v: &[u8]) -> Result<Hash, E>
+//             where
+//                 E: serde::de::Error,
+//             {
+//                 println!("visit_bytes: {:?}", v);
+//                 println!("visit_bytes len: {:?}", v.len());
+//                 if v.len() == 32 {
+//                     let mut buf = [0u8; 32];
+//                     buf[0..32].copy_from_slice(v);
+//                     Ok(Hash(buf))
+//                 } else {
+//                     Err(serde::de::Error::invalid_length(v.len(), &self))
+//                 }
+//             }
+//         }
+
+//         deserializer.deserialize_bytes(BytesVisitor)
+//     }
+//}
+
+/// Call proof represents a proof that a certain program is committed via the merkle tree into the Script Address.
+/// Used by validator primarily to verify. The program is not the part of the proof.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CallProof {
+    // Script Address
+    pub script_address: String,
+
+    // Merkle path. The path is relative to the program's position in the tree.
+    pub path: Path,
 }
 
-impl<'de> serde::Deserialize<'de> for Hash {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct BytesVisitor;
-
-        impl<'de> serde::de::Visitor<'de> for BytesVisitor {
-            type Value = Hash;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                formatter.write_str("a valid 32-byte string")
-            }
-
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Hash, E>
-            where
-                E: serde::de::Error,
-            {
-                if v.len() == 32 {
-                    let mut buf = [0u8; 32];
-                    buf[0..32].copy_from_slice(v);
-                    Ok(Hash(buf))
-                } else {
-                    Err(serde::de::Error::invalid_length(v.len(), &self))
-                }
-            }
+impl CallProof {
+    /// Creates a new call proof.
+    pub fn new(script_address: String, path: Path) -> Self {
+        Self {
+            script_address,
+            path,
         }
+    }
+    pub fn create_call_proof<M>(
+        list: &[M],
+        item_index: usize,
+        hasher: &Hasher<M>,
+        address: String,
+    ) -> Option<Self>
+    where
+        M: MerkleItem,
+    {
+        let path = Path::new(list, item_index, hasher).unwrap();
+        Some(CallProof::new(address, path))
+    }
 
-        deserializer.deserialize_bytes(BytesVisitor)
+    pub fn verify_call_proof<M: MerkleItem>(
+        &self,
+        address: &Address,
+        item: &M,
+        hasher: &Hasher<M>,
+    ) -> bool {
+        //check if root hash is same as the one in address
+        if address.as_hex() != self.script_address {
+            return false;
+        }
+        // Verify that the root hash matches the merkle path.
+        self.path.verify_root(&Hash(address.as_script_address().root), item, hasher)
     }
 }
+/// Default implementation for CallProof
+/// EMPTY CallProof
+impl Default for CallProof {
+    fn default() -> Self {
+        CallProof { script_address: Address::Script(Script::default()).as_hex(), path: Path::default() } } 
+    }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct TestItem(u64);
 
     impl MerkleItem for TestItem {
@@ -506,10 +562,14 @@ mod tests {
             let hasher = Hasher::new(b"test");
             let (item, root, path) = {
                 let items = test_items(*$num as usize);
+                println!("items {:?}", items);
                 let path = Path::new(&items, *$idx as usize, &hasher).unwrap();
                 let root = path.compute_root(&items[*$idx], &hasher);
                 (items[*$idx as usize].clone(), root, path)
             };
+            println!("items: {:?}", item);
+            println!("root: {:?}", root);
+            println!("path: {:?}", path);
             assert!(path.verify_root(&root, &item, &hasher));
         };
     }
@@ -547,5 +607,20 @@ mod tests {
         for (num, idx, wrong_idx) in tests.iter() {
             assert_proof_err!(num, idx, wrong_idx);
         }
+    }
+    #[test]
+    fn tree_build_test() {
+        let num = 13;
+        let idx = 7;
+        let hasher = Hasher::new(b"test");
+
+        let items = test_items(num as usize);
+        println!("items {:?}", items);
+        let path = Path::new(&items, idx as usize, &hasher).unwrap();
+        let root = path.compute_root(&items[idx], &hasher);
+
+        println!("items: {:?}", (items[idx as usize].clone()));
+        println!("root: {:?}", root);
+        println!("path: {:?}", path);
     }
 }

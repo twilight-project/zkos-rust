@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+#![allow(missing_docs)]
 //! ZkVM (_zero-knowledge virtual machine_): a transaction format for a shared, multi-asset, cryptographic ledger.
 //!
 //! * [ZkVM whitepaper](https://github.com/stellar/slingshot/blob/main/zkvm/docs/zkvm-design.md) — technology overview.
@@ -12,22 +12,25 @@ extern crate serde;
 
 #[macro_use]
 mod serialization;
-mod constraints;
+pub mod constraints;
 mod contract;
 mod debug;
 pub mod encoding;
-mod errors;
+pub mod errors;
 mod fees;
-mod ops;
-mod predicate;
-mod program;
-mod prover;
+pub mod ops;
+pub mod predicate;
+pub mod program;
+///ZkVM Prover
+pub mod prover;
 mod scalar_witness;
 mod transcript;
-mod tx;
+pub mod tx;
 mod types;
-mod verifier;
-mod vm;
+///ZKVM Verifier
+pub mod verifier;
+pub mod vm;
+pub mod zkos_types;
 
 pub use self::constraints::{Commitment, CommitmentWitness, Constraint, Expression, Variable};
 pub use self::contract::{Anchor, Contract, ContractID, PortableItem};
@@ -42,6 +45,12 @@ pub use self::transcript::TranscriptProtocol;
 pub use self::tx::{Tx, TxEntry, TxHeader, TxID, TxLog, UnsignedTx, VerifiedTx};
 pub use self::types::{ClearValue, Item, String, Value, WideValue};
 pub use self::verifier::Verifier;
+pub use self::vm::{VMRun, VMScript};
 pub use merkle::{Hash, Hasher, MerkleItem, MerkleTree};
 
+pub use address::Address;
 pub use mulmsgsig::{Signature, VerificationKey};
+
+pub use self::zkos_types::{
+    IOType, IOType::Coin, Input, InputData, Output, OutputData, TxPointer, Utxo, Witness,
+};

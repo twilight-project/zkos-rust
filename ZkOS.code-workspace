@@ -1,0 +1,16 @@
+{
+    "folders": [
+        {
+            "path": "."
+        },
+        {
+            "path": "../zkos-wasm"
+        },
+        {
+            "path": "../quisquis-rust"
+        },
+        {
+            "path": "../ZkSchnorr"
+        }
+    ]
+}
