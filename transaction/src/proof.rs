@@ -2,16 +2,18 @@
 #![deny(missing_docs)]
 //! Definition of the proof struct.
 
+use bulletproofs::PedersenGens;
 use bulletproofs::RangeProof;
 use curve25519_dalek::scalar::Scalar;
+use quisquislib::shuffle::shuffle::ROWS;
 use quisquislib::{
     accounts::prover::{Prover, SigmaProof},
     accounts::verifier::Verifier,
     accounts::Account,
     keys::PublicKey,
-    //pedersen::vectorpedersen::VectorPedersenGens,
+    pedersen::vectorpedersen::VectorPedersenGens,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
-    shuffle::{ShuffleProof, ShuffleStatement},
+    shuffle::{Shuffle, ShuffleProof, ShuffleStatement},
 };
 
 use serde::{Deserialize, Serialize};
@@ -41,8 +43,6 @@ pub struct ShuffleTxProof {
     pub(super) input_shuffle_proof: ShuffleProof,
     pub(super) input_shuffle_statement: ShuffleStatement,
     pub(super) updated_delta_dlog: SigmaProof,
-    // pub(super) zero_balance_dlog: Option<SigmaProof>,
-    // pub(super) updated_delta_accounts: Vec<Account>,
     pub(super) output_shuffle_proof: ShuffleProof,
     pub(super) output_shuffle_statement: ShuffleStatement,
 }
@@ -129,7 +129,7 @@ impl DarkTxProof {
         sender_updated_delta_account: &[Account],
         updated_delta_account: &[Account],
         sender_updated_balance: &[u64],
-        reciever_updated_balance: &[u64],
+        reciever_value_balance: &[u64],
         sender_sk: &[RistrettoSecretKey],
         senders_count: usize,
         receivers_count: usize,
@@ -161,7 +161,7 @@ impl DarkTxProof {
         let bl_rp_vector: Vec<u64> = sender_updated_balance
             .into_iter()
             .cloned()
-            .chain(reciever_updated_balance.iter().cloned())
+            .chain(reciever_value_balance.iter().cloned())
             .collect();
         //create rscalar vector for sender and reciver epsilon accounts.
         //extract rscalars for reciever epsilon accounts
@@ -427,158 +427,169 @@ impl DarkTxProof {
 //  }
 //}
 
-//impl ShuffleTxProof {
-//     ///
-//     ///create shuffle proof
-//     pub fn create_shuffle_proof(
-//         prover: &mut quisquislib::accounts::Prover,
-//         updated_accounts_slice: &[Account],
-//         updated_delta_accounts_slice: &[Account],
-//         rscalars_slice: &[Scalar],
-//         input_anonymity_account_slice: &[Account],
-//         anonymity_comm_scalar: &[Scalar],
-//         input_shuffle: &Shuffle,
-//         output_shuffle: &Shuffle,
-//     ) -> ShuffleTxProof {
-//         //Step 2. create proof for Input shuffle
-//         //generate Xcomit generator points of length m+1
-//         let xpc_gens = VectorPedersenGens::new(ROWS + 1);
-//         // Prepare the constraint system
-//         let pc_gens = PedersenGens::default();
+impl ShuffleTxProof {
+    ///
+    ///create shuffle proof
+    pub fn create_shuffle_proof(
+        prover: &mut quisquislib::accounts::Prover,
+        // input' anonymity account set
+        input_dash_accounts_slice: &[Account],
+        // output' anonymity account set
+        updated_delta_accounts_slice: &[Account],
+        // rscalars for delta anonymity accounts
+        rscalars_slice: &[Scalar],
+        // input anonymity account set. Used for zero balance proof in case of on the fly anonymity account creation
+        //  input_anonymity_account_slice: Option<&[Account]>,
+        //  anonymity_comm_scalar: Option<&[Scalar]>,
+        // for input shuffle and update proof
+        input_shuffle: &Shuffle,
+        // for output shuffle and update proof
+        output_shuffle: &Shuffle,
+    ) -> ShuffleTxProof {
+        //Step 1. create proof for Input shuffle
 
-//         let (input_shuffle_proof, input_shuffle_statement) =
-//             ShuffleProof::create_shuffle_proof(prover, input_shuffle, &pc_gens, &xpc_gens);
+        //generate Xcomit generator points of length m+1
+        let xpc_gens = VectorPedersenGens::new(ROWS + 1);
 
-//         //generate DLOG proof on Anonymity accounts in Updated Delta accounts
-//         let updated_delta_dlog = Prover::verify_update_account_prover(
-//             &updated_accounts_slice,
-//             &updated_delta_accounts_slice,
-//             &rscalars_slice,
-//             prover,
-//         );
+        // Prepare the constraint system
+        let pc_gens = PedersenGens::default();
 
-//         //if annoymity accounts are created on the fly.
-//         //create zero balance proof for all the anonymity accounts
-//         /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
-//          ** All inputs with no UtxoId will be gathered as new anonymity set and a zero balance proof will have to be provided
-//          ** since we are doing compact batch proof we need to collect the anonymity set before we can run the proof
-//         let zero_balance_dlog = Prover::zero_balance_account_prover(
-//             &input_anonymity_account_slice,
-//             &input_anonymity_account_slice,
-//             &anonymity_comm_scalar,
-//             prover,
-//         );*/
-//         let (output_shuffle_proof, output_shuffle_statement) =
-//             ShuffleProof::create_shuffle_proof(prover, output_shuffle, &pc_gens, &xpc_gens);
+        let (input_shuffle_proof, input_shuffle_statement) =
+            ShuffleProof::create_shuffle_proof(prover, input_shuffle, &pc_gens, &xpc_gens);
 
-//         ShuffleTxProof {
-//             input_dash_accounts: input_shuffle.get_outputs_vector(),
+        // Step 2. generate DLOG proof on Anonymity accounts in Updated Delta accounts
+        // prove that the anonymity delta accounts are Zero balance and created using correct rscalars
+        let updated_delta_dlog = Prover::verify_update_account_prover(
+            &input_dash_accounts_slice,
+            &updated_delta_accounts_slice,
+            &rscalars_slice,
+            prover,
+        );
 
-//             input_shuffle_proof,
-//             input_shuffle_statement,
-//             updated_delta_dlog,
-//             zero_balance_dlog: None,
-//             updated_delta_accounts: output_shuffle.get_inputs_vector(),
-//             output_shuffle_proof,
-//             output_shuffle_statement,
-//         }
-//     }
-//     ///
-//     /// verify the shuffle proof
-//     pub fn verify(
-//         &self,
-//         verifier: &mut Verifier,
-//         input_accounts: &[Account],
-//         output_accounts: &[Account],
-//         anonymity_index: usize,
-//     ) -> Result<(), &'static str> {
-//         //Recreate Pedersen Commitment (PC) Genarater and Xtended PC (XPC) Gens
-//         //generate Xcomit generator points of length m+1
-//         let xpc_gens = VectorPedersenGens::new(ROWS + 1);
-//         // Prepare the constraint system
-//         let pc_gens = PedersenGens::default();
+        //if annoymity accounts are created on the fly.
+        //create zero balance proof for all the anonymity accounts
+        /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
+         ** All inputs with no UtxoId will be gathered as new anonymity set and a zero balance proof will have to be provided
+         ** since we are doing compact batch proof we need to collect the anonymity set before we can run the proof*/
+        // Do Not use it. Should be part of Witnesses in the transaction
+        // if input_anonymity_account_slice.is_some(){
+        //     let zero_balance_dlog = Prover::zero_balance_account_vector_prover(
+        //         &input_anonymity_account_slice.unwrap(),
+        //         &anonymity_comm_scalar.unwrap(),
+        //         prover,
+        //     );
+        // }
+        let (output_shuffle_proof, output_shuffle_statement) =
+            ShuffleProof::create_shuffle_proof(prover, output_shuffle, &pc_gens, &xpc_gens);
 
-//         //verify the input shuffle
-//         self.input_shuffle_proof.verify(
-//             verifier,
-//             &self.input_shuffle_statement,
-//             &input_accounts,
-//             &self.input_dash_accounts,
-//             &pc_gens,
-//             &xpc_gens,
-//         )?;
+        ShuffleTxProof {
+            input_dash_accounts: input_shuffle.get_outputs_vector(),
+            input_shuffle_proof,
+            input_shuffle_statement,
+            updated_delta_dlog,
+            //zero_balance_dlog: None,
+            // updated_delta_accounts: output_shuffle.get_inputs_vector(),
+            output_shuffle_proof,
+            output_shuffle_statement,
+        }
+    }
+    ///
+    /// verify the shuffle proof
+    pub fn verify(
+        &self,
+        verifier: &mut Verifier,
+        input_accounts: &[Account],
+        output_accounts: &[Account],
+        updated_delta_accounts: &[Account],
+        anonymity_index: usize,
+    ) -> Result<(), &'static str> {
+        //Recreate Pedersen Commitment (PC) Genarater and Xtended PC (XPC) Gens
+        //generate Xcomit generator points of length m+1
+        let xpc_gens = VectorPedersenGens::new(ROWS + 1);
+        // Prepare the constraint system
+        let pc_gens = PedersenGens::default();
 
-//         // Verify DLOG proof on Anonymity accounts in Updated Delta accounts
-//         let (z_vector, x) = self.updated_delta_dlog.clone().get_dlog();
-//         let updated_accounts_slice = &self.input_dash_accounts[anonymity_index..9];
-//         let updated_delta_accounts_slice = &self.updated_delta_accounts[anonymity_index..9];
-//         //verify dlog proof
-//         println!("BEFORE Anony index {:?}", anonymity_index);
-//         Verifier::verify_update_account_verifier(
-//             &updated_accounts_slice,
-//             &updated_delta_accounts_slice,
-//             &z_vector,
-//             &x,
-//             verifier,
-//         )?;
-//         println!("AFTER Anony index {:?}", anonymity_index);
-//         /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
-//          //Step 7. if annoymity accounts are created on the fly.
-//          //create zero balance proof for all the anonymity accounts
-//          if self.zero_balance_dlog.is_some(){
-//         // let input_anonymity_account_slice =
-//          let (z_zero_balance, x_zero_balance) = self.zero_balance_dlog.clone().unwrap().get_dlog();
-//          println!("In verifier");
-//          //verify zero balance proof for anonymity set
-//          Verifier::zero_balance_account_verifier(
-//              &updated_accounts_slice,
-//              &z_zero_balance,
-//              x_zero_balance,
-//              verifier,
-//          )?;*/
-//         //verify the output shuffle
-//         self.output_shuffle_proof.verify(
-//             verifier,
-//             &self.output_shuffle_statement,
-//             &self.updated_delta_accounts,
-//             output_accounts,
-//             &pc_gens,
-//             &xpc_gens,
-//         )?;
+        //verify the input shuffle
+        self.input_shuffle_proof.verify(
+            verifier,
+            &self.input_shuffle_statement,
+            &input_accounts,
+            &self.input_dash_accounts,
+            &pc_gens,
+            &xpc_gens,
+        )?;
 
-//         Ok(())
-//     }
-/// Serializes the proof into a byte array
-///
-/// # Layoutec<>
-///
-/// The layout of the darktx proof encoding is:
-//     pub fn to_bytes(&self) -> Vec<u8> {
-//         let mut buf = Vec::with_capacity(64);
-//         //DESIGN BYTE STREAM FOR PROOF CATERING FOR VECTORS
-//         let (pk, _enc) = self.updated_delta_accounts[0].get_account();
-//         buf.extend_from_slice(&pk.as_bytes());
-//         // buf.extend_from_slice(self.);
-//         // buf.extend_from_slice(self.);
-//         // buf.extend(self.);
-//         buf
-//     }
+        // Verify DLOG proof on Anonymity accounts in Updated Delta accounts
+        let (z_vector, x) = self.updated_delta_dlog.clone().get_dlog();
+        let updated_accounts_slice = &self.input_dash_accounts[anonymity_index..9];
+        let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
+        //verify dlog proof
+        println!("BEFORE Anony index {:?}", anonymity_index);
+        Verifier::verify_update_account_verifier(
+            &updated_accounts_slice,
+            &updated_delta_accounts_slice,
+            &z_vector,
+            &x,
+            verifier,
+        )?;
+        println!("AFTER Anony index {:?}", anonymity_index);
+        /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
+         //Step 7. if annoymity accounts are created on the fly.
+         //create zero balance proof for all the anonymity accounts
+         if self.zero_balance_dlog.is_some(){
+        // let input_anonymity_account_slice =
+         let (z_zero_balance, x_zero_balance) = self.zero_balance_dlog.clone().unwrap().get_dlog();
+         println!("In verifier");
+         //verify zero balance proof for anonymity set
+         Verifier::zero_balance_account_verifier(
+             &updated_accounts_slice,
+             &z_zero_balance,
+             x_zero_balance,
+             verifier,
+         )?;*/
+        //verify the output shuffle
+        self.output_shuffle_proof.verify(
+            verifier,
+            &self.output_shuffle_statement,
+            updated_delta_accounts,
+            output_accounts,
+            &pc_gens,
+            &xpc_gens,
+        )?;
 
-//     /// Deserializes the proof from a byte slice.
-//     ///
-//     /// Returns an error if the byte slice cannot be parsed into a `DarkTxProof`.
-//     pub fn from_bytes(_slice: &[u8]) /*-> Result<DarkTxProof, &'static str >*/
-//     {
-//         // let e_blinding = Scalar::from_canonical_bytes(read32!()).ok_or(R1CSError::FormatError)?;
+        Ok(())
+    }
+    /// Serializes the proof into a byte array
+    ///
+    /// # Layoutec<>
+    ///
+    /// The layout of the darktx proof encoding is:
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(64);
+        //DESIGN BYTE STREAM FOR PROOF CATERING FOR VECTORS
+        let (pk, _enc) = self.input_dash_accounts[0].get_account();
+        buf.extend_from_slice(&pk.as_bytes());
+        // buf.extend_from_slice(self.);
+        // buf.extend_from_slice(self.);
+        // buf.extend(self.);
+        buf
+    }
 
-//         // // XXX: IPPProof from_bytes gives ProofError.
-//         // let ipp_proof = InnerProductProof::from_bytes(slice).map_err(|_| R1CSError::FormatError)?;
+    //     /// Deserializes the proof from a byte slice.
+    //     ///
+    //     /// Returns an error if the byte slice cannot be parsed into a `DarkTxProof`.
+    //     pub fn from_bytes(_slice: &[u8]) /*-> Result<DarkTxProof, &'static str >*/
+    //     {
+    //         // let e_blinding = Scalar::from_canonical_bytes(read32!()).ok_or(R1CSError::FormatError)?;
 
-//         // Ok(R1CSProof {
-//         //     ipp_proof,
-//         // })
-//     }
-// }
+    //         // // XXX: IPPProof from_bytes gives ProofError.
+    //         // let ipp_proof = InnerProductProof::from_bytes(slice).map_err(|_| R1CSError::FormatError)?;
+
+    //         // Ok(R1CSProof {
+    //         //     ipp_proof,
+    //         // })
+    //     }
+}
 
 // impl Serialize for ShuffleTxProof {
 //     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

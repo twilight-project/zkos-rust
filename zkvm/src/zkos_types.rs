@@ -975,7 +975,18 @@ impl Output {
             _ => Err("Error::InvalidOutputType. Only allowed for Coin type"),
         }
     }
+    /// Create a output of Coin which is valid on the given network.
+    pub fn from_quisquis_account(account: Account, net: address::Network) -> Self {
+        let (pk, comm) = account.get_account();
+        let owner: String = address::Address::standard_address(net, pk).as_hex();
+        let coin: OutputCoin = OutputCoin {
+            encrypt: comm,
+            owner,
+        };
+        Output::coin(OutputData::coin(coin))
+    }
 }
+/// Create a output of Coin which is valid on the Default network.
 impl From<Account> for Output {
     fn from(account: Account) -> Self {
         let (pk, comm) = account.get_account();
