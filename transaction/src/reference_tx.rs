@@ -89,7 +89,7 @@ impl Sender {
         senders_count: usize,
         receivers_count: usize,
     ) -> (Vec<Account>, Vec<Scalar>) {
-        let mut value_vector: Vec<i64> = Vec::new();
+        // let mut value_vector: Vec<i64> = Vec::new();
         let mut account_vector: Vec<Account> = Vec::new();
 
         //keep track of all the r used for commitment of value zero
@@ -109,7 +109,7 @@ impl Sender {
 
         if diff >= 1 {
             for _ in 0..diff {
-                value_vector.push(0);
+                //value_vector.push(0);
                 let (acc, comm_scalar) = Account::generate_account(PublicKey::update_public_key(
                     &pk_annonymity,
                     Scalar::random(&mut OsRng),
@@ -568,9 +568,13 @@ mod test {
     fn create_qq_transaction_test() {
         println!("IN TEST");
 
-        // let tx: Transaction = create_qq_reference_transaction();
+        let tx: Transaction = create_qq_reference_transaction();
         // let verify = verify_transaction(tx);
         // println!("{:?}", verify)
+        // Given its a qq transaction
+        let tx_qq = TransactionData::to_transfer(tx.tx).unwrap();
+        let verify_qq = tx_qq.verify();
+        println!("{:?}", verify_qq);
     }
     #[test]
     fn create_genesis_block_test() {
