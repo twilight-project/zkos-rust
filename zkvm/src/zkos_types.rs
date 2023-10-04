@@ -107,7 +107,7 @@ impl Default for Utxo {
 /// IOtype: Coin, Memo, State
 ///
 /// InputType implements [`Default`] and returns [`InputType::Coin`].
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Deserialize, Serialize)]
+#[derive(Debug, Eq, Copy, Clone, Deserialize, Serialize)]
 pub enum IOType {
     Coin,
     Memo,
@@ -146,6 +146,16 @@ impl IOType {
 impl Default for IOType {
     fn default() -> IOType {
         IOType::Coin
+    }
+}
+impl PartialEq for IOType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (IOType::Coin, IOType::Coin) => true,
+            (IOType::Memo, IOType::Memo) => true,
+            (IOType::State, IOType::State) => true,
+            _ => false,
+        }
     }
 }
 
@@ -456,6 +466,17 @@ impl InputData {
     //}
 }
 
+impl PartialEq for InputData {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (InputData::Coin { utxo, .. }, InputData::Coin { utxo: utxo2, .. }) => utxo == utxo2,
+            (InputData::Memo { utxo, .. }, InputData::Memo { utxo: utxo2, .. }) => utxo == utxo2,
+            (InputData::State { utxo, .. }, InputData::State { utxo: utxo2, .. }) => utxo == utxo2,
+            _ => false,
+        }
+    }
+}
+
 /// A complete twilight typed Input valid for a specific network.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Input {
@@ -615,6 +636,13 @@ impl Input {
     }
 }
 
+/// Define the != operator for Input
+///
+impl PartialEq for Input {
+    fn eq(&self, other: &Self) -> bool {
+        self.in_type == other.in_type && self.input == other.input
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OutputData {
     Coin(OutputCoin),
