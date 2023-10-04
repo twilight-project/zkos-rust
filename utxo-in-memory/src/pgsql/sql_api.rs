@@ -1,6 +1,6 @@
 use crate::db::KeyId;
 use crate::db::UtxokeyidOutput;
-use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_SQL_QUEUE};
+use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY};
 use crate::ThreadPool;
 use r2d2_postgres::postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
@@ -9,6 +9,7 @@ use std::sync::mpsc;
 use zkvm::zkos_types::IOType;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoOutputRaw {
+    pub utxo_key:Vec<u8>,
     pub output: Vec<u8>,
     pub height: i64,
 }
@@ -83,33 +84,33 @@ pub fn get_utxo_from_db_by_block_height_range(
         match io_type{
             IOType::Coin=>{   
                 if end_block < 0 {
-                query = format!("SELECT  output, block_height FROM public.utxo_coin_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+                query = format!("SELECT utxo, output, block_height FROM public.utxo_coin_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
                 
                  println!("{}",query);
            }
    
            else {
-                query = format!("SELECT output, block_height FROM public.utxo_coin_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
+                query = format!("SELECT utxo, output, block_height FROM public.utxo_coin_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
                println!("{}",query);
            }
    },
             IOType::Memo=>{   if end_block < 0 {
-                query = format!("SELECT  output, block_height FROM public.utxo_memo_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+                query = format!("SELECT utxo, output, block_height FROM public.utxo_memo_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
                println!("{}",query);
            }
    
            else {
-                query = format!("SELECT output, block_height FROM public.utxo_memo_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
+                query = format!("SELECT utxo, output, block_height FROM public.utxo_memo_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
                println!("{}",query);
            }
    },
             IOType::State=>{   if end_block < 0 {
-                query = format!("SELECT  output, block_height FROM public.utxo_state_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+                query = format!("SELECT utxo, output, block_height FROM public.utxo_state_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
                println!("{}",query);
            }
    
            else {
-                query = format!("SELECT output, block_height FROM public.utxo_state_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
+                query = format!("SELECT utxo, output, block_height FROM public.utxo_state_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
                println!("{}",query);
            }
    }
@@ -122,6 +123,7 @@ pub fn get_utxo_from_db_by_block_height_range(
             Ok(data) => {
                 for row in data {
                     result.push(UtxoOutputRaw {
+                        utxo_key: row.get("utxo"),
                         output: row.get("output"),
                         height: row.get("block_height"),
                     });
