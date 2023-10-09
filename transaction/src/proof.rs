@@ -39,17 +39,15 @@ impl RevealProof {
     /// Verify the reveal proof
     /// Recreate the encryption using the encrypt_scalar and amount and verify
     /// if the encryption matches the encryption in the reveal proof
-    pub fn verify(&self, input: Account) -> bool {
-        // get pk, encryption from account
-        let (pk, enc) = input.get_account();
-        // recreate encryption using reveal proof
+    pub fn verify(&self, encryption: ElGamalCommitment, initial_pk: RistrettoPublicKey) -> bool {
+        // recreate encryption using reveal proof commitment scalar and the initial pk of the account to be burned
         let recreated_enc = ElGamalCommitment::generate_commitment(
-            &pk,
+            &initial_pk,
             self.encrypt_scalar,
             Scalar::from(self.amount),
         );
         // compare the encryption
-        if enc == recreated_enc {
+        if encryption == recreated_enc {
             true
         } else {
             false
