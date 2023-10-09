@@ -329,8 +329,9 @@ pub fn create_dark_reference_transaction() -> Transaction {
         receiver_count,
         None,
     );
+    let (transfer, _comm_scalar) = transfer.unwrap();
 
-    Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
+    Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer))
 }
 
 ///Random Initialization of UTXO set for testing purposes
@@ -544,8 +545,8 @@ pub fn create_dark_reference_tx_for_utxo_test(
         receiver_count,
         None,
     );
-
-    Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
+    let (transfer, _comm_scalar) = transfer.unwrap();
+    Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer))
 }
 
 // ------------------------------------------------------------------------
