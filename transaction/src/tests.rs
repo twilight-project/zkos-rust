@@ -289,16 +289,27 @@ fn test_dark_transaction_single_sender_reciever() {
         receiver_count,
         Some(&vec![alice_comm_scalar]),
     );
-
+    let (transfer, comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
-        dark_transfer.unwrap(),
+        transfer.clone(),
     ));
-    println!("Transaction : {:?}", tx);
+    println!("Transaction : {:?}", tx.clone());
 
     // Verify the transaction
     let verify = tx.verify();
     println!("Verify : {:?}", verify);
     assert!(verify.is_ok());
+
+    // testing Encrypt scalar addition
+    let outputs = tx.get_tx_outputs();
+    // get reciever out
+    let reciever_out = outputs[1].clone();
+    let recieever_account = reciever_out.to_quisquis_account().unwrap();
+    let (pk, enc) = recieever_account.get_account();
+    // recreate el gamal encryption with new scalar and 500
+    let new_enc =
+        ElGamalCommitment::generate_commitment(&pk, comm_scalar.unwrap(), Scalar::from(500u64));
+    assert_eq!(new_enc, enc);
 }
 
 #[test]
@@ -376,9 +387,9 @@ fn test_dark_transaction_pow_2() {
         receiver_count,
         Some(&vec![alice_comm_rscalar, fay_comm_rscalar]),
     );
-
+    let (tranfer, comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
-        dark_transfer.unwrap(),
+        tranfer,
     ));
     //  println!("Transaction : {:?}", tx);
 
@@ -475,9 +486,9 @@ fn test_dark_transaction_odd() {
             fay_comm_rscalar,
         ]),
     );
-
+    let (transfer, comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
-        dark_transfer.unwrap(),
+        transfer,
     ));
     // hex encode the tx
     let tx_hex = hex::encode(bincode::serialize(&tx).unwrap());
