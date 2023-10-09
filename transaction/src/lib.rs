@@ -8,6 +8,7 @@ pub extern crate quisquislib;
 
 mod constants;
 mod errors;
+mod message;
 mod proof;
 pub mod reference_tx;
 mod script_tx;
@@ -22,6 +23,7 @@ mod tests;
 
 // re-exports
 pub use self::errors::TxError;
+pub use self::message::Message;
 pub use self::proof::{DarkTxProof, ShuffleTxProof};
 pub use self::reference_tx::{Receiver, Sender};
 pub use self::script_tx::ScriptTransaction;
