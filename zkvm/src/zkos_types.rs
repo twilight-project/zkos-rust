@@ -103,7 +103,55 @@ impl Default for Utxo {
         }
     }
 }
-
+/// Messagetype: burn, App
+/// Message implements [`Default`] and returns [`MessageType::App`].
+#[derive(Debug, Eq, Copy, Clone, Deserialize, Serialize)]
+pub enum MessageType {
+    Burn,
+    App,
+}
+impl MessageType {
+    pub fn from_u8(byte: u8) -> Result<MessageType, &'static str> {
+        use MessageType::*;
+        match byte {
+            0 => Ok(Burn),
+            1 => Ok(App),
+            _ => Err("Error::InvalidMessageType"),
+        }
+    }
+    pub fn is_burn(&self) -> bool {
+        match *self {
+            MessageType::Burn => true,
+            _ => false,
+        }
+    }
+    pub fn is_app(&self) -> bool {
+        match *self {
+            MessageType::App => true,
+            _ => false,
+        }
+    }
+    pub fn to_u8(&self) -> u8 {
+        match *self {
+            MessageType::Burn => 0,
+            MessageType::App => 1,
+        }
+    }
+}
+impl Default for MessageType {
+    fn default() -> MessageType {
+        MessageType::App
+    }
+}
+impl PartialEq for MessageType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (MessageType::Burn, MessageType::Burn) => true,
+            (MessageType::App, MessageType::App) => true,
+            _ => false,
+        }
+    }
+}
 /// IOtype: Coin, Memo, State
 ///
 /// InputType implements [`Default`] and returns [`InputType::Coin`].

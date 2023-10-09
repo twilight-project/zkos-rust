@@ -1,7 +1,7 @@
 //use merlin::Transcript;
 use zkvm::zkos_types::{Input, Output};
 
-use crate::{ScriptTransaction, TransferTransaction};
+use crate::{Message, ScriptTransaction, TransferTransaction};
 use serde::{Deserialize, Serialize};
 
 /// Transaction type: Transfer. Script, Vault
@@ -11,6 +11,7 @@ pub enum TransactionType {
     Transfer,
     Script,
     Vault,
+    Message,
 }
 
 impl TransactionType {
@@ -20,6 +21,7 @@ impl TransactionType {
             0 => Ok(Transfer),
             1 => Ok(Script),
             2 => Ok(Vault),
+            3 => Ok(Message),
             _ => Err("Error::InvalidTransactionType"),
         }
     }
@@ -35,7 +37,7 @@ pub enum TransactionData {
     TransactionTransfer(TransferTransaction),
     TransactionScript(ScriptTransaction),
     //TransactionCreate,
-    //TransactionVault,
+    Message(Message),
 }
 
 impl TransactionData {
@@ -52,6 +54,13 @@ impl TransactionData {
         match self {
             TransactionData::TransactionScript(x) => Ok(x),
             _ => Err("Invalid Script Transaction"),
+        }
+    }
+    /// Downcasts Transaction to `Message` type.
+    pub fn to_message(self) -> Result<Message, &'static str> {
+        match self {
+            TransactionData::Message(x) => Ok(x),
+            _ => Err("Invalid Message Transaction"),
         }
     }
 }
@@ -85,6 +94,13 @@ impl Transaction {
             tx: data,
         }
     }
+    /// Create a Message tx .
+    pub fn transaction_message(data: TransactionData) -> Transaction {
+        Transaction {
+            tx_type: TransactionType::Message,
+            tx: data,
+        }
+    }
 
     /// return tx Input values
     pub fn get_tx_inputs(&self) -> Vec<Input> {
@@ -95,6 +111,7 @@ impl Transaction {
             TransactionData::TransactionScript(script_transaction) => {
                 script_transaction.get_input_values().clone()
             }
+            TransactionData::Message(message) => vec![message.input.clone()],
         }
     }
     /// return tx Output values
@@ -106,6 +123,7 @@ impl Transaction {
             TransactionData::TransactionScript(script_transaction) => {
                 script_transaction.get_output_values()
             }
+            _ => vec![],
         }
     }
     pub fn verify(&self) -> Result<(), &'static str> {
@@ -117,6 +135,7 @@ impl Transaction {
                 self.get_tx_inputs().as_slice(),
                 self.get_tx_outputs().as_slice(),
             ),
+            TransactionData::Message(message) => message.verify(),
         }
     }
 }
@@ -135,6 +154,16 @@ impl From<TransferTransaction> for Transaction {
         Transaction {
             tx_type: TransactionType::Transfer,
             tx: TransactionData::TransactionTransfer(tx_transfer),
+        }
+    }
+}
+
+/// from message to transaction
+impl From<Message> for Transaction {
+    fn from(message: Message) -> Transaction {
+        Transaction {
+            tx_type: TransactionType::Message,
+            tx: TransactionData::Message(message),
         }
     }
 }

@@ -5,3 +5,4 @@ mod service;
 mod threadpool;
 mod types;
 pub use self::server::*;
+pub use self::types::MintOrBurnTx;
