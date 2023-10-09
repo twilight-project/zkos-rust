@@ -141,7 +141,10 @@ impl TransferTransaction {
     // pub fn create_witness_proof_transfer_tx(witness_comm_scalar: Option<&[Scalar]>) -> {
 
     // }
-
+    /// Option<Scalar> carries the final scalar used in the reciever ourput encryption
+    /// This is required to process burnMessage
+    /// is Some if the reciever is zero balance in input
+    /// WORKS FOR SINGLE RECIEVER YET. SHOULD BE UPDATED TO SUPPORT MULTIPLE RECIEVERS
     pub fn create_dark_transaction(
         value_vector: &[i64],
         account_vector: &[Account],
@@ -154,7 +157,8 @@ impl TransferTransaction {
         // carries the witness for zero balance reciever accounts if they exist. otherwise none
         // setting the witness index properly in the input is the resposibility of the client
         witness_comm_scalar: Option<&[Scalar]>,
-    ) -> Result<TransferTransaction, &'static str> {
+    ) -> Result<(TransferTransaction, Option<Scalar>), &'static str> {
+        let mut encrypt_scalar_sum = Scalar::zero();
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
         for v in value_vector.iter() {
@@ -178,7 +182,8 @@ impl TransferTransaction {
                 &value_vector_scalar,
                 base_pk,
             );
-
+        // add reciever rscalar value to encrypt_scalar_sum
+        encrypt_scalar_sum += delta_rscalar[senders_count];
         //identity check function to verify the construction of epsilon accounts using correct rscalars
         Verifier::verify_delta_identity_check(&epsilon_accounts)?;
 
@@ -203,6 +208,8 @@ impl TransferTransaction {
                 )
             })
             .collect::<Vec<Account>>();
+        // add comm_update_scalar to encrypt_scalar_sum
+        encrypt_scalar_sum += comm_update_scalar;
         // create dark tx proof including the updated output accounts proof
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
@@ -257,6 +264,8 @@ impl TransferTransaction {
                 //         scalar_index += 1;
                 //         witnesses.push(Witness::Proof(witness_proof));
                 //     }
+                // add scalar_witness to encrypt_scalar_sum
+                encrypt_scalar_sum += scalar_vector[0];
                 let witnesses = reciever_zero_balance_proof(
                     &mut prover,
                     &input_vector,
@@ -265,29 +274,35 @@ impl TransferTransaction {
                     receivers_count,
                 );
 
-                Ok(TransferTransaction::set_tranfer_transaction(
+                Ok((
+                    TransferTransaction::set_tranfer_transaction(
+                        version,
+                        maturity,
+                        input_count as u8,
+                        output_count as u8,
+                        witnesses.len() as u8,
+                        input_vector.to_vec(),
+                        outputs,
+                        dark_tx_proof,
+                        None,
+                        Some(witnesses.to_vec()),
+                    ),
+                    Some(encrypt_scalar_sum),
+                ))
+            }
+            None => Ok((
+                TransferTransaction::set_tranfer_transaction(
                     version,
                     maturity,
                     input_count as u8,
                     output_count as u8,
-                    witnesses.len() as u8,
+                    0u8,
                     input_vector.to_vec(),
                     outputs,
                     dark_tx_proof,
                     None,
-                    Some(witnesses.to_vec()),
-                ))
-            }
-            None => Ok(TransferTransaction::set_tranfer_transaction(
-                version,
-                maturity,
-                input_count as u8,
-                output_count as u8,
-                0u8,
-                input_vector.to_vec(),
-                outputs,
-                dark_tx_proof,
-                None,
+                    None,
+                ),
                 None,
             )),
         }

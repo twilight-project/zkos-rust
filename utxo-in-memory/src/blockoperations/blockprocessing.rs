@@ -475,6 +475,20 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                 continue;
             }
         }
+    } else if transaction.tx_type == TransactionType::Message {
+        // check if message is burn
+        let message = transaction.tx.to_message().unwrap();
+        if message.msg_type == zkvm::zkos_types::MessageType::Burn {
+            let utxo = message.input.as_utxo().unwrap();
+            let utxo_key = bincode::serialize(utxo).unwrap();
+            if utxo_storage.search_key(&utxo_key, 0) == false {
+                return false;
+            };
+        } else {
+            // HAVE TO PUT IN CHECKS FOR OTHER TYPES OF MESSAGES WHEN THEY ARE IMPLEMENTED
+            // SEARCH IN the APRROPRIATE INPUT TYPE SET
+            return false;
+        }
     }
 
     return true;
