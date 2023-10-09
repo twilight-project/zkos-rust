@@ -306,9 +306,18 @@ fn test_dark_transaction_single_sender_reciever() {
     let reciever_out = outputs[1].clone();
     let recieever_account = reciever_out.to_quisquis_account().unwrap();
     let (pk, enc) = recieever_account.get_account();
-    // recreate el gamal encryption with new scalar and 500
-    let new_enc =
-        ElGamalCommitment::generate_commitment(&pk, comm_scalar.unwrap(), Scalar::from(500u64));
+
+    // get pk od the receiver account in the Input vector
+    let input_test = tx.get_tx_inputs();
+    let input_account_reciever = input_test[1].to_quisquis_account().unwrap();
+    let (pk_input_reciever, _) = input_account_reciever.get_account();
+    // recreate el gamal encryption using input pk and updated with new scalar and 500
+
+    let new_enc = ElGamalCommitment::generate_commitment(
+        &pk_input_reciever,
+        comm_scalar.unwrap(),
+        Scalar::from(500u64),
+    );
     assert_eq!(new_enc, enc);
 }
 
