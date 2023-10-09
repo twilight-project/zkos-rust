@@ -10,6 +10,7 @@ use quisquislib::{
     accounts::prover::{Prover, SigmaProof},
     accounts::verifier::Verifier,
     accounts::Account,
+    elgamal::ElGamalCommitment,
     keys::PublicKey,
     pedersen::vectorpedersen::VectorPedersenGens,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
@@ -17,7 +18,44 @@ use quisquislib::{
 };
 
 use serde::{Deserialize, Serialize};
-
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RevealProof {
+    pub encrypt_scalar: Scalar,
+    pub amount: u64,
+}
+impl RevealProof {
+    pub fn new(encrypt_scalar: Scalar, amount: u64) -> Self {
+        RevealProof {
+            encrypt_scalar,
+            amount,
+        }
+    }
+    pub fn get_encrypt_scalar(&self) -> Scalar {
+        self.encrypt_scalar
+    }
+    pub fn get_amount(&self) -> u64 {
+        self.amount
+    }
+    /// Verify the reveal proof
+    /// Recreate the encryption using the encrypt_scalar and amount and verify
+    /// if the encryption matches the encryption in the reveal proof
+    pub fn verify(&self, input: Account) -> bool {
+        // get pk, encryption from account
+        let (pk, enc) = input.get_account();
+        // recreate encryption using reveal proof
+        let recreated_enc = ElGamalCommitment::generate_commitment(
+            &pk,
+            self.encrypt_scalar,
+            Scalar::from(self.amount),
+        );
+        // compare the encryption
+        if enc == recreated_enc {
+            true
+        } else {
+            false
+        }
+    }
+}
 /// Used in Dark Transaction and Quisquis Tx
 /// Store Dark Tx Proof
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -798,4 +836,6 @@ mod test {
         println!("Scalar {:#?}", -Scalar::from(uin as u64));
         println!("Scalar {:#?}", Scalar::from(-iin as u64));
     }
+    #[test]
+    fn test_reveal_proof() {}
 }
