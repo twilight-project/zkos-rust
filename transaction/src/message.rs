@@ -17,7 +17,9 @@ pub struct Message {
     pub version: u64,
     pub fee: u64,
     pub input: Input,
-    pub msg_data: Vec<u8>,
+    // Initially String to support Burn for now. Should be an enum in future
+    pub msg_data: String,
+    // Initially RevealProof to support Burn for now. Should be an enum in future
     pub proof: RevealProof,
     pub signature: Witness,
 }
@@ -29,7 +31,7 @@ impl Message {
         version: u64,
         fee: u64,
         input: Input,
-        msg_data: Vec<u8>,
+        msg_data: String,
         proof: RevealProof,
         signature: Witness,
     ) -> Message {
@@ -50,6 +52,7 @@ impl Message {
         amount: u64,
         encrypt_scalar: Scalar,
         secret_key: RistrettoSecretKey,
+        initial_address: String,
     ) -> Message {
         // create reveal proof
         let proof = RevealProof::new(encrypt_scalar, amount);
@@ -63,23 +66,38 @@ impl Message {
                 .into();
         let sign = pubkey.sign_msg(&message, &secret_key, ("Signature").as_bytes());
         let signature = Witness::from(sign);
+
+        // convert address of Initial account pk into bytes to be stored as msg_data
+        // let bytes = Address::from_hex(&initial_address, AddressType::default())
+        //     .unwrap()
+        //     .as_bytes();
         Message {
             msg_type: MessageType::Burn,
             version: 0,
             fee: 0,
             input,
-            msg_data: vec![],
+            msg_data: initial_address,
             proof,
             signature,
         }
     }
     pub fn verify(&self) -> Result<(), &'static str> {
-        // convert input to quisquis account
-        let account = self.input.to_quisquis_account()?;
-        // verify reveal proof
-        if self.proof.verify(account) == false {
-            return Err("BurnError::InvalidRevealProof");
+        // reconstruct initial_pk from msg_data (it contains initial account address) for Burn Tx
+        let init_address = Address::from_hex(&self.msg_data, AddressType::default())?;
+        let initial_pk: RistrettoPublicKey = init_address.into();
+        // extract enc from Input
+        let enc = self.input.as_encryption();
+        match enc {
+            // verify reveal proof
+            Some(enc) => {
+                // verify enc
+                if self.proof.verify(enc, initial_pk) == false {
+                    return Err("BurnError::InvalidRevealProof");
+                }
+            }
+            None => return Err("BurnError::InvalidEncryption in Input"),
         }
+
         // verify siignature
         let sign_data = self.input.as_input_for_signing();
         let message = bincode::serialize(&sign_data).unwrap();
