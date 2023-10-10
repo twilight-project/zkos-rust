@@ -492,7 +492,7 @@ impl TransferTransaction {
         );
         // assuming the number of accounts to be 9
         let anonymity_index = 9 - anonymity_account_diff;
-        println!("anonymity index: {}", anonymity_index);
+        // println!("anonymity index: {}", anonymity_index);
         // get a list of anonymity accounts in the input' vector
         let input_dash_accounts_anonymity_slice = &input_dash_accounts[anonymity_index..9];
         // get a list of anonymity accounts in the updated delta accounts vector
