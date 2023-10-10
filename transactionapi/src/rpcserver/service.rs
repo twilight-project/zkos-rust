@@ -85,7 +85,7 @@ pub async fn mint_burn_tx_initiate(
     let encrypt_scalar_hex = hex::encode(encrypt_scalar.to_bytes());
     // create payload
     let payload = MintOrBurnPayload {
-        btc_value: value.to_string(),
+        btc_value: value,
         qq_account: qq_account_hex,
         encrypt_scalar: encrypt_scalar_hex,
         twilight_address,
@@ -124,7 +124,7 @@ struct Payload {
 
 #[derive(Serialize, Deserialize)]
 struct MintOrBurnPayload {
-    btc_value: String,
+    btc_value: u64,
     qq_account: String,
     encrypt_scalar: String,
     twilight_address: String,
