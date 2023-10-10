@@ -107,6 +107,8 @@ pub fn rpcserver() {
         } else {
             "".to_string()
         }; 
+
+        println("{:?}", address);
         
         // verify the inputs from utxo set for the tx 
         let utxo_verified = verify_utxo(tx.clone());
