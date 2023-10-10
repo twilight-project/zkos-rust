@@ -59,8 +59,16 @@ nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
 debug_print = []  # Define a custom feature for enabling debug prints
 
 [dev-dependencies]
-criterion = "0.2"
+#criterion = "0.2"
 serde_json = "1.0"
 
 
+[[bench]]
+name = "my_benchmark"
+harness = false
 
+[dependencies.criterion]
+version = "0.3"
+features = [
+      "html_reports",
+]
