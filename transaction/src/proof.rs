@@ -835,5 +835,17 @@ mod test {
         println!("Scalar {:#?}", Scalar::from(-iin as u64));
     }
     #[test]
-    fn test_reveal_proof() {}
+    fn test_reveal_proof() {
+        // create public key randomly
+        let base_pk = RistrettoPublicKey::generate_base_pk();
+        // create a encryption
+        let enc_scalar = Scalar::random(&mut rand::rngs::OsRng);
+        let enc: ElGamalCommitment =
+            ElGamalCommitment::generate_commitment(&base_pk, enc_scalar, Scalar::from(100u64));
+
+        let proof = RevealProof::new(enc_scalar.clone(), 100u64);
+        // verify
+        let verify = proof.verify(enc.clone(), base_pk);
+        assert!(verify);
+    }
 }
