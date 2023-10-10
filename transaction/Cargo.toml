@@ -33,8 +33,8 @@ path = "../../quisquis-rust"
 #path = "../elgamalsign"
 
 [dependencies.zkschnorr]
-git = "ssh://github.com/twilight-project/ZkSchnorr.git"
-#path = "../../ZkSchnorr"
+#git = "ssh://github.com/twilight-project/ZkSchnorr.git"
+path = "../../ZkSchnorr"
 
 
 [dependencies.address]
