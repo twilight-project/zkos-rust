@@ -374,7 +374,7 @@ impl DarkTxProof {
         //println!("BP Epsilon Vector {:?}", bp_epsilon_vec);
 
         //check if batched bulletproof or vector proof
-        println!("Range Proof Length {:?}", self.range_proof.len());
+        // println!("Range Proof Length {:?}", self.range_proof.len());
         match self.range_proof.len() {
             //batched bulletproof. # of prover values are power of 2
             1 => verifier
