@@ -125,6 +125,7 @@ pub fn rpcserver() {
                     // check if transaction is Transfer/BurnMessage
                     match tx.tx_type {
                         TransactionType::Transfer => {
+                            println!("Transfer Tx");
                             let result = service::tx_commit(tx.clone()).await;
                             let response: String = match result {
                                 Ok(response_body) => response_body,
@@ -134,6 +135,7 @@ pub fn rpcserver() {
                             Ok(response_body)
                         }
                         TransactionType::Message => {
+                            println!("Message tx");
                             let message = match tx.tx.clone() {
                                 TransactionData::Message(message) => message,
                                 _ => {
@@ -150,6 +152,7 @@ pub fn rpcserver() {
                                     let result = service::tx_commit(tx.clone()).await;
                                     match result {
                                         Ok(_) => {
+                                            println!("ZkOS burn tx submitted to Zkos Oracle");
                                             // The ZkOS burn tx was sucessfully submitted. 
                                             // Now the Zkos server needs to send the MintorBurnTx after some delay to the oracle
                                             // The oracle will send the MintorBurnTx to the chain
