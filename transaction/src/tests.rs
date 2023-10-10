@@ -573,7 +573,7 @@ fn test_quisquis_transaction_single_sender_reciever() {
         transfer.unwrap(),
     ));
     // println!("Transaction : {:?}", tx);
-
+    //let tx = create_quisquis_tx_single();
     // Verify the transaction
     let verify = tx.verify();
     println!("Verify : {:?}", verify);
