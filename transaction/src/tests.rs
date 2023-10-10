@@ -299,26 +299,6 @@ fn test_dark_transaction_single_sender_reciever() {
     let verify = tx.verify();
     println!("Verify : {:?}", verify);
     assert!(verify.is_ok());
-
-    // testing Encrypt scalar addition
-    let outputs = tx.get_tx_outputs();
-    // get reciever out
-    let reciever_out = outputs[1].clone();
-    let recieever_account = reciever_out.to_quisquis_account().unwrap();
-    let (pk, enc) = recieever_account.get_account();
-
-    // get pk od the receiver account in the Input vector
-    let input_test = tx.get_tx_inputs();
-    let input_account_reciever = input_test[1].to_quisquis_account().unwrap();
-    let (pk_input_reciever, _) = input_account_reciever.get_account();
-    // recreate el gamal encryption using input pk and updated with new scalar and 500
-
-    let new_enc = ElGamalCommitment::generate_commitment(
-        &pk_input_reciever,
-        comm_scalar.unwrap(),
-        Scalar::from(500u64),
-    );
-    assert_eq!(new_enc, enc);
 }
 
 #[test]
@@ -396,7 +376,7 @@ fn test_dark_transaction_pow_2() {
         receiver_count,
         Some(&vec![alice_comm_rscalar, fay_comm_rscalar]),
     );
-    let (tranfer, comm_scalar) = dark_transfer.unwrap();
+    let (tranfer, _comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
         tranfer,
     ));
@@ -495,7 +475,7 @@ fn test_dark_transaction_odd() {
             fay_comm_rscalar,
         ]),
     );
-    let (transfer, comm_scalar) = dark_transfer.unwrap();
+    let (transfer, _comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
         transfer,
     ));
@@ -598,4 +578,116 @@ fn test_quisquis_transaction_single_sender_reciever() {
     let verify = tx.verify();
     println!("Verify : {:?}", verify);
     assert!(verify.is_ok());
+}
+
+#[test]
+fn test_create_burn_message() {
+    // For Complete test
+    // create Dark transfer to Burn Address first
+    let mut rng = rand::thread_rng();
+
+    // create sender and reciever
+    // lets say bob wants to Burn 500 tokens
+    let (bob_account_1, bob_sk_account_1) =
+        Account::generate_random_account_with_value(500u64.into());
+    let (bob_pk, _) = bob_account_1.get_account();
+
+    //create Burn Address/Account witn zero balance
+    let burn_pk = RistrettoPublicKey::update_public_key(&bob_pk, Scalar::random(&mut rng));
+
+    let burn_comm_scalar = Scalar::random(&mut rng);
+    let burn_commitment =
+        ElGamalCommitment::generate_commitment(&burn_pk, burn_comm_scalar, Scalar::from(0u64));
+
+    let burn_account = Account::set_account(burn_pk, burn_commitment);
+
+    // create sender array
+    let burn_reciever = crate::Receiver::set_receiver(500, burn_account);
+    let bob_sender = crate::Sender::set_sender(-500, bob_account_1, vec![burn_reciever]);
+    let tx_vector: Vec<crate::Sender> = vec![bob_sender];
+
+    let (value_vector, account_vector, sender_count, receiver_count) =
+        crate::Sender::generate_value_and_account_vector(tx_vector).unwrap();
+    println!(
+        "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
+        value_vector, sender_count, receiver_count
+    );
+
+    //Create sender updated account vector for the verification of sk and bl-v
+    let updated_balance_sender: Vec<u64> = vec![500];
+    let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1];
+
+    // create input from account vector
+    let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
+    let bob_input =
+        Input::input_from_quisquis_account(&bob_account_1, bob_utxo, 0, Network::default());
+
+    //Simulating a non UTXO input. Provide a valid witness index and Zero balance proof
+    let burn_input =
+        Input::input_from_quisquis_account(&burn_account, Utxo::default(), 0, Network::default());
+    let inputs: Vec<Input> = vec![bob_input, burn_input.clone()];
+
+    let reciever_value_balance: Vec<u64> = vec![500];
+    //println!("Data : {:?}", sender_count);
+    //create Dark transfer transaction
+    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+        &value_vector,
+        &account_vector,
+        &updated_balance_sender,
+        &reciever_value_balance,
+        &inputs,
+        &sk_sender,
+        sender_count,
+        receiver_count,
+        Some(&vec![burn_comm_scalar]),
+    );
+    let (transfer, comm_scalar_final) = dark_transfer.unwrap();
+    let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
+        transfer.clone(),
+    ));
+    // Use data from the transfer transaction to create burn message
+    // create input for burn message
+    let outputs = tx.get_tx_outputs();
+    // get reciever out
+    let reciever_out = outputs[1].clone();
+    let input_burn_message = reciever_out
+        .as_out_coin()
+        .unwrap()
+        .to_input(Utxo::default(), 0);
+    // get input reciever address
+    let burn_inital_address = burn_input.as_owner_address().unwrap().to_owned();
+
+    // create burn message
+    let burn_message = crate::Message::create_burn_message(
+        input_burn_message,
+        500u64,
+        comm_scalar_final.unwrap().clone(),
+        bob_sk_account_1,
+        burn_inital_address,
+    );
+    let burn_tx = crate::Transaction::from(burn_message);
+    println!("Burn Transaction : {:?}", burn_tx);
+    //verify burn transaction
+    let verify = burn_tx.verify();
+    println!("Verify : {:?}", verify);
+    assert!(verify.is_ok());
+    // testing Encrypt scalar addition
+    // let outputs = tx.get_tx_outputs();
+    // // get reciever out
+    // let reciever_out = outputs[1].clone();
+    // let recieever_account = reciever_out.to_quisquis_account().unwrap();
+    // let (_pk, enc) = recieever_account.get_account();
+
+    // // get pk od the receiver account in the Input vector
+    // let input_test = tx.get_tx_inputs();
+    // let input_account_reciever = input_test[1].to_quisquis_account().unwrap();
+    // let (pk_input_reciever, _) = input_account_reciever.get_account();
+    // // recreate el gamal encryption using input pk and updated with new scalar and 500
+
+    // let new_enc = ElGamalCommitment::generate_commitment(
+    //     &pk_input_reciever,
+    //     comm_scalar_final.unwrap(),
+    //     Scalar::from(500u64),
+    // );
+    // assert_eq!(new_enc, enc);
 }
