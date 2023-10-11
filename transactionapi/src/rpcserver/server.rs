@@ -40,45 +40,47 @@ pub fn rpcserver() {
         // extract the params vector from the request
         let vector_params: Vec<String> = match params.parse::<Vec<String>>() {
             Ok(vec) => {
-                if vec.is_empty(){
-                let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                if vec.is_empty() {
+                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
                     return Err(err);
                 }
                 vec
             }
             Err(args) => {
-                let err =
-                    JsonRpcError::invalid_params(format!("Incorrect Parameters: Expected a Vec hex string from client, {:?}", args));
+                let err = JsonRpcError::invalid_params(format!(
+                    "Incorrect Parameters: Expected a Vec hex string from client, {:?}",
+                    args
+                ));
                 return Err(err);
             }
         };
         // extract the tx hex string
         let hex_tx = vector_params[0].clone();
         if hex_tx.trim().is_empty() {
-                    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
-                    return Err(err);
-                }
-               
+            let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+            return Err(err);
+        }
+
         //let hex_tx = match params.parse::<Vec<String>>() {
-         //   Ok(vec) => {
+        //   Ok(vec) => {
         //        if vec.is_empty() {
-         //           let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
-         //           return Err(err);
-         //       }
+        //           let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+        //           return Err(err);
+        //       }
         //        let hex_tx = vec[0].clone();
-            //     if hex_tx.trim().is_empty() {
-            //         let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
-            //         return Err(err);
-            //     }
-            //     hex_tx
-            // }
-            // Err(args) => {
-            //     let err =
-            //         JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
-            //     return Err(err);
-            // }
-       // };
-                // Decode the tx hex string to bytes
+        //     if hex_tx.trim().is_empty() {
+        //         let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+        //         return Err(err);
+        //     }
+        //     hex_tx
+        // }
+        // Err(args) => {
+        //     let err =
+        //         JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+        //     return Err(err);
+        // }
+        // };
+        // Decode the tx hex string to bytes
         let tx_bytes = match hex::decode(hex_tx) {
             Ok(bytes) => bytes,
             Err(e) => {
@@ -106,11 +108,11 @@ pub fn rpcserver() {
             address
         } else {
             "".to_string()
-        }; 
+        };
 
         println!("{:?}", twilight_address);
-        
-        // verify the inputs from utxo set for the tx 
+
+        // verify the inputs from utxo set for the tx
         let utxo_verified = verify_utxo(tx.clone());
         if utxo_verified == false {
             let response_body = "Error: failed to verify utxo".to_string();
@@ -147,39 +149,39 @@ pub fn rpcserver() {
                                     return Err(err);
                                 }
                             };
-                       
+
                             match message.msg_type {
                                 MessageType::Burn => {
                                     // send the ZkOS burn tx to the Zkos Oracle
                                     let result = service::tx_commit(tx.clone()).await;
-                                    match result {
-                                        Ok(_) => {
-                                            println!("ZkOS burn tx submitted to Zkos Oracle");
-                                            // The ZkOS burn tx was sucessfully submitted. 
-                                            // Now the Zkos server needs to send the MintorBurnTx after some delay to the oracle
-                                            // The oracle will send the MintorBurnTx to the chain
-                                            // seleep the process for 5 seconds
-                                            std::thread::sleep(std::time::Duration::from_secs(5));
-                                            // send the MintorBurnTx initialization to the oracle
-                                            let account = message.input.to_quisquis_account().unwrap();
-                                            let result = service::mint_burn_tx_initiate(message.proof.amount, 
-                                                &account, &message.proof.encrypt_scalar, twilight_address).await;
-                                            let response_body = match result {
-                                                Ok(response_body) => response_body,
-                                                Err(err) => err.to_string(),
-                                            };
-                                            let response_body = serde_json::Value::String(response_body);
-                                            return Ok(response_body);
-                                        }
-                                        Err(err) => {
-                                            let err = JsonRpcError::invalid_params(format!(
-                                                "Burn Message Error: The burn ZkOS tx was not commited properly"
-                                            ));
-                                            return Err(err);
-                                        }
-                                    }
-                                   // let response_body = serde_json::Value::String(response_body);
-                                   // Ok(response_body)
+                                    //match result {
+                                    //   Ok(_) => {
+                                    println!("ZkOS burn tx submitted to Zkos Oracle");
+                                    // The ZkOS burn tx was sucessfully submitted.
+                                    // Now the Zkos server needs to send the MintorBurnTx after some delay to the oracle
+                                    // The oracle will send the MintorBurnTx to the chain
+                                    // seleep the process for 5 seconds
+                                    //     std::thread::sleep(std::time::Duration::from_secs(5));
+                                    // send the MintorBurnTx initialization to the oracle
+                                    //   let account = message.input.to_quisquis_account().unwrap();
+                                    // let result = service::mint_burn_tx_initiate(message.proof.amount,
+                                    //      &account, &message.proof.encrypt_scalar, twilight_address).await;
+                                    let response_body = match result {
+                                        Ok(response_body) => response_body,
+                                        Err(err) => err.to_string(),
+                                    };
+                                    let response_body = serde_json::Value::String(response_body);
+                                    return Ok(response_body);
+                                    // }
+                                    // Err(err) => {
+                                    //   let err = JsonRpcError::invalid_params(format!(
+                                    //     "Burn Message Error: The burn ZkOS tx was not commited properly"
+                                    // ));
+                                    //  return Err(err);
+                                    // }
+                                    //}
+                                    // let response_body = serde_json::Value::String(response_body);
+                                    // Ok(response_body)
                                 }
                                 _ => {
                                     let err = JsonRpcError::invalid_params(format!(
@@ -188,9 +190,9 @@ pub fn rpcserver() {
                                     return Err(err);
                                 }
                             }
-                           // let response_body = service::tx_commit(tx.clone()).await;
-                           // let response_body = serde_json::Value::String(response_body);
-                           // Ok(response_body)
+                            // let response_body = service::tx_commit(tx.clone()).await;
+                            // let response_body = serde_json::Value::String(response_body);
+                            // Ok(response_body)
                         }
                         _ => {
                             let err = JsonRpcError::invalid_params(format!(
