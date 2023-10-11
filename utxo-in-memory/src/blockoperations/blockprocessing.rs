@@ -292,7 +292,7 @@ pub fn process_trade_mint(
     height: u64,
     tx_result: &mut BlockResult,
 ) {
-    println!("{:?}", transaction);
+    println!("In Process trade mint  tx :=:  {:?}", transaction);
 
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let tx_id = hex::decode(transaction.tx_id.clone()).expect("error decoding tx id");
@@ -305,6 +305,7 @@ pub fn process_trade_mint(
     let address = address::Standard::from_bytes(&qq_account_bytes[0..69]).unwrap();
 
     if transaction.mint_or_burn.unwrap() == true {
+        //Mint UTXOS
         //let output = OutputData::Coin(OutputCoin{encrypt: elgamal, address:address.as_hex()});
         let output = Output::coin(OutputData::Coin(OutputCoin {
             encrypt: elgamal,
@@ -335,8 +336,12 @@ pub fn process_trade_mint(
         drop(treadpool_sql_queue);
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
-        println!("UTXO ADDED TRADE")
-    } else {
+        println!("UTXO ADDED MINT")
+    }
+    // UTXO IS ALREADY REMOVED THROUGH THE ZKOS Burn Message TX that appears as Transfer Tx now
+    // Therefore no need to do anything for Tendermint Burn Tx.
+    // The tx is only needed for the chain to update the twilight balance
+    /*else {
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
         let input_type = IOType::Coin as usize;
         let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
@@ -363,7 +368,7 @@ pub fn process_trade_mint(
             /**************************************************** */
             println!("UTXO REMOVED TRADE")
         }
-    }
+    }*/
 }
 
 pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
