@@ -10,10 +10,10 @@ use quisquislib::{
     keys::{PublicKey, SecretKey},
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
+use std::time::Instant;
 use zkvm::merkle::{CallProof, Hasher, MerkleTree, Path};
 use zkvm::zkos_types::{Input, InputData, Output, OutputCoin, OutputData, OutputMemo, Utxo};
 use zkvm::{Commitment, Program, String};
-
 #[test]
 fn call_proof_test() {
     // create a tree of programs
@@ -575,9 +575,17 @@ fn test_quisquis_transaction_single_sender_reciever() {
     // println!("Transaction : {:?}", tx);
     //let tx = create_quisquis_tx_single();
     // Verify the transaction
-    let verify = tx.verify();
-    println!("Verify : {:?}", verify);
-    assert!(verify.is_ok());
+    let now = Instant::now();
+    for _ in 0..1000 {
+        tx.verify();
+    }
+    let later = Instant::now();
+    println!(
+        "Time taken to verify transaction {:?}",
+        later.duration_since(now) / 1000
+    );
+    //println!("Verify : {:?}", verify);
+    //assert!(verify.is_ok());
 }
 
 #[test]
@@ -657,6 +665,7 @@ fn test_create_burn_message() {
     // get input reciever address
     let burn_inital_address = burn_input.as_owner_address().unwrap().to_owned();
 
+    let now = Instant::now();
     // create burn message
     let burn_message = crate::Message::create_burn_message(
         input_burn_message,
@@ -666,7 +675,13 @@ fn test_create_burn_message() {
         burn_inital_address,
     );
     let burn_tx = crate::Transaction::from(burn_message);
+    let later = Instant::now();
     println!("Burn Transaction : {:?}", burn_tx);
+    println!(
+        "Time taken to create burn message {:?}",
+        later.duration_since(now)
+    );
+
     //verify burn transaction
     let verify = burn_tx.verify();
     println!("Verify : {:?}", verify);

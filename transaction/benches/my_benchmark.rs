@@ -45,7 +45,34 @@ fn bench_account_decrypt_value(c: &mut Criterion) {
 fn bench_verify_qq_tx(c: &mut Criterion) {
     c.bench_function("Verify QQ Tx", |b| {
         // create qq tx
-        let tx = create_quisquis_tx_single();
+        let (
+            inputs,
+            value_vector,
+            account_vector,
+            updated_balance_sender,
+            reciever_value_balance,
+            sk_sender,
+            senders_count,
+            receivers_count,
+            diff,
+        ) = create_quisquis_tx_single();
+        let transfer = crate::TransferTransaction::create_quisquis_transaction(
+            &inputs,
+            &value_vector,
+            &account_vector,
+            &updated_balance_sender,
+            &reciever_value_balance,
+            &sk_sender,
+            senders_count,
+            receivers_count,
+            // &anonymity_scalar_vector,
+            diff,
+            None,
+        )
+        .unwrap();
+        let tx = Transaction::transaction_transfer(
+            transaction::TransactionData::TransactionTransfer(transfer.clone()),
+        );
         b.iter(|| {
             assert!(tx.verify().is_ok());
         });
@@ -70,12 +97,79 @@ fn bench_create_burn_tx(c: &mut Criterion) {
     });
 }
 
+fn bench_create_dark_tx(c: &mut Criterion) {
+    c.bench_function("Dark Tx", |b| {
+        // get data for burn t
+        let (
+            values,
+            accounts,
+            inputs,
+            updated_sender_balance,
+            updated_balance_reciever,
+            sk_sender,
+            sender_count,
+            receiver_count,
+        ) = create_dark_tx_data();
+
+        b.iter(|| {
+            let transfer = TransferTransaction::create_dark_transaction(
+                &values,
+                &accounts,
+                &updated_sender_balance,
+                &updated_balance_reciever,
+                &inputs,
+                &sk_sender,
+                sender_count,
+                receiver_count,
+                None,
+            )
+            .unwrap();
+        });
+    });
+}
+
+fn bench_create_qq_tx(c: &mut Criterion) {
+    c.bench_function("QQ Tx", |b| {
+        // get data for burn t
+        let (
+            inputs,
+            value_vector,
+            account_vector,
+            updated_balance_sender,
+            reciever_value_balance,
+            sk_sender,
+            senders_count,
+            receivers_count,
+            diff,
+        ) = create_quisquis_tx_single();
+
+        b.iter(|| {
+            let transfer = crate::TransferTransaction::create_quisquis_transaction(
+                &inputs,
+                &value_vector,
+                &account_vector,
+                &updated_balance_sender,
+                &reciever_value_balance,
+                &sk_sender,
+                senders_count,
+                receivers_count,
+                // &anonymity_scalar_vector,
+                diff,
+                None,
+            )
+            .unwrap();
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_account_decrypt,
     bench_account_decrypt_value,
     bench_verify_qq_tx,
     bench_create_burn_tx,
+    bench_create_dark_tx,
+    bench_create_qq_tx,
     //bench_verify_dark_transaction_single,
     //bench_dark_transaction_single,
     //bench_qq_transaction_single,
@@ -87,8 +181,73 @@ criterion_group!(
     // bench_verify_account,
 );
 criterion_main!(benches);
+pub fn create_dark_tx_data() -> (
+    Vec<i64>,
+    Vec<Account>,
+    Vec<Input>,
+    Vec<u64>,
+    Vec<u64>,
+    Vec<RistrettoSecretKey>,
+    usize,
+    usize,
+) {
+    let (
+        value_vector,
+        account_vector,
+        _,
+        _,
+        sender_count,
+        receiver_count,
+        sk_sender,
+        updated_sender_balance,
+    ) = Sender::create_reference_tx_data_for_zkos_test().unwrap();
+    let accounts: &[Account] = &account_vector[..(sender_count + receiver_count)];
+    let values: &[i64] = &value_vector[..(sender_count + receiver_count)];
 
-pub fn create_quisquis_tx_single() -> crate::Transaction {
+    let hash = zkvm::Hash::default();
+    //SHOULD BE TAKEN FROM UTXO SET
+    let utxo = Utxo::from_hash(hash, 0);
+    //create vec of Inouts
+    let mut inputs: Vec<Input> = Vec::new();
+    for input in accounts.iter() {
+        //create address
+        let (pk, enc) = input.get_account();
+        let out_coin = zkvm::zkos_types::OutputCoin {
+            encrypt: enc,
+            owner: address::Address::standard_address(address::Network::Mainnet, pk).as_hex(),
+        };
+        let inp = Input::coin(zkvm::InputData::coin(
+            utxo,
+            // address::Address::coin_address(address::Network::Mainnet, pk).as_hex(),
+            //  enc,
+            out_coin, 0,
+        ));
+        inputs.push(inp.clone());
+    }
+
+    let updated_balance_reciever: Vec<u64> = vec![5];
+    (
+        value_vector,
+        account_vector,
+        inputs,
+        updated_sender_balance,
+        updated_balance_reciever,
+        sk_sender,
+        sender_count,
+        receiver_count,
+    )
+}
+pub fn create_quisquis_tx_single() -> (
+    Vec<Input>,
+    Vec<i64>,
+    Vec<Account>,
+    Vec<u64>,
+    Vec<u64>,
+    Vec<RistrettoSecretKey>,
+    usize,
+    usize,
+    usize,
+) {
     let mut rng = rand::thread_rng();
 
     // create sender and reciever
@@ -153,23 +312,34 @@ pub fn create_quisquis_tx_single() -> crate::Transaction {
     let reciever_value_balance: Vec<u64> = vec![500];
     let diff: usize = 9 - (senders_count + receivers_count);
     // create quisquis transfer transaction
-    let transfer = crate::TransferTransaction::create_quisquis_transaction(
-        &inputs,
-        &value_vector,
-        &account_vector,
-        &updated_balance_sender,
-        &reciever_value_balance,
-        &sk_sender,
+    // let transfer = crate::TransferTransaction::create_quisquis_transaction(
+    //     &inputs,
+    //     &value_vector,
+    //     &account_vector,
+    //     &updated_balance_sender,
+    //     &reciever_value_balance,
+    //     &sk_sender,
+    //     senders_count,
+    //     receivers_count,
+    //     // &anonymity_scalar_vector,
+    //     diff,
+    //     None,
+    // );
+    // let tx = Transaction::transaction_transfer(transaction::TransactionData::TransactionTransfer(
+    //     transfer.unwrap(),
+    // ));
+    // tx
+    (
+        inputs,
+        value_vector.to_vec(),
+        account_vector.to_vec(),
+        updated_balance_sender.to_vec(),
+        reciever_value_balance.to_vec(),
+        sk_sender.to_vec(),
         senders_count,
         receivers_count,
-        // &anonymity_scalar_vector,
         diff,
-        None,
-    );
-    let tx = Transaction::transaction_transfer(transaction::TransactionData::TransactionTransfer(
-        transfer.unwrap(),
-    ));
-    tx
+    )
 }
 
 fn get_data_for_burn_tx() -> (Input, String, Scalar, RistrettoSecretKey) {
@@ -198,10 +368,10 @@ fn get_data_for_burn_tx() -> (Input, String, Scalar, RistrettoSecretKey) {
 
     let (value_vector, account_vector, sender_count, receiver_count) =
         crate::Sender::generate_value_and_account_vector(tx_vector).unwrap();
-    println!(
-        "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
-        value_vector, sender_count, receiver_count
-    );
+    // println!(
+    //     "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
+    //     value_vector, sender_count, receiver_count
+    // );
 
     //Create sender updated account vector for the verification of sk and bl-v
     let updated_balance_sender: Vec<u64> = vec![500];
