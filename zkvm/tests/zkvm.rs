@@ -170,7 +170,7 @@ fn build_and_verify(
 
         (utx.txlog.clone(), utx.sign(sig))
     };
-
+    println!("Tx: {:?}", tx);
     // Verify tx
     let bp_gens = BulletproofGens::new(256, 1);
 
@@ -733,17 +733,41 @@ fn order_message() {
     // print!("{:?}", unsignedtx);
 }
 
+fn contract_initialize_program() -> Program {
+    let order_prog = Program::build(|p| {
+        p.push(Commitment::blinded(100u64))
+            .commit()
+            .dup(0)
+            .expr()
+            .push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .roll(1)
+            .expr()
+            .push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
 #[test]
 fn order_message_old() {
-    let correct_program = order_message_prog(16u64, 9u64);
+    let correct_program = contract_initialize_program();
 
     print!("\n Program \n{:?}", correct_program);
     let input: Vec<Input> = vec![];
     let output: Vec<Output> = vec![];
     //useless predicates
     let (_preds, scalars) = generate_predicates(3);
-    let _res =
+    let res =
         build_and_verify(correct_program, &vec![scalars[1].clone()], &input, &output).unwrap();
+    println!("res {:?}", res);
 }
 
 #[test]

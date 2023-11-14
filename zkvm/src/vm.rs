@@ -67,10 +67,15 @@ where
 
     current_run: R::RunType,
     run_stack: Vec<R::RunType>,
+    // collect all cs related operations
     delegate: &'d mut R,
-
+    // tx inputs and outputs
     inputs_tx: &'d [Input],
     outputs_tx: &'d [Output],
+    // Flag used for contract initialization. 0 -> no, 1 -> yes
+    // in case of contract initialization, input state is not loaded on stack
+    // input state is zero in this case and is not used in the program
+    // contract_init_flag: u8,
 }
 
 pub trait VMRun<CS: r1cs::RandomizableConstraintSystem> {
@@ -853,6 +858,7 @@ where
         delegate: &'d mut R,
         inputs: &'d [Input],
         outputs: &'d [Output],
+        // contract_init_flag: u8,
     ) -> Self {
         VMScript {
             delegate,
@@ -861,10 +867,55 @@ where
             run_stack: Vec::new(),
             inputs_tx: inputs,
             outputs_tx: outputs,
+            // contract_init_flag: contract_init_flag,
         }
     }
+    /// Contract Initalization is treated differently because a contract address/state has to be deployed
+    /// can not use a lend program to do this because no address and state exists already  
+    /// Initialze the VM Stack with the inputs and outputs of the transaction
+    /// trying to deploy a contract
+    /// Assuming a single contract is being deployed using a Single input coin acccount for initialization
+    pub fn initialize_deploy_contract_stack(&mut self) -> Result<(), VMError> {
+        // Contract deploy transaction will have a coin input and corresponding memo output
+        // and Zero state inputs and initialized outputs
+        // Just pushing memo and output state on stack for efficiency
+        // assuming inputs and outputs are in the correct order
+        // the proofs for zero balance and zero state are verified in the transaction witness already before firing up the stack
+        // Coin -> Memo -> State is the correct order based on the inputs
 
-    ///Initialize the VM Stack with the inputs and outputs of the transaction
+        // get inputcoin
+        let input_coin = self.inputs_tx[0].as_out_coin().unwrap();
+        // get corresponding OutputMemo
+        let out_memo: &OutputMemo = self.outputs_tx[0].as_out_memo().unwrap();
+        //compare the coin and memo owner address
+        if input_coin.owner != out_memo.owner {
+            return Err(VMError::InvalidCoinMemo);
+        }
+        //push ther memo commitment and data if present on stack
+        //convert CompressedRistretto to String
+        let str: String = String::from(out_memo.commitment.clone());
+        self.push_item(str);
+        // no need to push the memo data in this case because the program for initailization does not need it
+        //push the output state on stack
+        let out_state = self.outputs_tx[1].as_out_state();
+        let out_value = out_state.unwrap().commitment.clone();
+        self.push_item(String::from(out_value));
+        //push the state variables if present
+        let output_state_variables = out_state.unwrap().state_variables.clone();
+        if output_state_variables.is_some() {
+            let num_state_variables = output_state_variables.clone().unwrap().len() as u64;
+
+            let out_state_variables = out_state.unwrap().state_variables.clone().unwrap();
+            // push number of state variables
+            self.push_item(String::U64(num_state_variables));
+            //push state variables
+            for var in out_state_variables.iter() {
+                self.push_item(var.clone());
+            }
+        }
+        Ok(())
+    }
+    ///Initialize the VM Stack with the inputs and outputs of the regular script transactions
     pub fn initialize_stack(&mut self) -> Result<(), VMError> {
         // Initialize the stack with the inputs and outputs of the transaction
         //assuming inputs and outputs are in the correct order
@@ -948,10 +999,11 @@ where
                     }
                     //load input / output Value
                     let in_value = in_state.unwrap().commitment.clone();
-                    let out_value = out_state.unwrap().commitment.clone();
-
                     self.push_item(String::from(in_value));
+
+                    let out_value = out_state.unwrap().commitment.clone();
                     self.push_item(String::from(out_value));
+
                     let input_state_variables = in_state.unwrap().state_variables.clone();
                     //Load State variables if present
                     //match input_state_variables {
