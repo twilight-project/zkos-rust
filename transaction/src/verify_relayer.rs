@@ -220,7 +220,7 @@ pub fn create_trade_order(
 
     //creating the program proof
     //cretae unsigned Tx with program proof
-    let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs);
+    let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs, false);
     let (program, proof) = result.unwrap();
     //get program call proof and address
     let address_str = create_script_address();

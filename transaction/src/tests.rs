@@ -112,10 +112,10 @@ fn order_message_test() {
     let output: Vec<Output> = vec![coin_out];
 
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(correct_program, &input, &output);
+    let result = Prover::build_proof(correct_program, &input, &output, false);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify = Verifier::verify_r1cs_proof(proof, prog_bytes, &input, &output);
+    let verify = Verifier::verify_r1cs_proof(proof, prog_bytes, &input, &output, false);
     println!("{:?}", verify);
 }
 
@@ -134,6 +134,29 @@ fn order_message_prog(balance: u64, order_qty: u64) -> Program {
     return order_prog;
 }
 
+fn contract_initialize_program() -> Program {
+    let order_prog = Program::build(|p| {
+        p.push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
 fn order_message_prog_with_stack_initialized() -> Program {
     let order_prog = Program::build(|p| {
         p.commit()
@@ -217,10 +240,10 @@ fn trade_order_tx_input_output_test() {
     let output: Vec<Output> = vec![memo];
 
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(correct_program, &input, &output);
+    let result = Prover::build_proof(correct_program, &input, &output, false);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify = Verifier::verify_r1cs_proof(proof, prog_bytes, &input, &output);
+    let verify = Verifier::verify_r1cs_proof(proof, prog_bytes, &input, &output, false);
     println!("{:?}", verify);
 }
 
