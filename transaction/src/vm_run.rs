@@ -56,6 +56,7 @@ impl<'g> Prover<'g> {
         program: Program,
         inputs: &[Input],
         outputs: &[Output],
+        contract_deploy_flag: bool,
     ) -> Result<(Vec<u8>, R1CSProof), VMError> {
         // Prepare the constraint system
         let bp_gens = BulletproofGens::new(256, 1);
@@ -69,21 +70,32 @@ impl<'g> Prover<'g> {
 
         let mut prover = Prover { cs };
 
-        let mut vm = VMScript::new(
+        let mut vm: VMScript<'_, r1cs::Prover<'_, Transcript>, Prover<'_>> = VMScript::new(
             ProverRun {
                 program: program.to_vec().into(),
             },
             &mut prover,
             inputs,
             outputs,
+            // contract_init_flag,
         );
         // initialize the Stack with inputs and outputs
-        let _init_result = vm.initialize_stack()?;
-        //println!("VM initialized");
+        match contract_deploy_flag {
+            true => {
+                let init_result = vm.initialize_stack()?;
+                println!("VM initialized result {:?}", init_result);
+            }
+            false => {
+                let init_result = vm.initialize_deploy_contract_stack()?;
+                println!("VM initialized result {:?}", init_result);
+            }
+        }
+        // let init_result = vm.initialize_stack()?;
+        // println!("VM initialized result {:?}", init_result);
 
         // run the program to create a R1CS circuit
-        let _run_result = vm.run()?;
-
+        let run_result = vm.run()?;
+        println!("Vm run result {:?}", run_result);
         // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
         //COMMIT TXID TO THE PROOF TO MAKE IT BOUND TO THE ENTIRE TRANSACTION
         // prover.cs.transcript().append_message(b"ZkVM.txid", b"ZKOS");
@@ -152,6 +164,7 @@ impl Verifier {
         program: Vec<u8>,
         inputs: &[Input],
         outputs: &[Output],
+        contract_deploy_flag: bool,
     ) -> Result<bool, VMError> {
         let bp_gens = BulletproofGens::new(256, 1);
         //print!("BP Gens in verify_proof {:?}", bp_gens);
@@ -165,10 +178,19 @@ impl Verifier {
             &mut verifier,
             inputs,
             outputs,
+            // contract_init_flag,
         );
 
         // initialize the Stack with inputs and outputs
-        let _init_result = vm.initialize_stack()?;
+        match contract_deploy_flag {
+            true => {
+                let _init_result = vm.initialize_stack()?;
+            }
+            false => {
+                let _init_result = vm.initialize_deploy_contract_stack()?;
+            }
+        }
+        //let _init_result = vm.initialize_stack()?;
         // run the program to create a proof
         let _run_result = vm.run()?;
 
