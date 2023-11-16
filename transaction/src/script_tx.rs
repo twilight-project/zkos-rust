@@ -1,6 +1,6 @@
 use address::{Address, Network};
 use merlin::Transcript;
-use quisquislib::accounts::Account;
+use quisquislib::{accounts::Account, ristretto::RistrettoPublicKey};
 //use quisquislib::{keys::PublicKey, ristretto::RistrettoSecretKey};
 use serde::{Deserialize, Serialize};
 use zkvm::{
@@ -50,30 +50,6 @@ pub struct ScriptTransaction {
     // Transaction data. e.g., supporting data for a script transaction.
     pub(crate) data: Vec<u8>,
 }
-
-// /// Represents a precomputed, but not verified transaction.
-// pub struct PrecomputedTx {
-//     /// Transaction header
-//     pub header: TxHeader,
-
-//     /// Transaction ID
-//     pub id: TxID,
-
-//     /// Transaction log: a list of changes to the blockchain state (UTXOs to delete/insert, etc.)
-//     pub log: TxLog,
-
-//     /// Fee rate of the transaction
-//     pub feerate: FeeRate,
-
-//     /// Verifier to continue verification of the transaction
-//     pub(crate) verifier: Verifier,
-
-//     /// Schnorr signature
-//     pub(crate) signature: Signature,
-
-//     /// R1CS proof
-//     pub(crate) proof: R1CSProof,
-// }
 
 impl ScriptTransaction {
     /// Set a script transaction
@@ -144,81 +120,142 @@ impl ScriptTransaction {
     }
 
     ///create signatures and zero balance proofs for all inputs
-    pub fn create_witness_without_tx(inputs: &[Input], sk_list: &[Scalar]) -> Vec<Witness> {
-        let mut witness: Vec<Witness> = Vec::with_capacity(inputs.len());
-        //iterate over Inputs and check its type
-        for (i, inp) in inputs.iter().enumerate() {
-            // create signature over input
-            //extract public key of input
-            let pk = address::Standard::from_hex(inp.input.owner().unwrap());
-            //serialize input
-            let inp_bytes: Vec<u8> = bincode::serialize(inp).unwrap();
-            //create signature
-            let sign = Signature::sign_message(
-                ("ZKOS.Sign").as_bytes(),
-                &inp_bytes,
-                VerificationKey::from_bytes(pk.public_key.as_bytes().as_slice()).unwrap(),
-                sk_list[i],
-            );
-            //if coin mark witness as Signature
-            match inp.in_type {
-                IOType::Coin => {
-                    witness.push(Witness::Signature(sign));
-                }
-                //if data mark witness as ZeroBalanceProof
-                IOType::Memo => {
-                    witness.push(Witness::Signature(sign));
-                }
-                IOType::State => {
-                    witness.push(Witness::Signature(sign));
-                }
-            }
-        }
-        witness
-    }
+    // pub fn create_witness_without_tx(inputs: &[Input], sk_list: &[Scalar]) -> Vec<Witness> {
+    //     let mut witness: Vec<Witness> = Vec::with_capacity(inputs.len());
+    //     //iterate over Inputs and check its type
+    //     for (i, inp) in self.inputs.iter().enumerate() {
+    //         match inp.in_type {
+    //             IOType::Coin => {
+    //                 let in_coin: &OutputCoin = inp.as_out_coin().expect("Input is not a coin");
+    //                 // get corresponding OutputMemo
+    //                 let out_memo: Output = self.outputs[i];
+    //                 let acc: Account = inp.to_quisquis_account().expect("Input is not an account");
+    //                 // get the public key from account
+    //                 let (pk, _) = acc.get_account();
+    //                 // get Pedersen commitment value from Memo
+    //                 let memo_commitment = out_memo
+    //                     .output
+    //                     .get_commitment()
+    //                     .expect("Memo is not a coin");
+    //                 // create coin input witness
+    //                 let coin_witness: zkvm::zkos_types::ValueWitness =
+    //                 // verify the witness
+    //                 // get account from input
+    //             }
+    //         //if coin mark witness as Signature
+    //         match inp.in_type {
+    //             IOType::Coin => {
+    //                 witness.push(Witness::Signature(sign));
+    //             }
+    //             //if data mark witness as ZeroBalanceProof
+    //             IOType::Memo => {
+    //                 witness.push(Witness::Signature(sign));
+    //             }
+    //             IOType::State => {
+    //                 witness.push(Witness::Signature(sign));
+    //             }
+    //         }
+    //     }
+    //     witness
+    // }
 
     /// verify the script tx
     pub fn verify(&self) -> Result<(), &'static str> {
         //assume that the Utxo Ids have been verified already
 
         // Differentiate between contract deploy and contract call
+        let contract_initialize = self.is_contract_deploy();
 
         //verify the witnesses and the proofs of same value and zero balance proof as required
         self.verify_witnesses()?;
 
         // verify the call proof for the program to check the authenticity of the program
-        let hasher = Hasher::new(b"ZkOS.MerkelTree");
-        let prog = self.program.clone();
+        // Checking authenticity of the program is not required for contract deploy
+        //*???????*/
+        //if contract_initialize == false {
+        //    self.verify_call_proof()?;
+        // }
+        self.verify_call_proof()?;
+        // let hasher = zkvm::Hasher::new(b"ZkOS.MerkelTree");
+        // let bytecode = self.program.clone();
+        // recreate ProgramItem from Vec[u8]
+        // let prog = Program::parse(&bytecode).unwrap();
+
         // identify address from input state
-
-        let address = Address::from_string("ZkOS.MerkelTree", Network::Testnet).unwrap();
-        self.call_proof.verify_call_proof(&address, &prog, &hasher);
-
+        // let address = Address::from_string("ZkOS.MerkelTree", Network::default()).unwrap();
+        // let verify_call_proof = self.call_proof.verify_call_proof(&address, &prog, &hasher);
+        // if verify_call_proof == false {
+        //return Err("Call Proof Verification Failed");
+        // }
         // verify the r1cs proof
-        let bp_gens = BulletproofGens::new(256, 1);
-        let pc_gens = PedersenGens::default();
-        let verifier = r1cs::Verifier::new(Transcript::new(b"ZkVM.r1cs"));
-        let mut verifier = Verifier { cs: verifier };
-        let mut vm = VMScript::new(
-            VerifierRun::new(self.program.clone()),
-            &bp_gens,
-            &pc_gens,
-            &mut verifier,
-        );
-        // initialize the Stack with inputs and outputs
-        let _init_result = vm.initialize_stack()?;
-        // run the program to create a proof
-        let _run_result = vm.run()?;
-        // verify the proof
-        let _verify_result = vm.verify(self.proof.clone())?;
 
+        let verify = crate::vm_run::Verifier::verify_r1cs_proof(
+            &self.proof,
+            &self.program,
+            &self.inputs,
+            &self.outputs,
+            contract_initialize,
+        );
+        match verify {
+            Ok(_x) => Ok(()),
+            Err(_e) => Err("R1CS Proof Verification Failed"),
+        }
+        // let bp_gens = BulletproofGens::new(256, 1);
+        // let pc_gens = PedersenGens::default();
+        // let verifier = r1cs::Verifier::new(Transcript::new(b"ZkVM.r1cs"));
+        // let mut verifier = Verifier { cs: verifier };
+        // let mut vm = VMScript::new(
+        //     VerifierRun::new(self.program.clone()),
+        //     &bp_gens,
+        //     &pc_gens,
+        //     &mut verifier,
+        // );
+        // // initialize the Stack with inputs and outputs
+        // let _init_result = vm.initialize_stack()?;
+        // // run the program to create a proof
+        // let _run_result = vm.run()?;
+        // // verify the proof
+        // let _verify_result = vm.verify(self.proof.clone())?;
+
+        //Ok(())
+    }
+    // verify call proof for the tx program
+    // assuming a single tx can only have one program and can only interact with single state
+    pub fn verify_call_proof(&self) -> Result<(), &'static str> {
+        // verify the call proof for the program to check the authenticity of the program
+        let hasher: zkvm::Hasher<Program> = zkvm::Hasher::<Program>::new(b"ZkOS.MerkelTree");
+        let bytecode = self.program.clone();
+        // recreate ProgramItem from Vec[u8]
+        let prog = Program::parse(&bytecode).unwrap();
+
+        // identify address from input state
+        // the first inout will always be a Coin or a Memo
+        let inp = self.inputs[0].clone();
+        let mut script_address;
+        if inp.in_type == IOType::Coin {
+            // get corresponding OutputMemo
+            let out_memo: Output = self.outputs[0].clone();
+            script_address = out_memo.output.get_script_address().unwrap().to_owned();
+        }
+        if inp.in_type == IOType::Memo {
+            script_address = inp.as_script_address().unwrap().to_owned();
+        }
+        if inp.in_type == IOType::State {
+            return Err("Input is not a Coin or a Memo");
+        }
+        // FIGURE OUT A WAY TO PROVIDE THE TREE ROOT HASH
+        // let verify_call_proof = self
+        //     .call_proof
+        //     .verify_call_proof(&script_address, &prog, &hasher);
+        // if verify_call_proof == false {
+        //     return Err("Call Proof Verification Failed");
+        // }
         Ok(())
     }
-
     // check if script is deploying contract
     // can also use Utxo existance to check this but this is more efficient
     pub fn is_contract_deploy(&self) -> bool {
-        // loop over inputs and find if any inout is of type state
+        // loop over inputs and find if any input is of type state
         for inp in self.inputs.iter() {
             if inp.in_type == zkvm::IOType::State {
                 // get the witness for the input
@@ -226,12 +263,12 @@ impl ScriptTransaction {
                     Some(wit) => {
                         // check if witness is of type ZeroBalanceProof
                         // get the witness from index
-                        let state_witness = &wit[inp.get_witness_index() as usize]
-                            .to_state_witness()
-                            .unwrap();
+                        let witness = wit[inp.get_witness_index() as usize].clone();
+                        let state_witness = witness.to_state_witness().unwrap();
                         // check if state witness is carrying a zero balance proof
-                        match state_witness.get_zero_proof() {
-                            Some(x) => {
+                        let zero_proof = state_witness.get_zero_proof();
+                        match zero_proof {
+                            Some(_x) => {
                                 return true;
                             }
                             None => {
@@ -258,10 +295,11 @@ impl ScriptTransaction {
                 IOType::Coin => {
                     let in_coin: &OutputCoin = inp.as_out_coin().expect("Input is not a coin");
                     // get corresponding OutputMemo
-                    let out_memo: Output = self.outputs[i];
+                    let out_memo: Output = self.outputs[i].clone();
                     // get coin input witness
                     let coin_witness: zkvm::zkos_types::ValueWitness = witness_vector
                         [inp.get_witness_index() as usize]
+                        .clone()
                         .to_value_witness()
                         .expect("Witness is not a value witness for Input Coin");
                     // verify the witness
@@ -287,11 +325,12 @@ impl ScriptTransaction {
                 IOType::Memo => {
                     let in_memo: &OutputMemo = inp.as_out_memo().unwrap();
                     // get corresponding OutputCoin
-                    let out_coin: Output = self.outputs[i];
+                    let out_coin: Output = self.outputs[i].clone();
 
                     // get memo input witness
                     let memo_witness: zkvm::zkos_types::ValueWitness = witness_vector
                         [inp.get_witness_index() as usize]
+                        .clone()
                         .to_value_witness()
                         .expect("Witness is not a value witness for Input Memo");
                     // verify the witness
@@ -314,43 +353,38 @@ impl ScriptTransaction {
                 }
                 IOType::State => {
                     // get the witness for the input
+                    let state_witness = witness_vector[inp.get_witness_index() as usize]
+                        .clone()
+                        .to_state_witness()
+                        .expect("Witness is not a state witness for Input State");
 
-                    match &self.witness {
-                        Some(wit) => {
-                            // check if witness is of type ZeroBalanceProof
-                            // get the witness from index
-                            let state_witness = &wit[inp.get_witness_index() as usize]
-                                .to_state_witness()
-                                .unwrap();
-                            // check if state witness is carrying a zero balance proof
-                            match state_witness.get_zero_proof() {
-                                Some(x) => {
-                                    // verify the zero balance proof
-                                    if !x.verify() {
-                                        return Err("Zero Balance Proof Verification Failed");
-                                    }
-                                }
-                                None => {
-                                    return Err("Zero Balance Proof Not Found");
-                                }
-                            }
-                            // check if state witness is carrying a same value proof
-                            match state_witness.get_same_value_proof() {
-                                Some(x) => {
-                                    // verify the same value proof
-                                    if !x.verify() {
-                                        return Err("Same Value Proof Verification Failed");
-                                    }
-                                }
-                                None => {
-                                    return Err("Same Value Proof Not Found");
-                                }
-                            }
-                        }
-                        None => {
-                            return Err("Witness Not Found");
-                        }
+                    let owner = inp
+                        .as_owner_address()
+                        .expect("Owner address does not exist");
+                    // extract pk from owner string
+                    let address: Address = Address::from_hex(owner, address::AddressType::Standard)
+                        .expect("Hex address is not decodable");
+                    println!("IN State");
+                    let pk: RistrettoPublicKey = address.into();
+                    if !state_witness.verify_state_witness(inp.clone(), pk)? {
+                        return Err("State Witness Verification Failed");
                     }
+                    // check if state witness is carrying a zero balance proof
+                    //  match state_witness.get_zero_proof() {
+                    //    Some(x) => {
+                    // verify the zero balance proof and signature
+                    // get pk from owner address
+
+                    //   }
+                    //      None => {
+                    // verify the signature on the input
+
+                    //            return Err("Zero Balance Proof Not Found");
+                    //      }
+                    //    }
+                    //}
+
+                    //}
                 }
             }
         }
