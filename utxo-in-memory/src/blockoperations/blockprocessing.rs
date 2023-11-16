@@ -236,6 +236,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                 &"".to_string(),
                                 output_index,
                             ));
+                            println!("UTXO COIN ADDED DB");
                         }
                         1 => {
                             pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
@@ -246,6 +247,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                 output_set.output.get_script_address().unwrap(),
                                 output_index,
                             ));
+                            println!("UTXO MEMO ADDED DB");
                         }
                         2 => {
                             pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
@@ -256,6 +258,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                 output_set.output.get_script_address().unwrap(),
                                 output_index,
                             ));
+                            println!("UTXO STATE ADDED DB");
                         }
                         _ => {}
                     }
