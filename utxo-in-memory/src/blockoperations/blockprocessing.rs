@@ -460,12 +460,18 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let tx_inputs = transaction.get_tx_inputs();
     if transaction.tx_type == TransactionType::Script {
         for input in tx_inputs {
-            let utxo_input_type = input.in_type as usize;
-            let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
+            let utxo = input.as_utxo().unwrap();
+            let utxo_test = Utxo::new(TxID(Hash([0; 32])), 0);
+            if utxo.to_owned() != utxo_test {
+                let utxo_input_type = input.in_type as usize;
+                let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
 
-            if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
-                return false;
-            };
+                if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
+                    return false;
+                };
+            } else {
+                continue;
+            }
         }
     } else if transaction.tx_type == TransactionType::Transfer {
         for input in tx_inputs {
