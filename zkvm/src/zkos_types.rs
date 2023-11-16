@@ -172,6 +172,13 @@ impl IOType {
             _ => Err("Error::InvalidInputType"),
         }
     }
+    pub fn to_usize(&self) -> usize {
+        match *self {
+            IOType::Coin => 0,
+            IOType::Memo => 1,
+            IOType::State => 2,
+        }
+    }
     pub fn is_coin(&self) -> bool {
         match *self {
             IOType::Coin => true,
