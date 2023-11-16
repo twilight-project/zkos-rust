@@ -607,7 +607,7 @@ pub fn create_utxo_test_block(
         // // Generate random values and fill the array
         // rand::thread_rng().fill(&mut id);
         let script_tx: ScriptTransaction =
-            ScriptTransaction::create_utxo_script_transaction(&inputs, &outputs);
+            ScriptTransaction::create_utxo_dummy_script_transaction(&inputs, &outputs);
         let tx: Transaction =
             Transaction::transaction_script(TransactionData::TransactionScript(script_tx));
 

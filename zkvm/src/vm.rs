@@ -907,7 +907,7 @@ where
 
             let out_state_variables = out_state.unwrap().state_variables.clone().unwrap();
             // push number of state variables
-            self.push_item(String::U64(num_state_variables));
+            // self.push_item(String::U64(num_state_variables));
             //push state variables
             for var in out_state_variables.iter() {
                 self.push_item(var.clone());
@@ -1046,11 +1046,9 @@ where
         println!("Stack : {:?}", self.stack);
         loop {
             if !self.step()? {
-                println!("Stack : {:?}", self.stack);
                 break;
             }
         }
-
         if self.stack.len() > 0 {
             return Err(VMError::StackNotClean);
         }
@@ -1072,7 +1070,7 @@ where
     /// Returns a flag indicating whether to continue the execution
     fn step(&mut self) -> Result<bool, VMError> {
         if let Some(instr) = self.delegate.next_instruction(&mut self.current_run)? {
-            println!("instr : {:?}", instr);
+            //  println!("instr : {:?}", instr);
             // Attempt to read the next instruction and advance the program state
             match instr {
                 Instruction::Push(data) => self.pushdata(data),
@@ -1153,6 +1151,7 @@ where
         let var = self.pop_item()?.to_variable()?;
         let expr = self.variable_to_expression(var)?;
         self.push_item(expr);
+        //  println!("Stack : {:?}", self.stack);
         Ok(())
     }
 
@@ -1188,9 +1187,9 @@ where
 
     fn range(&mut self) -> Result<(), VMError> {
         let expr = self.pop_item()?.to_expression()?;
-        println!("Expression: {:?}", expr);
+        //  println!("Expression: {:?}", expr);
         let res = self.add_range_proof(expr.clone())?;
-        println!("add range: {:?}", res);
+        //  println!("add range: {:?}", res);
         self.push_item(expr);
         Ok(())
     }

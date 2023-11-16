@@ -877,6 +877,45 @@ impl Default for OutputState {
         }
     }
 }
+impl OutputState {
+    /// needed at the time of signing and creating the input vector for tx
+    pub fn verifier_view(&self) -> Self {
+        // convert the value commitmen to point
+        // conver the state commitments to point if any
+        // witness = 0  for signing
+        let state_var;
+        match &self.state_variables {
+            Some(x) => {
+                // loop over the state variables and convert the commitments to points
+                let mut state_variables: Vec<ZkvmString> = Vec::new();
+                for state_variable in x.iter() {
+                    match state_variable {
+                        ZkvmString::Commitment(commitment) => {
+                            state_variables.push(ZkvmString::Commitment(Box::new(
+                                Commitment::Closed(commitment.to_point()),
+                            )));
+                        }
+                        _ => {
+                            state_variables.push(state_variable.clone());
+                        }
+                    }
+                }
+                state_var = Some(state_variables);
+            }
+            None => {
+                state_var = None;
+            }
+        }
+        OutputState {
+            nonce: self.nonce,
+            script_address: self.script_address.clone(),
+            owner: self.owner.clone(),
+            commitment: Commitment::Closed(self.commitment.clone().to_point()),
+            state_variables: state_var,
+            timebounds: self.timebounds,
+        }
+    }
+}
 
 /// A complete twilight typed Contract valid for a specific network.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1173,50 +1212,61 @@ impl StateWitness {
     ) -> Self {
         let in_state = input.input.clone();
         //create the Signature over the Input State with the secret key
-        let commit: Commitment = Commitment::Closed(in_state.as_commitment().unwrap().to_point());
-        // if in_state.as_state_variables().is_some(){
-        let state_variables = in_state.as_state_variables().unwrap();
-        let mut new_state_variables: Vec<ZkvmString> = Vec::new();
+        // // convert State commitment into verifier view
+        // let commit: Commitment = Commitment::Closed(in_state.as_commitment().unwrap().to_point());
+        // // if in_state.as_state_variables().is_some(){
+        // let state_variables = in_state.as_state_variables().unwrap();
+        // let mut new_state_variables: Vec<ZkvmString> = Vec::new();
+        // // convert the state variable commitments to verifier view if any
+        // for state in state_variables.iter() {
+        //     match state {
+        //         ZkvmString::Commitment(a) => {
+        //             let a_point = a.to_point();
+        //             let new_commitment = Commitment::Closed(a_point);
+        //             new_state_variables.push(ZkvmString::Commitment(Box::new(new_commitment)));
+        //         }
+        //         _ => new_state_variables.push(Clone::clone(&state)),
+        //     }
+        // }
+        // //}
+        // // recreate the input state with the Verifier view values
+        // let out_state = OutputState {
+        //     nonce: in_state.as_nonce().unwrap().clone(),
 
-        for state in state_variables.iter() {
-            match state {
-                ZkvmString::Commitment(a) => {
-                    let a_point = a.to_point();
-                    let new_commitment = Commitment::Closed(a_point);
-                    new_state_variables.push(ZkvmString::Commitment(Box::new(new_commitment)));
-                }
-                _ => new_state_variables.push(Clone::clone(&state)),
-            }
-        }
-        //}
-        // recreate the input state with the Verifier view values
-        let out_state = OutputState {
-            nonce: in_state.as_nonce().unwrap().clone(),
+        //     script_address: in_state.as_script_address().unwrap().clone(),
+        //     commitment: commit.clone(),
+        //     owner: in_state.owner().unwrap().clone(),
+        //     state_variables: Some(new_state_variables),
+        //     timebounds: in_state.as_timebounds().unwrap().clone(),
+        // };
 
-            script_address: in_state.as_script_address().unwrap().clone(),
-            commitment: commit.clone(),
-            owner: in_state.owner().unwrap().clone(),
-            state_variables: Some(new_state_variables),
-            timebounds: in_state.as_timebounds().unwrap().clone(),
-        };
-
-        //IGNORE Witness index at the time creating the signature
+        // //IGNORE Witness index at the time creating the signature
+        // let verifier_input = Input::state(InputData::state(
+        //     input.as_utxo().unwrap().clone(),
+        //     out_state,
+        //     input.input.as_state_script_data().cloned(),
+        //     0,
+        // ));
+        let input_out_state = input.as_out_state().unwrap().clone();
+        let verifier_out_state = input_out_state.verifier_view();
         let verifier_input = Input::state(InputData::state(
-            input.as_utxo().unwrap().clone(),
-            out_state,
+            input.get_utxo(),
+            verifier_out_state,
             input.input.as_state_script_data().cloned(),
             0,
         ));
-        //The sign must happen on the verifier View of the input so ghatg it can be verified acorrectly
+        //The sign must happen on the verifier View of the input so that it can be verified acorrectly
 
         //create message bytes using input_state
         let message = bincode::serialize(&verifier_input).unwrap();
-
+        //println!("message  {:?}", message);
         let sign = pubkey.sign_msg(&message, &secret_key, ("StateSign").as_bytes());
 
         Self { sign, zero_proof }
     }
-
+    /// verify_state_witness verifies the zero value proof and signature
+    /// invoked if a new contract has to be deployed.
+    /// fails if and value or state witness is not zero
     pub fn verify_state_witness(
         &self,
         input: Input,
@@ -1224,7 +1274,7 @@ impl StateWitness {
     ) -> Result<bool, &'static str> {
         //create message to verify the Signature over the Input State with the public key
         // The witness is 0 for the purposes of signature verification
-        //recreate the input statewith the Witness as zero
+        //recreate the input state with the Witness as zero
 
         //verify the Signature over the Input state with the public key
         let verifier_input = Input::state(InputData::state(
@@ -1234,23 +1284,33 @@ impl StateWitness {
             0,
         ));
         let message = bincode::serialize(&verifier_input).unwrap();
-
+        // println!("\n \nmessage  {:?}", message);
         let verify_sig = pubkey.verify_msg(&message, &self.sign, ("StateSign").as_bytes());
         if verify_sig.is_err() {
-            return Err("Signature verification failed");
+            return Err("Input State Signature verification failed");
         }
         let in_state = input.input;
-        //get state_variables
+        // the first index of zero_proof is the Zero commitment on Value state
+        let zero_witness_proof_scalar = self.zero_proof.as_ref().unwrap()[0].clone();
+        // recreate the commitment using the zero scalar
+        let gens = PedersenGens::default();
+        let proof = gens.commit(0u64.into(), zero_witness_proof_scalar);
+        let state_commit = in_state.as_commitment().unwrap().to_point();
+        // compare the zero committed points
+        if state_commit != proof.compress() {
+            return Err("Error::The zero proof does not match the state commitment");
+        }
+        //get extra state_variables if available
         if in_state.as_state_variables().is_some() {
             //verify the zero proofs if any over the state variables
             let state_variables = in_state.as_state_variables().unwrap();
             let commitment_witness = self.zero_proof.as_ref().unwrap();
-            if commitment_witness.len() > state_variables.len() {
+            if commitment_witness.len() - 1 > state_variables.len() {
                 return Err("Error::There are more zero proofs than state variables");
             }
             //index is to go through the proofs against the committed variables
-            let mut index: usize = 0;
-            let gens = PedersenGens::default();
+            let mut index: usize = 1;
+
             for variable in state_variables {
                 match variable {
                     ZkvmString::Commitment(x) => {
