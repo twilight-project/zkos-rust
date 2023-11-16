@@ -11,8 +11,8 @@ use quisquislib::ristretto::RistrettoPublicKey;
 use std::collections::HashMap;
 use transaction::{Transaction, TransactionData, TransactionType};
 use utxo_in_memory::blockoperations::blockprocessing::{
-    all_coin_type_output, all_coin_type_utxo, search_coin_type_utxo_by_address,
-    search_coin_type_utxo_by_utxo_key, verify_utxo,
+    all_coin_type_output, all_coin_type_utxo, all_memo_type_utxo, all_state_type_utxo,
+    search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key, verify_utxo,
 };
 use utxo_in_memory::db::{LocalDBtrait, LocalStorage};
 use utxo_in_memory::UTXO_STORAGE;
@@ -273,6 +273,38 @@ pub fn rpcserver() {
             Ok(response_body)
         }
     });
+    io.add_method_with_meta(
+        "allMemoUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let utxos = all_memo_type_utxo();
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: UTXO do not exist for this type}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
+    io.add_method_with_meta(
+        "allSateUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let utxos = all_state_type_utxo();
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: UTXO do not exist for this type}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
 
     io.add_method_with_meta(
         "allOutputs",
