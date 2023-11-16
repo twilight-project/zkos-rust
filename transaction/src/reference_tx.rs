@@ -680,8 +680,6 @@ pub fn create_refenece_deploy_transaction(sk: RistrettoSecretKey, value_sats: u6
 // ------------------------------------------------------------------------
 #[cfg(test)]
 mod test {
-    use serde::de::value;
-
     use super::*;
     #[test]
     fn create_dark_transaction_test() {
@@ -720,5 +718,139 @@ mod test {
         println!("Tx  {:?}\n", tx);
         let verify: Result<(), &str> = tx.verify();
         println!("Verify  {:?}\n", verify);
+    }
+
+    #[test]
+    fn create_chain_deploy_tx() {
+        let seed = "r5Mbx5dlqyKTBYXbV5DAWkUQRh54q6YrwFdDJbItxlwLwmRBAoCC/UeEBtDxAvggemy57z4N/uxIzuQkxkLKdA==";
+        let sk: RistrettoSecretKey = quisquislib::keys::SecretKey::from_bytes(seed.as_bytes());
+        println!("sk {:?}", sk);
+        let json_string = r#"{"out_type":"Coin","output":{"Coin":{"encrypt":{"c":[164,3,116,213,86,164,46,63,163,227,88,162,218,231,192,164,83,3,154,223,125,216,42,121,41,90,33,153,107,216,35,100],"d":[16,245,87,98,170,60,128,123,220,226,214,120,94,143,236,126,169,28,205,184,104,218,26,81,63,226,137,255,21,84,119,39]},"owner":"0cba90f5645c15f43b243dbca276d5a6f8e8308b89f6ce54a569ea52326ad736669242166e4b84335d9b59363bf98de48ba016f88cbff1eadcc30c78afda48353290251e90"}}}"#;
+        let out: Output = serde_json::from_str(json_string).unwrap();
+        let account: Account = out.as_out_coin().unwrap().to_quisquis_account();
+        let (pk, _enc) = account.get_account();
+        let verify_acc = account.verify_account(&sk, Scalar::from(100u64));
+        println!("verify_acc {:?}", verify_acc);
+
+        // create Utxo
+        let utxo_str = "d9395d07c52bbb0a48a9a515896ef846203505575d61d29c19d432f9fc99379300";
+        let utxo_bytes = hex::decode(&utxo_str.to_string()).unwrap();
+        let utxo: Utxo = bincode::deserialize(&utxo_bytes).unwrap();
+        println!("utxo {:?}", utxo);
+        println!("out {:?}", out);
+        let out_coin = out.as_out_coin().unwrap().to_owned();
+        //create input coin
+        let inp_coin = Input::coin(InputData::coin(utxo, out_coin.clone(), 0));
+        // recreate scalar used for coin encryption
+        let scalar_str =
+            "7f14af96f278a16cc0bcd14cf9e3053fbdc06ef9ec7e5cc6240fb1fb24f13403".to_string();
+        let scalar_bytes = hex::decode(&scalar_str).unwrap();
+        let scalar_commitment = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
+        println!("scalar {:?}", scalar_commitment);
+
+        // create out memo
+        let script_address = crate::verify_relayer::create_script_address(Network::default());
+        let commit_memo = Commitment::blinded_with_factor(100u64, scalar_commitment);
+        let coin_address = out_coin.owner.clone();
+        let memo_out = OutputMemo {
+            script_address: script_address.clone(),
+            owner: coin_address.clone(),
+            commitment: commit_memo.clone(),
+            data: None,
+            timebounds: 0,
+        };
+        let memo = Output::memo(OutputData::Memo(memo_out));
+
+        // create ValueWitness for input coin / output memo
+        let value_witness = ValueWitness::create_value_witness(
+            inp_coin.clone(),
+            sk,
+            account,
+            pk.clone(),
+            commit_memo.to_point(),
+            100u64,
+            scalar_commitment,
+        );
+        let s_var: ZkvmString = ZkvmString::Commitment(Box::new(commit_memo.clone()));
+        let s_var_vec: Vec<ZkvmString> = vec![s_var];
+        // create Output state
+        let out_state: OutputState = OutputState {
+            nonce: 1,
+            script_address: script_address.clone(),
+            owner: coin_address.clone(),
+            commitment: commit_memo.clone(),
+            state_variables: Some(s_var_vec),
+            timebounds: 0,
+        };
+        // create zero value commitment
+        let zero_commitment = Commitment::blinded_with_factor(0, scalar_commitment);
+        let in_state_var = ZkvmString::Commitment(Box::new(zero_commitment.clone()));
+        let in_state_var_vec: Vec<ZkvmString> = vec![in_state_var];
+        // create Input State
+        let temp_out_state = OutputState {
+            nonce: 0,
+            script_address: script_address.clone(),
+            owner: coin_address,
+            commitment: zero_commitment.clone(),
+            state_variables: Some(in_state_var_vec),
+            timebounds: 0,
+        };
+        let zero_proof = vec![scalar_commitment, scalar_commitment];
+        // convert to input
+        let input_state: Input = Input::state(InputData::state(
+            Utxo::default(),
+            temp_out_state.clone(),
+            None,
+            1,
+        ));
+
+        // create statewitness for input state / output state
+        let state_witness: StateWitness =
+            StateWitness::create_state_witness(input_state.clone(), sk, pk, Some(zero_proof));
+
+        // create witness vector
+        let witness: Vec<Witness> = vec![
+            Witness::ValueWitness(value_witness),
+            Witness::State(state_witness),
+        ];
+        let output: Vec<Output> = vec![memo, Output::state(OutputData::State(out_state))];
+        let temp_out_state_verifier = temp_out_state.verifier_view();
+        let iput_state_verifier = Input::state(InputData::state(
+            Utxo::default(),
+            temp_out_state_verifier.clone(),
+            None,
+            1,
+        ));
+        let input: Vec<Input> = vec![inp_coin, iput_state_verifier];
+        // create proof of program
+        let correct_program = verify_relayer::contract_initialize_program_with_stack_short();
+        //cretae unsigned Tx with program proof
+        let result = Prover::build_proof(correct_program, &input, &output, true);
+        let (prog_bytes, proof) = result.unwrap();
+
+        // create callproof
+        let call_proof = verify_relayer::create_call_proof(Network::default());
+        //lets create a script tx
+        let script_tx: ScriptTransaction = ScriptTransaction {
+            version: 0,
+            fee: 0,
+            maturity: 0,
+            input_count: 2,
+            output_count: 2,
+            witness_count: 2,
+            inputs: input.to_vec(),
+            outputs: output.to_vec(),
+            program: prog_bytes.to_vec(),
+            call_proof,
+            proof,
+            witness: Some(witness.to_vec()),
+            data: vec![],
+        };
+
+        let tx = Transaction::transaction_script(TransactionData::TransactionScript(script_tx));
+        //convert tx to hex
+        let tx_bin = bincode::serialize(&tx).unwrap();
+        let tx_hex = hex::encode(&tx_bin);
+        println!("tx_hex {:?}", tx_hex);
     }
 }
