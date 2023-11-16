@@ -10,8 +10,11 @@ use quisquislib::{
     keys::{PublicKey, SecretKey},
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
+use readerwriter::Encodable;
 use zkvm::merkle::{CallProof, Hasher, MerkleTree, Path};
-use zkvm::zkos_types::{Input, InputData, Output, OutputCoin, OutputData, OutputMemo, Utxo};
+use zkvm::zkos_types::{
+    Input, InputData, Output, OutputCoin, OutputData, OutputMemo, OutputState, Utxo,
+};
 use zkvm::{Commitment, Program, String};
 
 #[test]
@@ -31,45 +34,67 @@ fn call_proof_test() {
     let prog4 = Program::build(|p| {
         p.push(Commitment::blinded(10u64));
         p.push(Commitment::blinded(20u64));
+        p.push(10);
+        p.push(15);
+        p.roll(1);
     });
     let prog5 = Program::build(|p| {
         p.push(Commitment::blinded(5u64));
         p.dup(1);
     });
 
+    let prog6 = order_message_prog_with_stack_initialized();
+    println!("prog4: {:?}", prog4);
+    // Serialize the program
+    let mut bytecode = Vec::new();
+    //let prog7 = prog6.encode(&mut bytecode).unwrap();
+    //println!("prog7: {:?}", bytecode);
+    // recreate program from bytes
+    let prog8 = Program::parse(&bytecode).unwrap();
+    println!("prog8: {:?}", prog8);
     let progs = vec![
         prog1.clone(),
         prog2.clone(),
         prog3.clone(),
         prog4.clone(),
         prog5.clone(),
+        //prog6.clone(),
     ];
+
     //create tree root
     let root = MerkleTree::root(b"ZkOS.MerkelTree", progs.iter());
     //convert root to address
-    let address = Address::script_address(Network::Mainnet, root.0);
+    let address = Address::script_address(Network::default(), root.0);
     //script address as hex
     let address_hex = address.as_hex();
-
+    //let address_default = Address::default().as_hex();
     // create path for program3
-    let _path = Path::new(&progs, 2 as usize, &hasher).unwrap();
+
+    // let _path = Path::new(&progs, 2 as usize, &hasher).unwrap();
 
     // create call proof for program3
     let call_proof =
-        CallProof::create_call_proof(&progs, 2 as usize, &hasher, address_hex).unwrap();
+        CallProof::create_call_proof(&progs, 2 as usize, &hasher, Network::default()).unwrap();
 
     // verify call proof
     let prog = prog3.clone();
-    let verify = call_proof.verify_call_proof(&address, &prog, &hasher);
+    let verify = call_proof.verify_call_proof(address_hex, &prog, &hasher);
     println!("verify: {:?}", verify);
 }
-
+pub fn program_roll() -> Program {
+    let prog4 = Program::build(|p| {
+        p.push(5);
+        p.push(7);
+        p.push(10);
+        p.push(15);
+        p.dup(2);
+    });
+    prog4
+}
 #[test]
 fn order_message_test() {
     let _program = order_message_prog_input_output(16u64, 9u64, 0, 0);
     let correct_program = self::order_message_prog(16u64, 9u64);
-
-    print!("\n Program \n{:?}", correct_program);
 
     //useless predicates
     //let (preds, scalars) = generate_predicates(3);
@@ -115,8 +140,90 @@ fn order_message_test() {
     let result = Prover::build_proof(correct_program, &input, &output, false);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify = Verifier::verify_r1cs_proof(proof, prog_bytes, &input, &output, false);
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false);
     println!("{:?}", verify);
+}
+#[test]
+fn test_contract_deploy_stack() {
+    let correct_program = self::contract_initialize_program_with_stack_short();
+    print!("\n Program \n{:?}", correct_program);
+    let mut rng = rand::thread_rng();
+    let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
+    let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+    let commit_in = ElGamalCommitment::generate_commitment(
+        &pk_in,
+        Scalar::random(&mut rng),
+        Scalar::from(10u64),
+    );
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+    let out_coin = OutputCoin {
+        encrypt: commit_in,
+        owner: add.as_hex(),
+    };
+    let in_data: InputData = InputData::coin(
+        Utxo::default(),
+        /*  add.as_hex(), commit_in*/ out_coin,
+        0,
+    );
+    let coin_in: Input = Input::coin(in_data);
+    //get a output memo
+    //outputMemo
+    let script_address = crate::verify_relayer::create_script_address(Network::default());
+    let commit_memo: Commitment = Commitment::blinded(10u64);
+
+    let memo_out = OutputMemo {
+        script_address: script_address.clone(),
+        owner: add.as_hex(),
+        commitment: commit_memo.clone(),
+        data: None,
+        timebounds: 0,
+    };
+    let out_data = OutputData::Memo(memo_out);
+    let memo = Output::memo(out_data);
+
+    //create state variables
+    //let s_var: String = String::Commitment(Box::new(Commitment::blinded(15)));
+    let s_var: String = String::Commitment(Box::new(commit_memo.clone()));
+    let s_var_vec: Vec<String> = vec![s_var];
+
+    // create zero value commitment
+    let zero_commitment = Commitment::blinded(0);
+    // create Output state
+    let out_state: OutputState = OutputState {
+        nonce: 1,
+        script_address: script_address.clone(),
+        owner: add.as_hex(),
+        commitment: commit_memo.clone(),
+        state_variables: Some(s_var_vec),
+        timebounds: 0,
+    };
+
+    // create Input State
+    let temp_out_state = OutputState {
+        nonce: 0,
+        script_address: script_address.clone(),
+        owner: add.as_hex(),
+        commitment: zero_commitment.clone(),
+        state_variables: None,
+        timebounds: 0,
+    };
+
+    // convert to input
+    let input_state: Input =
+        Input::state(InputData::state(Utxo::default(), temp_out_state, None, 1));
+
+    let input: Vec<Input> = vec![coin_in, input_state];
+
+    let output: Vec<Output> = vec![memo, Output::state(OutputData::State(out_state))];
+
+    //cretae unsigned Tx with program proof
+    let result = Prover::build_proof(correct_program, &input, &output, true);
+    println!("{:?}", result);
+    let (prog_bytes, proof) = result.unwrap();
+
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, true);
+    println!("{:?}", verify);
+    //let (prog_bytes, proof) = result.unwrap();
 }
 
 fn order_message_prog(balance: u64, order_qty: u64) -> Program {
@@ -154,6 +261,45 @@ fn contract_initialize_program() -> Program {
             .add()
             .eq()
             .verify();
+    });
+    return order_prog;
+}
+
+fn contract_initialize_program_with_stack() -> Program {
+    let order_prog = Program::build(|p| {
+        p.dup(2)
+            .commit()
+            .expr()
+            .roll(1)
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .roll(2)
+            .commit()
+            .expr()
+            .roll(1)
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
+fn contract_initialize_program_with_stack_short() -> Program {
+    let order_prog = Program::build(|p| {
+        p.drop()
+            .commit()
+            .expr()
+            .roll(1)
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .range()
+            .drop();
     });
     return order_prog;
 }
@@ -243,7 +389,7 @@ fn trade_order_tx_input_output_test() {
     let result = Prover::build_proof(correct_program, &input, &output, false);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify = Verifier::verify_r1cs_proof(proof, prog_bytes, &input, &output, false);
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false);
     println!("{:?}", verify);
 }
 
