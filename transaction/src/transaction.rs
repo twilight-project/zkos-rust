@@ -131,10 +131,7 @@ impl Transaction {
             TransactionData::TransactionTransfer(transfer_transaction) => {
                 transfer_transaction.verify()
             }
-            TransactionData::TransactionScript(script_transaction) => script_transaction.verify(
-                self.get_tx_inputs().as_slice(),
-                self.get_tx_outputs().as_slice(),
-            ),
+            TransactionData::TransactionScript(script_transaction) => script_transaction.verify(),
             TransactionData::Message(message) => message.verify(),
         }
     }

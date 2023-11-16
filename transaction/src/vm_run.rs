@@ -79,15 +79,16 @@ impl<'g> Prover<'g> {
             outputs,
             // contract_init_flag,
         );
+
         // initialize the Stack with inputs and outputs
         match contract_deploy_flag {
-            true => {
-                let init_result = vm.initialize_stack()?;
-                println!("VM initialized result {:?}", init_result);
-            }
             false => {
+                let init_result = vm.initialize_stack()?;
+                println!("\n Default VM initialized result {:?}", init_result);
+            }
+            true => {
                 let init_result = vm.initialize_deploy_contract_stack()?;
-                println!("VM initialized result {:?}", init_result);
+                println!("\n Contract VM initialized result {:?}", init_result);
             }
         }
         // let init_result = vm.initialize_stack()?;
@@ -160,8 +161,8 @@ impl VMRun<r1cs::Verifier<Transcript>> for Verifier {
 impl Verifier {
     /// verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
     pub fn verify_r1cs_proof(
-        proof: R1CSProof,
-        program: Vec<u8>,
+        proof: &R1CSProof,
+        program: &Vec<u8>,
         inputs: &[Input],
         outputs: &[Output],
         contract_deploy_flag: bool,
@@ -183,10 +184,10 @@ impl Verifier {
 
         // initialize the Stack with inputs and outputs
         match contract_deploy_flag {
-            true => {
+            false => {
                 let _init_result = vm.initialize_stack()?;
             }
-            false => {
+            true => {
                 let _init_result = vm.initialize_deploy_contract_stack()?;
             }
         }
