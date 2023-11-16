@@ -223,8 +223,8 @@ pub fn create_trade_order(
     let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs, false);
     let (program, proof) = result.unwrap();
     //get program call proof and address
-    let address_str = create_script_address();
-    let call_proof = create_call_proof(address_str);
+    let _address_str = create_script_address(Network::default());
+    let call_proof = create_call_proof(Network::default());
     let script_tx = ScriptTransaction::set_script_transaction(
         0u64,
         0u64,
@@ -364,30 +364,44 @@ pub fn get_trader_order_program() -> Program {
     });
     return order_prog;
 }
+pub fn contract_initialize_program_with_stack_short() -> Program {
+    let order_prog = Program::build(|p| {
+        p.drop()
+            .commit()
+            .expr()
+            .roll(1)
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .range()
+            .drop();
+    });
+    return order_prog;
+}
 
-pub fn create_call_proof(address_str: String) -> CallProof {
+fn create_program_tree() -> Vec<Program> {
+    let prog1 = self::get_trader_order_program();
+    let prog2: Program = self::contract_initialize_program_with_stack_short();
+    vec![prog1.clone(), prog2.clone()]
+}
+pub fn create_call_proof(network: Network) -> CallProof {
     // create a tree of programs
     let hasher = Hasher::new(b"ZkOS.MerkelTree");
-
-    let prog1 = self::get_trader_order_program();
-    let progs = vec![prog1.clone()];
-
+    let prog_list = create_program_tree();
     // create call proof for program3
     let call_proof =
-        CallProof::create_call_proof(&progs, 0 as usize, &hasher, address_str).unwrap();
+        CallProof::create_call_proof(&prog_list, 1 as usize, &hasher, network).unwrap();
     call_proof
 }
 
-pub fn create_script_address() -> String {
+pub fn create_script_address(network: Network) -> String {
     // create a tree of programs
-    //let hasher: Hasher<Program> = Hasher::new(b"ZkOS.MerkelTree");
-    // Add all the programs here
-    let prog1 = self::get_trader_order_program();
-    let progs = vec![prog1.clone()];
+    let prog_list = create_program_tree();
     //create tree root
-    let root = MerkleTree::root(b"ZkOS.MerkelTree", progs.iter());
+    let root = MerkleTree::root(b"ZkOS.MerkelTree", prog_list.iter());
     //convert root to address
-    let address = Address::script_address(Network::Mainnet, root.0);
+    let address = Address::script_address(network, root.0);
     //script address as hex
     address.as_hex()
 }
