@@ -138,6 +138,16 @@ pub fn rpcserver() {
                             let response_body = serde_json::Value::String(response);
                             Ok(response_body)
                         }
+                        TransactionType::Script => {
+                            println!("Script Tx");
+                            let result = service::tx_commit(tx.clone()).await;
+                            let response: String = match result {
+                                Ok(response_body) => response_body,
+                                Err(err) => err.to_string(),
+                            };
+                            let response_body = serde_json::Value::String(response);
+                            Ok(response_body)
+                        }
                         TransactionType::Message => {
                             println!("Message tx");
                             let message = match tx.tx.clone() {
