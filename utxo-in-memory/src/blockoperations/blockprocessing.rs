@@ -492,11 +492,38 @@ pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static 
     let input_type = IOType::Coin as usize;
     let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
         Ok(output) => output,
-        Err(err) => return Err("Utxo not found "),
+        Err(_err) => return Err("Utxo not found "),
     };
     return Ok(result);
 }
 
+pub fn search_utxo_by_utxo_key(utxo: Utxo, input_type: IOType) -> Result<Output, &'static str> {
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type.to_usize()) {
+        Ok(output) => output,
+        Err(_err) => return Err("Utxo not found "),
+    };
+    return Ok(result);
+}
+pub fn search_memo_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Memo as usize;
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
+        Ok(output) => output,
+        Err(_err) => return Err("Utxo not found "),
+    };
+    return Ok(result);
+}
+pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::State as usize;
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
+        Ok(output) => output,
+        Err(_err) => return Err("Utxo not found "),
+    };
+    return Ok(result);
+}
 pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 

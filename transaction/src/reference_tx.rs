@@ -725,7 +725,7 @@ mod test {
         let seed = "r5Mbx5dlqyKTBYXbV5DAWkUQRh54q6YrwFdDJbItxlwLwmRBAoCC/UeEBtDxAvggemy57z4N/uxIzuQkxkLKdA==";
         let sk: RistrettoSecretKey = quisquislib::keys::SecretKey::from_bytes(seed.as_bytes());
         println!("sk {:?}", sk);
-        let json_string = r#"{"out_type":"Coin","output":{"Coin":{"encrypt":{"c":[164,3,116,213,86,164,46,63,163,227,88,162,218,231,192,164,83,3,154,223,125,216,42,121,41,90,33,153,107,216,35,100],"d":[16,245,87,98,170,60,128,123,220,226,214,120,94,143,236,126,169,28,205,184,104,218,26,81,63,226,137,255,21,84,119,39]},"owner":"0cba90f5645c15f43b243dbca276d5a6f8e8308b89f6ce54a569ea52326ad736669242166e4b84335d9b59363bf98de48ba016f88cbff1eadcc30c78afda48353290251e90"}}}"#;
+        let json_string = r#"{"out_type":"Coin","output":{"Coin":{"encrypt":{"c":[196,38,123,159,24,252,193,255,137,87,89,32,130,174,36,120,0,158,132,208,207,6,186,65,166,220,4,153,47,28,129,44],"d":[110,152,130,154,210,13,163,27,199,187,239,37,61,151,117,6,167,39,114,65,13,56,59,134,225,219,96,51,115,162,214,108]},"owner":"0c381aae86f69486d1a18f18ff0f5b30a024c89929e04e6df99c2cf912ceeeee04f291c19033adddaf7539d7251622ae0b40f4a68b369c31a3aef17c2f052da737eb2c875a"}}}"#;
         let out: Output = serde_json::from_str(json_string).unwrap();
         let account: Account = out.as_out_coin().unwrap().to_quisquis_account();
         let (pk, _enc) = account.get_account();
@@ -733,7 +733,7 @@ mod test {
         println!("verify_acc {:?}", verify_acc);
 
         // create Utxo
-        let utxo_str = "d9395d07c52bbb0a48a9a515896ef846203505575d61d29c19d432f9fc99379300";
+        let utxo_str = "8b7d56d3a66c408f602255c52d66b18bc5128a592ecb85b23511f762a1741f4000";
         let utxo_bytes = hex::decode(&utxo_str.to_string()).unwrap();
         let utxo: Utxo = bincode::deserialize(&utxo_bytes).unwrap();
         println!("utxo {:?}", utxo);
@@ -743,7 +743,7 @@ mod test {
         let inp_coin = Input::coin(InputData::coin(utxo, out_coin.clone(), 0));
         // recreate scalar used for coin encryption
         let scalar_str =
-            "7f14af96f278a16cc0bcd14cf9e3053fbdc06ef9ec7e5cc6240fb1fb24f13403".to_string();
+            "3b527b214416126e32a59ab3b4b7cf6992bbef21b14fde8975f81afc7616ae02".to_string();
         let scalar_bytes = hex::decode(&scalar_str).unwrap();
         let scalar_commitment = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
         println!("scalar {:?}", scalar_commitment);
@@ -852,5 +852,11 @@ mod test {
         let tx_bin = bincode::serialize(&tx).unwrap();
         let tx_hex = hex::encode(&tx_bin);
         println!("tx_hex {:?}", tx_hex);
+        // let utx_json_string: &str = r#"{"output_index":0,"txid":[139,125,86,211,166,108,64,143,96,34,85,197,45,102,177,139,197,18,138,89,46,203,133,178,53,17,247,98,161,116,31,64]}"#;
+        // let utxxx: Utxo = serde_json::from_str(utx_json_string).unwrap();
+        // println!("utxxx {:?}", utxxx);
+        // let utxx_bytes = bincode::serialize(&utxxx).unwrap();
+        // let utxx_hex = hex::encode(&utxx_bytes);
+        // println!("utxx_hex {:?}", utxx_hex);
     }
 }
