@@ -51,87 +51,128 @@ impl PGSQLDBtrait for PGSQLDataInsert {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PGSQLTransaction {
     pub remove_utxo: Vec<KeyId>,
-    pub insert_utxo: Vec<PGSQLDataInsert>,
+    pub insert_coin_utxo: Vec<PGSQLDataInsert>,
+    pub insert_memo_utxo: Vec<PGSQLDataInsert>,
+    pub insert_state_utxo: Vec<PGSQLDataInsert>,
     pub txid: String,
     pub block_height: u64,
-    pub io_type: usize,
 }
 
 impl PGSQLTransaction {
     pub fn new(
         remove_utxo: Vec<KeyId>,
-        insert_utxo: Vec<PGSQLDataInsert>,
+        insert_coin_utxo: Vec<PGSQLDataInsert>,
+        insert_memo_utxo: Vec<PGSQLDataInsert>,
+        insert_state_utxo: Vec<PGSQLDataInsert>,
         txid: String,
         block_height: u64,
-        io_type: usize,
     ) -> Self {
         PGSQLTransaction {
             remove_utxo,
-            insert_utxo,
+            insert_coin_utxo,
+            insert_memo_utxo,
+            insert_state_utxo,
             txid,
             block_height,
-            io_type,
         }
     }
     pub fn default() -> Self {
         PGSQLTransaction {
             remove_utxo: Vec::new(),
-            insert_utxo: Vec::new(),
+            insert_coin_utxo: Vec::new(),
+            insert_memo_utxo: Vec::new(),
+            insert_state_utxo: Vec::new(),
             txid: " ".to_string(),
             block_height: 0,
-            io_type: 0,
         }
     }
 
     pub fn update_utxo_log(&mut self) -> bool {
         let remove_utxo = self.remove_utxo.clone();
-        let insert_utxo = self.insert_utxo.clone();
+        let insert_coin_utxo = self.insert_coin_utxo.clone();
+        let insert_memo_utxo = self.insert_memo_utxo.clone();
+        let insert_state_utxo = self.insert_state_utxo.clone();
 
-        match self.io_type {
-            0 => {
-                let table_name = "public.utxo_coin_logs";
-                if remove_utxo.len() > 0 {
-                    remove_bulk_utxo_in_psql(remove_utxo, table_name);
-                }
-                if insert_utxo.len() > 0 {
-                    insert_bulk_utxo_in_psql_coin(
-                        insert_utxo,
-                        self.txid.clone(),
-                        self.block_height,
-                        table_name,
-                    );
-                }
-            }
-            1 => {
-                let table_name = "public.utxo_memo_logs";
-                if remove_utxo.len() > 0 {
-                    remove_bulk_utxo_in_psql(remove_utxo, table_name);
-                }
-                if insert_utxo.len() > 0 {
-                    insert_bulk_utxo_in_psql_memo_or_state(
-                        insert_utxo,
-                        self.txid.clone(),
-                        self.block_height,
-                        table_name,
-                    );
-                }
-            }
-            2 => {
-                let table_name = "public.utxo_state_logs";
-                if remove_utxo.len() > 0 {
-                    remove_bulk_utxo_in_psql(remove_utxo, table_name);
-                }
-                if insert_utxo.len() > 0 {
-                    insert_bulk_utxo_in_psql_memo_or_state(
-                        insert_utxo,
-                        self.txid.clone(),
-                        self.block_height,
-                        table_name,
-                    );
-                }
-            }
-            _ => {}
+        let coin_table_name = "public.utxo_coin_logs";
+        let memo_table_name = "public.utxo_memo_logs";
+        let state_table_name = "public.utxo_state_logs";
+
+        //remove utxo from psql
+        if remove_utxo.len() > 0 {
+            remove_bulk_utxo_in_psql(remove_utxo.clone(), coin_table_name);
+            remove_bulk_utxo_in_psql(remove_utxo.clone(), memo_table_name);
+            remove_bulk_utxo_in_psql(remove_utxo.clone(), state_table_name);
         }
+
+        if insert_coin_utxo.len() > 0 {
+            insert_bulk_utxo_in_psql_coin(
+                insert_coin_utxo,
+                self.txid.clone(),
+                self.block_height,
+                coin_table_name,
+            );
+        }
+        if insert_memo_utxo.len() > 0 {
+            insert_bulk_utxo_in_psql_memo_or_state(
+                insert_memo_utxo,
+                self.txid.clone(),
+                self.block_height,
+                memo_table_name,
+            );
+        }
+        if insert_state_utxo.len() > 0 {
+            insert_bulk_utxo_in_psql_memo_or_state(
+                insert_state_utxo,
+                self.txid.clone(),
+                self.block_height,
+                state_table_name,
+            );
+        }
+        // match self.io_type {
+        //     0 => {
+        //         let table_name = "public.utxo_coin_logs";
+        //         if remove_utxo.len() > 0 {
+        //             remove_bulk_utxo_in_psql(remove_utxo, table_name);
+        //         }
+        //         if insert_utxo.len() > 0 {
+        //             insert_bulk_utxo_in_psql_coin(
+        //                 insert_utxo,
+        //                 self.txid.clone(),
+        //                 self.block_height,
+        //                 table_name,
+        //             );
+        //         }
+        //     }
+        //     1 => {
+        //         let table_name = "public.utxo_memo_logs";
+        //         if remove_utxo.len() > 0 {
+        //             remove_bulk_utxo_in_psql(remove_utxo, table_name);
+        //         }
+        //         if insert_utxo.len() > 0 {
+        //             insert_bulk_utxo_in_psql_memo_or_state(
+        //                 insert_utxo,
+        //                 self.txid.clone(),
+        //                 self.block_height,
+        //                 table_name,
+        //             );
+        //         }
+        //     }
+        //     2 => {
+        //         let table_name = "public.utxo_state_logs";
+        //         if remove_utxo.len() > 0 {
+        //             remove_bulk_utxo_in_psql(remove_utxo, table_name);
+        //         }
+        //         if insert_utxo.len() > 0 {
+        //             insert_bulk_utxo_in_psql_memo_or_state(
+        //                 insert_utxo,
+        //                 self.txid.clone(),
+        //                 self.block_height,
+        //                 table_name,
+        //             );
+        //         }
+        //     }
+        //     _ => {}
+        // }
 
         true
     }
@@ -255,57 +296,57 @@ mod test {
         let test_transaction = deserialize_tx_string();
         let tx_input = test_transaction.get_tx_inputs();
         let tx_output = test_transaction.get_tx_outputs();
-        pg_insert_data.io_type = 0;
-        for input in tx_input {
-            let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
-            let utxo_input_type = input.in_type as usize;
-            let utxo_test = Utxo::new(TxID(Hash([0; 32])), 0);
-            let utxo = input.as_utxo().unwrap();
-            if utxo.to_owned() != utxo_test {
-                pg_insert_data.remove_utxo.push(utxo_key.clone());
-            }
-        }
-        for (output_index, output_set) in tx_output.iter().enumerate() {
-            let utxo_key = bincode::serialize(&Utxo::from_hash(
-                Hash(deserialize_tx_id()),
-                output_index as u8,
-            ))
-            .unwrap();
-            let utxo_output_type = output_set.out_type as usize;
+        // pg_insert_data.io_type = 0;
+        // for input in tx_input {
+        //     let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
+        //     let utxo_input_type = input.in_type as usize;
+        //     let utxo_test = Utxo::new(TxID(Hash([0; 32])), 0);
+        //     let utxo = input.as_utxo().unwrap();
+        //     if utxo.to_owned() != utxo_test {
+        //         pg_insert_data.remove_utxo.push(utxo_key.clone());
+        //     }
+        // }
+        // for (output_index, output_set) in tx_output.iter().enumerate() {
+        //     let utxo_key = bincode::serialize(&Utxo::from_hash(
+        //         Hash(deserialize_tx_id()),
+        //         output_index as u8,
+        //     ))
+        //     .unwrap();
+        //     let utxo_output_type = output_set.out_type as usize;
 
-            match utxo_output_type {
-                0 => {
-                    pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
-                        utxo_key,
-                        bincode::serialize(&output_set).unwrap(),
-                        bincode::serialize(output_set.output.get_owner_address().unwrap()).unwrap(),
-                        &"".to_string(),
-                        output_index,
-                    ));
-                }
-                1 => {
-                    pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
-                        utxo_key,
-                        bincode::serialize(&output_set).unwrap(),
-                        bincode::serialize(output_set.output.get_owner_address().unwrap()).unwrap(),
-                        output_set.output.get_script_address().unwrap(),
-                        output_index,
-                    ));
-                }
-                2 => {
-                    pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
-                        utxo_key,
-                        bincode::serialize(&output_set).unwrap(),
-                        bincode::serialize(output_set.output.get_owner_address().unwrap()).unwrap(),
-                        output_set.output.get_script_address().unwrap(),
-                        output_index,
-                    ));
-                }
-                _ => {}
-            }
-        }
+        //     match utxo_output_type {
+        //         0 => {
+        //             pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+        //                 utxo_key,
+        //                 bincode::serialize(&output_set).unwrap(),
+        //                 bincode::serialize(output_set.output.get_owner_address().unwrap()).unwrap(),
+        //                 &"".to_string(),
+        //                 output_index,
+        //             ));
+        //         }
+        //         1 => {
+        //             pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+        //                 utxo_key,
+        //                 bincode::serialize(&output_set).unwrap(),
+        //                 bincode::serialize(output_set.output.get_owner_address().unwrap()).unwrap(),
+        //                 output_set.output.get_script_address().unwrap(),
+        //                 output_index,
+        //             ));
+        //         }
+        //         2 => {
+        //             pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+        //                 utxo_key,
+        //                 bincode::serialize(&output_set).unwrap(),
+        //                 bincode::serialize(output_set.output.get_owner_address().unwrap()).unwrap(),
+        //                 output_set.output.get_script_address().unwrap(),
+        //                 output_index,
+        //             ));
+        //         }
+        //         _ => {}
+        //     }
+        // }
 
-        pg_insert_data.update_utxo_log();
+        // pg_insert_data.update_utxo_log();
     }
 }
 

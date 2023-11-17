@@ -344,14 +344,14 @@ pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
                     utxo_key.output_index() as usize,
                 );
                 insert_utxo.push(utxo_out);
-                let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
-                    Vec::new(),
-                    insert_utxo,
-                    hex::encode(utxo_key.tx_id()),
-                    last_block as u64,
-                    path,
-                );
-                pgql_data.update_utxo_log();
+                // let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
+                //     Vec::new(),
+                //     insert_utxo,
+                //     hex::encode(utxo_key.tx_id()),
+                //     last_block as u64,
+                //     path,
+                // );
+               // pgql_data.update_utxo_log();
             }
         });
     }
