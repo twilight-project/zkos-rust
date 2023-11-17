@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 //! API for operations on merkle binary trees.
-use address::{Address,Script};
+use address::{Address, Network, Script};
 use core::marker::PhantomData;
 use merlin::Transcript;
 use readerwriter::*;
@@ -10,7 +10,7 @@ use std::fmt;
 use subtle::ConstantTimeEq;
 
 /// Merkle hash of a node.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Default,Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Hash(pub [u8; 32]);
 
 /// MerkleItem defines an item in the Merkle tree.
@@ -487,8 +487,8 @@ impl DoubleEndedIterator for Directions {
 /// Used by validator primarily to verify. The program is not the part of the proof.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CallProof {
-    // Script Address
-    pub script_address: String,
+    // Network Type. Mainnet, Testnet, etc.
+    pub network: Network,
 
     // Merkle path. The path is relative to the program's position in the tree.
     pub path: Path,
@@ -496,45 +496,52 @@ pub struct CallProof {
 
 impl CallProof {
     /// Creates a new call proof.
-    pub fn new(script_address: String, path: Path) -> Self {
-        Self {
-            script_address,
-            path,
-        }
+    pub fn new(net: Network, path: Path) -> Self {
+        Self { network: net, path }
     }
     pub fn create_call_proof<M>(
         list: &[M],
         item_index: usize,
         hasher: &Hasher<M>,
-        address: String,
+        network: Network,
     ) -> Option<Self>
     where
         M: MerkleItem,
     {
         let path = Path::new(list, item_index, hasher).unwrap();
-        Some(CallProof::new(address, path))
+        Some(CallProof::new(network, path))
     }
-
+    /// Verifies that the program is committed to the merkle tree.
+    /// Calculates the tree root using provided Path and Program
+    /// Compares the calculated root with the one in the script address.
     pub fn verify_call_proof<M: MerkleItem>(
         &self,
-        address: &Address,
+        script_address: String,
         item: &M,
         hasher: &Hasher<M>,
     ) -> bool {
-        //check if root hash is same as the one in address
-        if address.as_hex() != self.script_address {
-            return false;
-        }
-        // Verify that the root hash matches the merkle path.
-        self.path.verify_root(&Hash(address.as_script_address().root), item, hasher)
+        // calculate the root hash using commited program
+        let root = self.path.compute_root(item, hasher);
+
+        // convert the root hash into Script Address
+        let address = Address::script_address(self.network, root.0);
+        // convert the address into hex string
+        let address_hex = address.as_hex();
+
+        //check if the calculated root hash address is same as the provided script_address
+        address_hex == script_address
     }
 }
 /// Default implementation for CallProof
 /// EMPTY CallProof
 impl Default for CallProof {
     fn default() -> Self {
-        CallProof { script_address: Address::Script(Script::default()).as_hex(), path: Path::default() } } 
+        CallProof {
+            network: Network::default(),
+            path: Path::default(),
+        }
     }
+}
 
 #[cfg(test)]
 mod tests {

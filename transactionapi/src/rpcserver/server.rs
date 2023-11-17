@@ -11,8 +11,9 @@ use quisquislib::ristretto::RistrettoPublicKey;
 use std::collections::HashMap;
 use transaction::{Transaction, TransactionData, TransactionType};
 use utxo_in_memory::blockoperations::blockprocessing::{
-    all_coin_type_output, all_coin_type_utxo, search_coin_type_utxo_by_address,
-    search_coin_type_utxo_by_utxo_key, verify_utxo,
+    all_coin_type_output, all_coin_type_utxo, all_memo_type_utxo, all_state_type_utxo,
+    search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key,
+    search_memo_type_utxo_by_utxo_key, search_state_type_utxo_by_utxo_key, verify_utxo,
 };
 use utxo_in_memory::db::{LocalDBtrait, LocalStorage};
 use utxo_in_memory::UTXO_STORAGE;
@@ -22,7 +23,6 @@ use utxo_in_memory::pgsql::{
     UtxoHexDecodeResult, UtxoHexEncodedResult, UtxoOutputRaw,
 };
 /**************** POstgreSQL Insert Code End **********/
-
 use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 use zkvm::zkos_types::{MessageType, Utxo};
 #[derive(Default, Clone, Debug)]
@@ -62,22 +62,22 @@ pub fn rpcserver() {
         }
 
         //let hex_tx = match params.parse::<Vec<String>>() {
-        //   Ok(vec) => {
-        //        if vec.is_empty() {
-        //           let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
-        //           return Err(err);
-        //       }
-        //        let hex_tx = vec[0].clone();
-        //     if hex_tx.trim().is_empty() {
-        //         let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
-        //         return Err(err);
-        //     }
-        //     hex_tx
+        // Ok(vec) => {
+        //    if vec.is_empty() {
+        //     let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+        //     return Err(err);
+        //   }
+        //    let hex_tx = vec[0].clone();
+        //  if hex_tx.trim().is_empty() {
+        //    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+        //    return Err(err);
+        //  }
+        //  hex_tx
         // }
         // Err(args) => {
-        //     let err =
-        //         JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
-        //     return Err(err);
+        //  let err =
+        //    JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+        //  return Err(err);
         // }
         // };
         // Decode the tx hex string to bytes
@@ -128,8 +128,8 @@ pub fn rpcserver() {
                     // commit the tx
                     // check if transaction is Transfer/BurnMessage
                     match tx.tx_type {
-                        TransactionType::Transfer => {
-                            println!("Transfer Tx");
+                        TransactionType::Transfer | TransactionType::Script => {
+                            println!("Transfer Tx / Script tx");
                             let result = service::tx_commit(tx.clone()).await;
                             let response: String = match result {
                                 Ok(response_body) => response_body,
@@ -155,17 +155,17 @@ pub fn rpcserver() {
                                     // send the ZkOS burn tx to the Zkos Oracle
                                     let result = service::tx_commit(tx.clone()).await;
                                     //match result {
-                                    //   Ok(_) => {
+                                    // Ok(_) => {
                                     println!("ZkOS burn tx submitted to Zkos Oracle");
                                     // The ZkOS burn tx was sucessfully submitted.
                                     // Now the Zkos server needs to send the MintorBurnTx after some delay to the oracle
                                     // The oracle will send the MintorBurnTx to the chain
                                     // seleep the process for 5 seconds
-                                    //     std::thread::sleep(std::time::Duration::from_secs(5));
+                                    //  std::thread::sleep(std::time::Duration::from_secs(5));
                                     // send the MintorBurnTx initialization to the oracle
-                                    //   let account = message.input.to_quisquis_account().unwrap();
+                                    // let account = message.input.to_quisquis_account().unwrap();
                                     // let result = service::mint_burn_tx_initiate(message.proof.amount,
-                                    //      &account, &message.proof.encrypt_scalar, twilight_address).await;
+                                    //   &account, &message.proof.encrypt_scalar, twilight_address).await;
                                     let response_body = match result {
                                         Ok(response_body) => response_body,
                                         Err(err) => err.to_string(),
@@ -174,10 +174,10 @@ pub fn rpcserver() {
                                     return Ok(response_body);
                                     // }
                                     // Err(err) => {
-                                    //   let err = JsonRpcError::invalid_params(format!(
-                                    //     "Burn Message Error: The burn ZkOS tx was not commited properly"
+                                    // let err = JsonRpcError::invalid_params(format!(
+                                    //  "Burn Message Error: The burn ZkOS tx was not commited properly"
                                     // ));
-                                    //  return Err(err);
+                                    // return Err(err);
                                     // }
                                     //}
                                     // let response_body = serde_json::Value::String(response_body);
@@ -253,7 +253,7 @@ pub fn rpcserver() {
     });
 
     io.add_method_with_meta("allUtxos", move |params: Params, _meta: Meta| async move {
-        let utxos = all_coin_type_utxo();
+        let utxos: Vec<String> = all_coin_type_utxo();
         if utxos.len() > 0 {
             let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
             Ok(response_body)
@@ -263,7 +263,38 @@ pub fn rpcserver() {
             Ok(response_body)
         }
     });
-
+    io.add_method_with_meta(
+        "allMemoUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let utxos = all_memo_type_utxo();
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: UTXO do not exist for this type}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
+    io.add_method_with_meta(
+        "allSateUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let utxos = all_state_type_utxo();
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: UTXO do not exist for this type}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
     io.add_method_with_meta(
         "allOutputs",
         move |params: Params, _meta: Meta| async move {
@@ -322,6 +353,96 @@ pub fn rpcserver() {
 
         Ok(response_body)
     });
+
+    io.add_method_with_meta(
+        "getMemoOutput",
+        move |params: Params, _meta: Meta| async move {
+            let hex_str = match params.parse::<Vec<String>>() {
+                Ok(vec) => {
+                    if vec.is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    let hex_utxo = vec[0].clone();
+                    if hex_utxo.trim().is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    hex_utxo
+                }
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+            let utxo = match hex::decode(hex_str) {
+                Ok(bytes) => match Utxo::from_bytes(&bytes) {
+                    Some(utxo) => utxo,
+                    None => {
+                        let err = JsonRpcError::invalid_params(format!("invalid Hex"));
+                        return Err(err);
+                    }
+                },
+                Err(args) => {
+                    let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                    return Err(err);
+                }
+            };
+
+            let response_body = match search_memo_type_utxo_by_utxo_key(utxo) {
+                Ok(output) => serde_json::to_value(&output).expect("Failed to serialize to JSON"),
+                Err(err) => serde_json::to_value(&err).expect("Failed to serialize to JSON"),
+            };
+
+            Ok(response_body)
+        },
+    );
+
+    io.add_method_with_meta(
+        "getStateOutput",
+        move |params: Params, _meta: Meta| async move {
+            let hex_str = match params.parse::<Vec<String>>() {
+                Ok(vec) => {
+                    if vec.is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    let hex_utxo = vec[0].clone();
+                    if hex_utxo.trim().is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    hex_utxo
+                }
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+            let utxo = match hex::decode(hex_str) {
+                Ok(bytes) => match Utxo::from_bytes(&bytes) {
+                    Some(utxo) => utxo,
+                    None => {
+                        let err = JsonRpcError::invalid_params(format!("invalid Hex"));
+                        return Err(err);
+                    }
+                },
+                Err(args) => {
+                    let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                    return Err(err);
+                }
+            };
+
+            let response_body = match search_state_type_utxo_by_utxo_key(utxo) {
+                Ok(output) => serde_json::to_value(&output).expect("Failed to serialize to JSON"),
+                Err(err) => serde_json::to_value(&err).expect("Failed to serialize to JSON"),
+            };
+
+            Ok(response_body)
+        },
+    );
 
     io.add_method_with_meta(
         "getUtxosFromDB",

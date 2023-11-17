@@ -170,7 +170,7 @@ fn build_and_verify(
 
         (utx.txlog.clone(), utx.sign(sig))
     };
-
+    println!("Tx: {:?}", tx);
     // Verify tx
     let bp_gens = BulletproofGens::new(256, 1);
 
@@ -733,17 +733,41 @@ fn order_message() {
     // print!("{:?}", unsignedtx);
 }
 
+fn contract_initialize_program() -> Program {
+    let order_prog = Program::build(|p| {
+        p.push(Commitment::blinded(100u64))
+            .commit()
+            .dup(0)
+            .expr()
+            .push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .roll(1)
+            .expr()
+            .push(Commitment::blinded(100u64))
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
 #[test]
 fn order_message_old() {
-    let correct_program = order_message_prog(16u64, 9u64);
+    let correct_program = contract_initialize_program();
 
     print!("\n Program \n{:?}", correct_program);
     let input: Vec<Input> = vec![];
     let output: Vec<Output> = vec![];
     //useless predicates
     let (_preds, scalars) = generate_predicates(3);
-    let _res =
+    let res =
         build_and_verify(correct_program, &vec![scalars[1].clone()], &input, &output).unwrap();
+    println!("res {:?}", res);
 }
 
 #[test]
@@ -763,25 +787,30 @@ fn state_witness_test() {
 
     let state_variables: Vec<String> = vec![
         String::U32(1u32),
-        String::Commitment(Box::new(commit_1)),
+        String::Commitment(Box::new(commit_1.clone())),
         String::U64(10u64),
-        String::Commitment(Box::new(commit_2)),
+        String::Commitment(Box::new(commit_2.clone())),
         String::U64(10u64),
     ];
-
-    let state_commitment_witness: Vec<Scalar> = vec![comit_1_blind.clone(), comit_2_blind.clone()];
+    let state_value = Commitment::blinded(0u64);
+    let (_, state_value_blind) = state_value.witness().unwrap();
+    let state_commitment_witness: Vec<Scalar> = vec![
+        state_value_blind.clone(),
+        comit_1_blind.clone(),
+        comit_2_blind.clone(),
+    ];
 
     let out_state = OutputState {
         nonce: 1u32,
         script_address: add.as_hex(),
         owner: add.as_hex(),
-        commitment: Commitment::blinded(10u64),
+        commitment: state_value.clone(),
         state_variables: Some(state_variables),
         timebounds: 0,
     };
     let in_data: InputData = InputData::state(
         Utxo::default(),
-        /*add.as_hex(), commit_in*/ out_state,
+        /*add.as_hex(), commit_in*/ out_state.clone(),
         None,
         1,
     );
@@ -795,7 +824,35 @@ fn state_witness_test() {
 
     // verify the witness
     let state_wit = witness.to_state_witness().unwrap();
-    let res = state_wit.verify_state_witness(input, pk_in.clone());
+
+    //let commit_11: Commitment = Commitment::Closed(commit_1.to_point());
+    //let commit_22: Commitment = Commitment::Closed(commit_2.to_point());
+    //let new_state_variables: Vec<String> = vec![
+    //  String::U32(1u32),
+    //     String::Commitment(Box::new(commit_11)),
+    //     String::U64(10u64),
+    //     String::Commitment(Box::new(commit_22)),
+    //     String::U64(10u64),
+    // ];
+    // let state_commit = Commitment::Closed(out_state.commitment.to_point());
+    // // recreate the input state with the Verifier view values
+    // let new_out_state = OutputState {
+    //     nonce: 1u32,
+    //     script_address: add.as_hex(),
+    //     owner: add.as_hex(),
+    //     commitment: state_commit,
+    //     state_variables: Some(new_state_variables),
+    //     timebounds: 0,
+    // };
+    let new_out_state = out_state.verifier_view();
+    let new_in_data: InputData = InputData::state(
+        Utxo::default(),
+        /*add.as_hex(), commit_in*/ new_out_state,
+        None,
+        1,
+    );
+    let new_input: Input = Input::state(new_in_data);
+    let res = state_wit.verify_state_witness(new_input, pk_in.clone());
     println!("res {:?}", res);
 }
 
