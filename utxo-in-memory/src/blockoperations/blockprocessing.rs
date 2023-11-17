@@ -191,7 +191,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         let mut pg_insert_data = PGSQLTransaction::default();
         pg_insert_data.txid = transaction.tx_id.clone();
         pg_insert_data.block_height = height;
-        pg_insert_data.io_type = tx_input[0].clone().in_type as usize;
+
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
         for input in tx_input {
@@ -228,7 +228,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                     /************************************************ */
                     match utxo_output_type {
                         0 => {
-                            pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+                            pg_insert_data.insert_coin_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
                                 bincode::serialize(&output_set).unwrap(),
                                 bincode::serialize(output_set.output.get_owner_address().unwrap())
@@ -239,7 +239,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                             println!("UTXO COIN ADDED DB");
                         }
                         1 => {
-                            pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+                            pg_insert_data.insert_memo_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
                                 bincode::serialize(&output_set).unwrap(),
                                 bincode::serialize(output_set.output.get_owner_address().unwrap())
@@ -250,7 +250,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                             println!("UTXO MEMO ADDED DB");
                         }
                         2 => {
-                            pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+                            pg_insert_data.insert_state_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
                                 bincode::serialize(&output_set).unwrap(),
                                 bincode::serialize(output_set.output.get_owner_address().unwrap())
@@ -324,8 +324,8 @@ pub fn process_trade_mint(
         let mut pg_insert_data = PGSQLTransaction::default();
         pg_insert_data.txid = transaction.tx_id.clone();
         pg_insert_data.block_height = height;
-        pg_insert_data.io_type = output.out_type as usize;
-        pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+        //pg_insert_data.io_type = output.out_type as usize;
+        pg_insert_data.insert_coin_utxo.push(PGSQLDataInsert::new(
             utxo_key,
             bincode::serialize(&output.clone()).unwrap(),
             bincode::serialize(output.output.get_owner_address().unwrap()).unwrap(),
