@@ -191,7 +191,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         let mut pg_insert_data = PGSQLTransaction::default();
         pg_insert_data.txid = transaction.tx_id.clone();
         pg_insert_data.block_height = height;
-        pg_insert_data.io_type = tx_input[0].clone().in_type as usize;
+
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
         for input in tx_input {
@@ -228,7 +228,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                     /************************************************ */
                     match utxo_output_type {
                         0 => {
-                            pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+                            pg_insert_data.insert_coin_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
                                 bincode::serialize(&output_set).unwrap(),
                                 bincode::serialize(output_set.output.get_owner_address().unwrap())
@@ -236,9 +236,10 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                 &"".to_string(),
                                 output_index,
                             ));
+                            println!("UTXO COIN ADDED DB");
                         }
                         1 => {
-                            pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+                            pg_insert_data.insert_memo_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
                                 bincode::serialize(&output_set).unwrap(),
                                 bincode::serialize(output_set.output.get_owner_address().unwrap())
@@ -246,9 +247,10 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                 output_set.output.get_script_address().unwrap(),
                                 output_index,
                             ));
+                            println!("UTXO MEMO ADDED DB");
                         }
                         2 => {
-                            pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+                            pg_insert_data.insert_state_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
                                 bincode::serialize(&output_set).unwrap(),
                                 bincode::serialize(output_set.output.get_owner_address().unwrap())
@@ -256,6 +258,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                 output_set.output.get_script_address().unwrap(),
                                 output_index,
                             ));
+                            println!("UTXO STATE ADDED DB");
                         }
                         _ => {}
                     }
@@ -321,8 +324,8 @@ pub fn process_trade_mint(
         let mut pg_insert_data = PGSQLTransaction::default();
         pg_insert_data.txid = transaction.tx_id.clone();
         pg_insert_data.block_height = height;
-        pg_insert_data.io_type = output.out_type as usize;
-        pg_insert_data.insert_utxo.push(PGSQLDataInsert::new(
+        //pg_insert_data.io_type = output.out_type as usize;
+        pg_insert_data.insert_coin_utxo.push(PGSQLDataInsert::new(
             utxo_key,
             bincode::serialize(&output.clone()).unwrap(),
             bincode::serialize(output.output.get_owner_address().unwrap()).unwrap(),
@@ -407,6 +410,46 @@ pub fn all_coin_type_utxo() -> Vec<String> {
     }
     return result;
 }
+pub fn all_memo_type_utxo() -> Vec<String> {
+    let mut result: Vec<String> = Vec::new();
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Memo as usize;
+    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    for (key, output_data) in utxos {
+        match bincode::deserialize(&key) {
+            Ok(value) => {
+                let utxo: Utxo = value;
+                let hex_str: String = utxo.to_hex();
+                result.push(hex_str)
+            }
+            Err(args) => {
+                let err = format!("Deserialization error, {:?}", args);
+                println!("{}", err)
+            }
+        }
+    }
+    return result;
+}
+pub fn all_state_type_utxo() -> Vec<String> {
+    let mut result: Vec<String> = Vec::new();
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::State as usize;
+    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    for (key, output_data) in utxos {
+        match bincode::deserialize(&key) {
+            Ok(value) => {
+                let utxo: Utxo = value;
+                let hex_str: String = utxo.to_hex();
+                result.push(hex_str)
+            }
+            Err(args) => {
+                let err = format!("Deserialization error, {:?}", args);
+                println!("{}", err)
+            }
+        }
+    }
+    return result;
+}
 
 pub fn all_coin_type_output() -> String {
     let mut result: Vec<Output> = Vec::new();
@@ -449,23 +492,56 @@ pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static 
     let input_type = IOType::Coin as usize;
     let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
         Ok(output) => output,
-        Err(err) => return Err("Utxo not found "),
+        Err(_err) => return Err("Utxo not found "),
     };
     return Ok(result);
 }
 
+pub fn search_utxo_by_utxo_key(utxo: Utxo, input_type: IOType) -> Result<Output, &'static str> {
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type.to_usize()) {
+        Ok(output) => output,
+        Err(_err) => return Err("Utxo not found "),
+    };
+    return Ok(result);
+}
+pub fn search_memo_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Memo as usize;
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
+        Ok(output) => output,
+        Err(_err) => return Err("Utxo not found "),
+    };
+    return Ok(result);
+}
+pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::State as usize;
+    let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
+        Ok(output) => output,
+        Err(_err) => return Err("Utxo not found "),
+    };
+    return Ok(result);
+}
 pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 
     let tx_inputs = transaction.get_tx_inputs();
     if transaction.tx_type == TransactionType::Script {
         for input in tx_inputs {
-            let utxo_input_type = input.in_type as usize;
-            let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
+            let utxo = input.as_utxo().unwrap();
+            let utxo_test = Utxo::new(TxID(Hash([0; 32])), 0);
+            if utxo.to_owned() != utxo_test {
+                let utxo_input_type = input.in_type as usize;
+                let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
 
-            if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
-                return false;
-            };
+                if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
+                    return false;
+                };
+            } else {
+                continue;
+            }
         }
     } else if transaction.tx_type == TransactionType::Transfer {
         for input in tx_inputs {
@@ -607,7 +683,7 @@ pub fn create_utxo_test_block(
         // // Generate random values and fill the array
         // rand::thread_rng().fill(&mut id);
         let script_tx: ScriptTransaction =
-            ScriptTransaction::create_utxo_script_transaction(&inputs, &outputs);
+            ScriptTransaction::create_utxo_dummy_script_transaction(&inputs, &outputs);
         let tx: Transaction =
             Transaction::transaction_script(TransactionData::TransactionScript(script_tx));
 
