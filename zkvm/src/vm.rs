@@ -951,7 +951,11 @@ where
                     //push the memo data if present
                     match out_memo.data.clone() {
                         Some(data) => {
-                            self.push_item(data);
+                            //load the memo data vector on stack
+                            for d in data.iter() {
+                                self.push_item(d.clone());
+                            }
+                            //self.push_item(data);
                         }
                         None => (),
                     }
@@ -978,7 +982,11 @@ where
                     //push the memo data if present on stack
                     match in_memo.data.clone() {
                         Some(data) => {
-                            self.push_item(data);
+                            //load the memo data vector on stack
+                            for d in data.iter() {
+                                self.push_item(d.clone());
+                            }
+                            //self.push_item(data);
                         }
                         None => (),
                     }
@@ -1070,7 +1078,7 @@ where
     /// Returns a flag indicating whether to continue the execution
     fn step(&mut self) -> Result<bool, VMError> {
         if let Some(instr) = self.delegate.next_instruction(&mut self.current_run)? {
-            //  println!("instr : {:?}", instr);
+            println!("instr : {:?}", instr);
             // Attempt to read the next instruction and advance the program state
             match instr {
                 Instruction::Push(data) => self.pushdata(data),
@@ -1135,6 +1143,8 @@ where
         let item_idx = self.stack.len() - i - 1;
         let copied = self.stack[item_idx].dup_copyable()?;
         self.push_item(copied);
+        println!("stack len : {:?}", self.stack.len());
+        println!("Stack : {:?}", self.stack);
         Ok(())
     }
 
@@ -1220,6 +1230,7 @@ where
     fn verify(&mut self) -> Result<(), VMError> {
         let constraint = self.pop_item()?.to_constraint()?;
         constraint.verify(self.delegate.cs())?;
+        println!("Stack : {:?}", self.stack);
         Ok(())
     }
 
