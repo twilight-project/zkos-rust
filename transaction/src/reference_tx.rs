@@ -725,15 +725,15 @@ mod test {
         let seed = "r5Mbx5dlqyKTBYXbV5DAWkUQRh54q6YrwFdDJbItxlwLwmRBAoCC/UeEBtDxAvggemy57z4N/uxIzuQkxkLKdA==";
         let sk: RistrettoSecretKey = quisquislib::keys::SecretKey::from_bytes(seed.as_bytes());
         println!("sk {:?}", sk);
-        let json_string = r#"{"out_type":"Coin","output":{"Coin":{"encrypt":{"c":[98,190,90,209,45,99,255,242,71,6,224,47,247,165,80,157,27,128,218,146,250,85,139,9,202,26,6,13,156,104,31,64],"d":[188,89,231,30,47,64,107,237,76,201,73,31,89,171,209,156,220,122,152,204,92,128,4,43,117,139,202,213,66,212,129,106]},"owner":"0cb6dccc85e2ca3e418e256843aa02ca89c94293ef4055c34b23ddbda1d12119244061ba6015191b780782a9355981e1de0fe89d5ba95a407d6425ee05272ab66fe4932ea4"}}}"#;
+        let json_string = r#"{"out_type":"Coin","output":{"Coin":{"encrypt":{"c":[106,163,174,147,81,79,55,141,28,169,116,21,134,81,98,243,135,43,152,117,5,7,161,94,166,168,39,247,227,70,238,23],"d":[122,73,92,91,165,170,231,41,101,208,255,229,221,175,123,102,124,17,113,48,66,228,216,90,0,222,133,245,166,13,208,66]},"owner":"0cf8c2f329b2d11a0864d1ddb7f552da15a5a1b183a38a7ba24b62b50ea12b8e7dd259343a949615ad56a830fef97418c01232548df6b7334e346a75cb16c30c35ed3b9628"}}}"#;
         let out: Output = serde_json::from_str(json_string).unwrap();
         let account: Account = out.as_out_coin().unwrap().to_quisquis_account();
         let (pk, _enc) = account.get_account();
-        let verify_acc = account.verify_account(&sk, Scalar::from(100u64));
+        let verify_acc = account.verify_account(&sk, Scalar::from(19680u64));
         println!("verify_acc {:?}", verify_acc);
 
         // create Utxo
-        let utxo_str = "33f169a4151acdef806803bb9221c54364541cbd549064e269988cdac42dc5d800";
+        let utxo_str = "69984f1209df54a75f117a52d8d2f63c45556df117892bacef059c36c5f79ec800";
         let utxo_bytes = hex::decode(&utxo_str.to_string()).unwrap();
         let utxo: Utxo = bincode::deserialize(&utxo_bytes).unwrap();
         println!("utxo {:?}", utxo);
@@ -743,14 +743,14 @@ mod test {
         let inp_coin = Input::coin(InputData::coin(utxo, out_coin.clone(), 0));
         // recreate scalar used for coin encryption
         let scalar_str =
-            "3b9f445a368c75336ae69bd39c2441473a3fab22f549d6f09b8baf9e0b790509".to_string();
+            "d6734bd76211def507347265dff1422e3752fdcfdbbdcb7cf562e08aaaa21609".to_string();
         let scalar_bytes = hex::decode(&scalar_str).unwrap();
         let scalar_commitment = Scalar::from_bytes_mod_order(scalar_bytes.try_into().unwrap());
         println!("scalar {:?}", scalar_commitment);
 
         // create out memo
         let script_address = crate::verify_relayer::create_script_address(Network::default());
-        let commit_memo = Commitment::blinded_with_factor(100u64, scalar_commitment);
+        let commit_memo = Commitment::blinded_with_factor(19680u64, scalar_commitment);
         let coin_address = out_coin.owner.clone();
         let memo_out = OutputMemo {
             script_address: script_address.clone(),
@@ -768,7 +768,7 @@ mod test {
             account,
             pk.clone(),
             commit_memo.to_point(),
-            100u64,
+            19680u64,
             scalar_commitment,
         );
         let s_var: ZkvmString = ZkvmString::Commitment(Box::new(commit_memo.clone()));
