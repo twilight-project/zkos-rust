@@ -485,7 +485,7 @@ impl InputData {
     //     }
     // }
 
-    pub const fn as_memo_data(&self) -> Option<&ZkvmString> {
+    pub const fn as_memo_data(&self) -> Option<&Vec<ZkvmString>> {
         match self {
             // InputData::Coin { data, .. } => data.as_ref(),
             InputData::Memo { out_memo, .. } => out_memo.data.as_ref(),
@@ -759,8 +759,8 @@ pub struct OutputMemo {
     pub owner: String,
     /// Pedersen commitment on amount of coins.
     pub commitment: Commitment,
-    ///Memo related data. e.g., Order Size
-    pub data: Option<ZkvmString>,
+    ///Memo related data. e.g., Order Size / Deposit / PoolSize
+    pub data: Option<Vec<ZkvmString>>,
     /// Timebounds
     pub timebounds: u32,
 }
@@ -769,7 +769,7 @@ impl OutputMemo {
         script_address: String,
         owner: String,
         commitment: Commitment,
-        data: Option<ZkvmString>,
+        data: Option<Vec<ZkvmString>>,
         timebounds: u32,
     ) -> Self {
         Self {
@@ -816,7 +816,7 @@ impl OutputMemo {
             timebounds: self.timebounds,
         }
     }
-    //Use this function to create Output Memo in case of Trader/lend Order from Wasm
+    //Use this function to create Output Memo in case of Trader from Wasm
     pub fn new_from_wasm(
         script_address: String,
         owner_address: String,
@@ -829,7 +829,7 @@ impl OutputMemo {
         let commitment = crate::Commitment::blinded_with_factor(balance, scalar);
         // order size has to be in commitment
         let data_commitment = Commitment::blinded_with_factor(order_size, scalar);
-        let data = Some(ZkvmString::Commitment(Box::new(data_commitment)));
+        let data = Some(vec![ZkvmString::Commitment(Box::new(data_commitment))]);
         // create OutputMemo
         OutputMemo {
             script_address,
@@ -988,7 +988,7 @@ impl OutputData {
         }
     }
 
-    pub const fn get_memo_data(&self) -> Option<&ZkvmString> {
+    pub const fn get_memo_data(&self) -> Option<&Vec<ZkvmString>> {
         match self {
             Self::Memo(memo) => memo.data.as_ref(),
             _ => None,
