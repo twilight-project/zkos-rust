@@ -1026,7 +1026,7 @@ where
                         if num_state_variables != out_state_variables.len() as u64 {
                             return Err(VMError::InvalidInputOutputState);
                         }
-                        self.push_item(String::U64(num_state_variables));
+                        //self.push_item(String::U64(num_state_variables));
                         //push input state variables
                         for (j, var) in input_state_variables.unwrap().iter().enumerate() {
                             self.push_item(var.clone());
@@ -1143,8 +1143,8 @@ where
         let item_idx = self.stack.len() - i - 1;
         let copied = self.stack[item_idx].dup_copyable()?;
         self.push_item(copied);
-        println!("stack len : {:?}", self.stack.len());
-        println!("Stack : {:?}", self.stack);
+        //println!("stack len : {:?}", self.stack.len());
+        //println!("Stack : {:?}", self.stack);
         Ok(())
     }
 
@@ -1205,6 +1205,7 @@ where
     }
 
     fn and(&mut self) -> Result<(), VMError> {
+        println!("Stack : {:?}", self.stack);
         let c2 = self.pop_item()?.to_constraint()?;
         let c1 = self.pop_item()?.to_constraint()?;
         let c3 = Constraint::and(c1, c2);
