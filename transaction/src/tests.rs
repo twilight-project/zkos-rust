@@ -320,16 +320,16 @@ fn order_message_prog_with_stack_initialized() -> Program {
 
 fn lend_order_initial_dup_test_stack_initialized() -> Program {
     let order_prog = Program::build(|p| {
-        p.dup(8)
+        p.roll(7)
             .commit()
             .expr()
-            .dup(8)
+            .dup(7)
             .commit()
             .expr()
             .neg()
             .add()
             .range()
-            .drop()
+            .drop() // drop the rangeproof expression
             // TPS1 - TPS0 = PS or TPS1 = PS + TPS0
             .roll(1) //TPS1
             .commit()
@@ -337,46 +337,47 @@ fn lend_order_initial_dup_test_stack_initialized() -> Program {
             .dup(2) // TPS0
             .commit()
             .expr()
-            .dup(7) // Poolshare
+            .dup(6) // Poolshare
             .commit()
             .expr()
             .add() //
             .eq() //  TPS0 + PoolShare = TPS1
-            .roll(4) //TLV1
+            //.and() // range && TPS0 + PoolShare = TPS1
+            .roll(3) //TLV1
             .commit()
             .expr()
-            .dup(6) //TLV0
+            .dup(4) //TLV0
             .commit()
             .expr()
-            .dup(9) // Deposit
+            .dup(7) // Deposit
             .commit()
             .expr()
             .add() //Deposit + tlv
             .eq() // TLV1 = Deposit + TLV0
-            .and() // TPS == TLV
+            .and() // TPS== &&  TLV== &&
             .roll(1) // error
             .commit()
             .expr()
             .roll(2) // TPS0
             .commit()
             .expr()
-            .roll(6) //Deposit
+            .roll(5) //Deposit
             .commit()
             .expr()
             .mul() //Deposit * TPS0
             .add() // Deposit * TPS0 + error
-            .roll(3) // TVL0
+            .roll(2) // TVL0
             .commit()
             .expr()
-            .roll(4) // Poolshare
+            .roll(3) // Poolshare
             .commit()
             .expr()
             .mul() // TVL0 * Poolshare
             .eq()
             .and()
-            .verify()
-            .drop()
-            .drop();
+            .verify();
+        //.drop()
+        //.drop();
     });
 
     return order_prog;
