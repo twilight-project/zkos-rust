@@ -137,10 +137,10 @@ fn order_message_test() {
     let output: Vec<Output> = vec![coin_out];
 
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(correct_program, &input, &output, false);
+    let result = Prover::build_proof(correct_program, &input, &output, false, None);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false);
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
     println!("{:?}", verify);
 }
 #[test]
@@ -217,11 +217,11 @@ fn test_contract_deploy_stack() {
     let output: Vec<Output> = vec![memo, Output::state(OutputData::State(out_state))];
 
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(correct_program, &input, &output, true);
+    let result = Prover::build_proof(correct_program, &input, &output, true, None);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
 
-    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, true);
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, true, None);
     println!("{:?}", verify);
     //let (prog_bytes, proof) = result.unwrap();
 }
@@ -451,10 +451,10 @@ fn trade_order_tx_input_output_test() {
     let output: Vec<Output> = vec![memo];
 
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(correct_program, &input, &output, false);
+    let result = Prover::build_proof(correct_program, &input, &output, false, None);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false);
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
     println!("{:?}", verify);
 }
 
@@ -542,10 +542,10 @@ fn lend_order_tx_program_stack_initialized_test() {
     let input: Vec<Input> = vec![coin_in, input_state];
 
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(correct_program, &input, &output, false);
+    let result = Prover::build_proof(correct_program, &input, &output, false, None);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false);
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
     println!("{:?}", verify);
 }
 

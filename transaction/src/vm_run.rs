@@ -57,6 +57,7 @@ impl<'g> Prover<'g> {
         inputs: &[Input],
         outputs: &[Output],
         contract_deploy_flag: bool,
+        tx_data: Option<zkvm::String>,
     ) -> Result<(Vec<u8>, R1CSProof), VMError> {
         // Prepare the constraint system
         let bp_gens = BulletproofGens::new(256, 1);
@@ -77,6 +78,7 @@ impl<'g> Prover<'g> {
             &mut prover,
             inputs,
             outputs,
+            tx_data,
             // contract_init_flag,
         );
 
@@ -166,6 +168,7 @@ impl Verifier {
         inputs: &[Input],
         outputs: &[Output],
         contract_deploy_flag: bool,
+        tx_data: Option<zkvm::String>,
     ) -> Result<bool, VMError> {
         let bp_gens = BulletproofGens::new(256, 1);
         //print!("BP Gens in verify_proof {:?}", bp_gens);
@@ -179,6 +182,7 @@ impl Verifier {
             &mut verifier,
             inputs,
             outputs,
+            tx_data,
             // contract_init_flag,
         );
 

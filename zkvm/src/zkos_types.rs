@@ -260,6 +260,8 @@ pub enum InputData {
         ///same value proof Commitment Value. SHOULD BE REMOVED LATER
         /// ?????????????? Needed because the outout is encrypted with arbitrary value not necessarily the same as the Output commitment
         /// inside Input here
+        /// Commitment because ?? value is needed for svproof. cleartext does not need a proof
+        /// Ideally should be changed to zkvm::String
         coin_value: Option<Commitment>,
         //program length
         //  program_length: u16,
@@ -459,7 +461,7 @@ impl InputData {
         }
     }*/
 
-    pub const fn get_commitment_value_memo(&self) -> &Option<Commitment> {
+    pub const fn get_coin_value_input_memo(&self) -> &Option<Commitment> {
         match self {
             InputData::Memo { coin_value, .. } => coin_value,
             _ => &None,
