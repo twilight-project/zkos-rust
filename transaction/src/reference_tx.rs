@@ -446,7 +446,7 @@ pub fn convert_output_to_input(rec: RecordUtxo) -> Option<Input> {
                 utx,
                 out_memo.clone(),
                 0,
-                zkvm::Commitment::Closed(CompressedRistretto::default()),
+                Some(zkvm::Commitment::Closed(CompressedRistretto::default())),
             ));
             Some(inp)
         }
@@ -667,8 +667,8 @@ pub fn create_refenece_deploy_transaction(sk: RistrettoSecretKey, value_sats: u6
         program: prog_bytes.to_vec(),
         call_proof,
         proof,
-        witness: Some(witness.to_vec()),
-        data: vec![],
+        witness: witness.to_vec(),
+        tx_data: None,
     };
 
     let tx = Transaction::transaction_script(TransactionData::TransactionScript(script_tx));
@@ -843,8 +843,8 @@ mod test {
             program: prog_bytes.to_vec(),
             call_proof,
             proof,
-            witness: Some(witness.to_vec()),
-            data: vec![],
+            witness: witness.to_vec(),
+            tx_data: None,
         };
 
         let tx = Transaction::transaction_script(TransactionData::TransactionScript(script_tx));
