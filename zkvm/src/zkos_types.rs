@@ -260,7 +260,7 @@ pub enum InputData {
         ///same value proof Commitment Value. SHOULD BE REMOVED LATER
         /// ?????????????? Needed because the outout is encrypted with arbitrary value not necessarily the same as the Output commitment
         /// inside Input here
-        commitment_proof_value: Commitment,
+        coin_value: Option<Commitment>,
         //program length
         //  program_length: u16,
         //program
@@ -329,7 +329,7 @@ impl InputData {
         witness: u8,
         // timebounds: u32,
         //proof: Option<SigmaProof>,
-        commitment_proof_value: Commitment,
+        coin_value: Option<Commitment>,
         // program_length: u16,
         // program: Vec<u8>,
     ) -> Self {
@@ -343,7 +343,7 @@ impl InputData {
             // timebounds,
             out_memo,
             //proof,
-            commitment_proof_value,
+            coin_value,
             //  program_length,
             //  program,
         }
@@ -459,13 +459,10 @@ impl InputData {
         }
     }*/
 
-    pub const fn get_commitment_value_memo(&self) -> Option<&Commitment> {
+    pub const fn get_commitment_value_memo(&self) -> &Option<Commitment> {
         match self {
-            InputData::Memo {
-                commitment_proof_value,
-                ..
-            } => Some(commitment_proof_value),
-            _ => None,
+            InputData::Memo { coin_value, .. } => coin_value,
+            _ => &None,
         }
     }
 
@@ -648,13 +645,13 @@ impl Input {
             InputData::Memo {
                 ref utxo,
                 ref out_memo,
-                ref commitment_proof_value,
+                ref coin_value,
                 ..
             } => Input::memo(InputData::memo(
                 utxo.clone(),
                 out_memo.clone(),
                 0,
-                commitment_proof_value.clone(),
+                coin_value.clone(),
             )),
             InputData::State {
                 ref utxo,
