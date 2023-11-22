@@ -90,13 +90,18 @@ pub fn verify_settle_requests(input: Input, signature: Signature) -> Result<(), 
         let memo = input.as_out_memo().unwrap().to_owned();
         //convert commitment into point
         let memo_verifier = memo.verifier_view();
-
+        let coin_value = input
+            .input
+            .get_commitment_value_memo()
+            .as_ref()
+            .unwrap()
+            .to_owned();
         // create signer view over the resultant verifier view neno
         let input_sign = Input::memo(InputData::memo(
             input.as_utxo().unwrap().to_owned(),
             memo_verifier,
             0,
-            input.input.get_commitment_value_memo().unwrap().to_owned(),
+            Some(coin_value),
         ));
         //serialize the input for sign verification
         message = bincode::serialize(&input_sign).unwrap();
@@ -237,8 +242,8 @@ pub fn create_trade_order(
         program,
         call_proof,
         proof,
-        Some(witness_vec.to_vec()),
-        order_msg.to_vec(),
+        witness_vec.to_vec(),
+        None,
     );
     // println!("{:?}", result);
     Transaction::from(script_tx)
@@ -311,6 +316,7 @@ pub fn settle_trader_order(
     let (_, out_encryption_scalar) = input_memo
         .input
         .get_commitment_value_memo()
+        .as_ref()
         .unwrap()
         .to_owned()
         .witness()
