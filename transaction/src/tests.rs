@@ -383,6 +383,60 @@ fn lend_order_initial_dup_test_stack_initialized() -> Program {
     return order_prog;
 }
 
+fn settle_order_test_stack_initialized() -> Program {
+    let order_prog = Program::build(|p| {
+        p.roll(7)
+            .drop() //drop amount. Not needed
+            .dup(0) // duplicate the price
+            .roll(7) // get IM
+            .commit()
+            .expr()
+            .roll(8) // get CM
+            .commit()
+            .expr()
+            .neg() // -CM
+            .add() // IM - CM
+            .roll(1) //get price
+            .scalar()
+            .mul() // price * (IM - CM)
+            .dup(2) //duplicate the payment
+            .roll(2) //get the price
+            .scalar()
+            .mul() // price * payment
+            .eq() // price * payment == price * (IM - CM)
+            .roll(3) //get the TVL 1
+            .commit()
+            .expr()
+            .roll(4) //get the TVL 0
+            .commit()
+            .expr()
+            .neg()
+            .add() // TVL 1 - TVL 0
+            .dup(2) // duplicate the payment
+            .scalar()
+            .expr()
+            .eq() //payment == TVL 1 - TVL 0
+            .add() // price * (IM - CM) + payment == price * (IM - CM) + TVL 1 - TVL 0
+            .roll(2)
+            .commit()
+            .expr()
+            .roll(3)
+            .commit()
+            .expr()
+            .neg()
+            .add()
+            .roll(2)
+            .scalar()
+            .expr()
+            .mul() // TVL0 * Poolshare
+            .eq()
+            .and()
+            .verify();
+    });
+
+    return order_prog;
+}
+
 fn order_message_prog_input_output(
     balance: u64,
     order_qty: u64,
@@ -546,6 +600,105 @@ fn lend_order_tx_program_stack_initialized_test() {
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
     let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
+    println!("{:?}", verify);
+}
+
+#[test]
+fn trade_order_settle_tx_program_stack_initialized_test() {
+    let correct_program = self::settle_order_test_stack_initialized();
+    println!("\n Program \n{:?}", correct_program);
+    let mut rng = rand::thread_rng();
+    let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
+    let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+    //create InputMemo and OutputCoin
+    //Input memo
+    let script_address =
+        Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
+    let commit_memo = Commitment::blinded(10u64);
+    //order size
+    let initial_margin = Commitment::blinded(8u64);
+    let data: Vec<String> = vec![String::from(initial_margin)];
+    let memo_out = OutputMemo {
+        script_address: script_address.as_hex(),
+        owner: add.as_hex(),
+        commitment: commit_memo,
+        data: Some(data),
+        timebounds: 0,
+    };
+    let coin_value: Commitment = Commitment::blinded(6u64); // CM to be pushed back to the user
+    let input_memo = Input::memo(InputData::memo(
+        Utxo::default(),
+        memo_out,
+        0,
+        Some(coin_value),
+    ));
+
+    let enc_out = ElGamalCommitment::generate_commitment(
+        &pk_in,
+        Scalar::random(&mut rng),
+        Scalar::from(6u64), // CM . lost 2 sats
+    );
+
+    let out_coin = OutputCoin {
+        encrypt: enc_out,
+        owner: add.as_hex(),
+    };
+    let coin_out = Output::coin(OutputData::Coin(out_coin));
+
+    //create output state
+    let tvl_1: Commitment = Commitment::blinded(14u64);
+    let tps_1: Commitment = Commitment::blinded(14u64);
+    let s_var: String = String::from(tps_1.clone());
+    let s_var_vec: Vec<String> = vec![s_var];
+    // create Output state
+    let out_state: OutputState = OutputState {
+        nonce: 2,
+        script_address: script_address.as_hex(),
+        owner: add.as_hex(),
+        commitment: tvl_1,
+        state_variables: Some(s_var_vec),
+        timebounds: 0,
+    };
+
+    let output: Vec<Output> = vec![coin_out, Output::state(OutputData::State(out_state))];
+    // create Input State
+    let tvl_0: Commitment = Commitment::blinded(10u64);
+    let tps_0: Commitment = Commitment::blinded(10u64);
+    let s_var: String = String::from(tps_0.clone());
+    let in_state_var_vec: Vec<String> = vec![s_var];
+    let temp_out_state = OutputState {
+        nonce: 1,
+        script_address: script_address.as_hex(),
+        owner: add.as_hex(),
+        commitment: tvl_0.clone(),
+        state_variables: Some(in_state_var_vec),
+        timebounds: 0,
+    };
+    let payment = Commitment::blinded(2u64);
+    let pay_string = String::from(payment);
+    // convert to input
+    let input_state: Input = Input::state(InputData::state(
+        Utxo::default(),
+        temp_out_state.clone(),
+        Some(pay_string),
+        1,
+    ));
+    let input: Vec<Input> = vec![input_memo, input_state];
+    //tx_date i.e., price
+    let tx_data: zkvm::String = zkvm::String::U64(2u64);
+    //cretae unsigned Tx with program proof
+    let result = Prover::build_proof(
+        correct_program,
+        &input,
+        &output,
+        false,
+        Some(tx_data.clone()),
+    );
+    println!("{:?}", result);
+    let (prog_bytes, proof) = result.unwrap();
+    let verify =
+        Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, Some(tx_data));
     println!("{:?}", verify);
 }
 
