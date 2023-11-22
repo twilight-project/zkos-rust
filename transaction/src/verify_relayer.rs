@@ -92,7 +92,7 @@ pub fn verify_settle_requests(input: Input, signature: Signature) -> Result<(), 
         let memo_verifier = memo.verifier_view();
         let coin_value = input
             .input
-            .get_commitment_value_memo()
+            .get_coin_value_input_memo()
             .as_ref()
             .unwrap()
             .to_owned();
@@ -225,7 +225,8 @@ pub fn create_trade_order(
 
     //creating the program proof
     //cretae unsigned Tx with program proof
-    let result = crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs, false);
+    let result =
+        crate::vm_run::Prover::build_proof(correct_program, &inputs, &outputs, false, None);
     let (program, proof) = result.unwrap();
     //get program call proof and address
     let _address_str = create_script_address(Network::default());
@@ -315,7 +316,7 @@ pub fn settle_trader_order(
         .public_key;
     let (_, out_encryption_scalar) = input_memo
         .input
-        .get_commitment_value_memo()
+        .get_coin_value_input_memo()
         .as_ref()
         .unwrap()
         .to_owned()
