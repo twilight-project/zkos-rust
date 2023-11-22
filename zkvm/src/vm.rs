@@ -76,6 +76,7 @@ where
     // in case of contract initialization, input state is not loaded on stack
     // input state is zero in this case and is not used in the program
     // contract_init_flag: u8,
+    tx_data: Option<crate::String>,
 }
 
 pub trait VMRun<CS: r1cs::RandomizableConstraintSystem> {
@@ -858,7 +859,7 @@ where
         delegate: &'d mut R,
         inputs: &'d [Input],
         outputs: &'d [Output],
-        // contract_init_flag: u8,
+        tx_data: Option<String>, // contract_init_flag: u8,
     ) -> Self {
         VMScript {
             delegate,
@@ -867,6 +868,7 @@ where
             run_stack: Vec::new(),
             inputs_tx: inputs,
             outputs_tx: outputs,
+            tx_data,
             // contract_init_flag: contract_init_flag,
         }
     }
@@ -968,11 +970,10 @@ where
                     if in_memo.owner != out_coin.owner {
                         return Err(VMError::InvalidCoinMemo);
                     }
-                    //???STILL HAVE TO DECIDE HOW TO PUSH MEMO COMMITMENT DATA ON STACK
-                    // For DEMO purposes PUSHING temporary data Stored in Memo
-                    //push the Optional Memo data onto stack
-                    // check if data is present
-                    match input.input.get_commitment_value_memo() {
+
+                    // Push the commitment data stored in the Memo originially
+                    // could be needed in some caseds depending on the type script being executed
+                    match input.input.as_commitment() {
                         Some(data) => {
                             self.push_item(String::from(data.clone()));
                         }
@@ -987,6 +988,16 @@ where
                                 self.push_item(d.clone());
                             }
                             //self.push_item(data);
+                        }
+                        None => (),
+                    }
+                    //???STILL HAVE TO DECIDE HOW TO PUSH MEMO COMMITMENT DATA ON STACK
+                    // For DEMO purposes PUSHING temporary data Stored in Memo
+                    //push the Optional Memo data onto stack
+                    // push the coin value on stack if present
+                    match input.input.get_coin_value_input_memo() {
+                        Some(data) => {
+                            self.push_item(String::from(data.clone()));
                         }
                         None => (),
                     }
@@ -1044,6 +1055,11 @@ where
                     }
                 }
             }
+        }
+        // load tx data onto stack if present
+        match &self.tx_data {
+            None => (),
+            Some(data) => self.push_item(data.clone()),
         }
 
         Ok(())
