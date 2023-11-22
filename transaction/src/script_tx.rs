@@ -196,6 +196,7 @@ impl ScriptTransaction {
             &self.inputs,
             &self.outputs,
             contract_initialize,
+            self.tx_data.clone(),
         );
         match verify {
             Ok(_x) => Ok(()),
