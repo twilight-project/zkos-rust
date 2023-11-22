@@ -649,7 +649,7 @@ pub fn create_refenece_deploy_transaction(sk: RistrettoSecretKey, value_sats: u6
     // create proof of program
     let correct_program = verify_relayer::contract_initialize_program_with_stack_short();
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(correct_program, &input, &output, true);
+    let result = Prover::build_proof(correct_program, &input, &output, true, None);
     let (prog_bytes, proof) = result.unwrap();
 
     // create callproof
@@ -825,7 +825,7 @@ mod test {
         // create proof of program
         let correct_program = verify_relayer::contract_initialize_program_with_stack_short();
         //cretae unsigned Tx with program proof
-        let result = Prover::build_proof(correct_program, &input, &output, true);
+        let result = Prover::build_proof(correct_program, &input, &output, true, None);
         let (prog_bytes, proof) = result.unwrap();
 
         // create callproof
