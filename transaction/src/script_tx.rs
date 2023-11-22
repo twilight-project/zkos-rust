@@ -46,9 +46,9 @@ pub struct ScriptTransaction {
     pub(crate) proof: R1CSProof,
 
     //required for lit to dark case. contains same value proof
-    pub(crate) witness: Option<Vec<Witness>>,
-    // Transaction data. e.g., supporting data for a script transaction.
-    pub(crate) data: Vec<u8>,
+    pub(crate) witness: Vec<Witness>,
+    // Transaction data. e.g., supporting data needed for a script transaction at the top level.
+    pub(crate) tx_data: Option<zkvm::String>,
 }
 
 impl ScriptTransaction {
@@ -66,8 +66,8 @@ impl ScriptTransaction {
         program: Vec<u8>,
         call_proof: CallProof,
         proof: R1CSProof,
-        witness: Option<Vec<Witness>>,
-        data: Vec<u8>,
+        witness: Vec<Witness>,
+        tx_data: Option<zkvm::String>,
     ) -> Self {
         ScriptTransaction {
             version,
@@ -82,7 +82,7 @@ impl ScriptTransaction {
             call_proof,
             proof,
             witness,
-            data,
+            tx_data,
         }
     }
     ///DUMMY TX FOR UTXO SET VERIFICATION
@@ -93,6 +93,7 @@ impl ScriptTransaction {
         outputs: &[Output],
     ) -> ScriptTransaction {
         let program: Vec<u8> = vec![b'0'; 32];
+        let witness_vec: Vec<Witness> = vec![];
         ScriptTransaction::set_script_transaction(
             0u64,
             0u64,
@@ -105,8 +106,8 @@ impl ScriptTransaction {
             program,
             CallProof::default(),
             R1CSProof::from_bytes(&[0u8; 32]).unwrap(),
+            witness_vec,
             None,
-            vec![b'0'; 32],
         )
     }
     /// run the program and create a proof
@@ -259,27 +260,28 @@ impl ScriptTransaction {
         for inp in self.inputs.iter() {
             if inp.in_type == zkvm::IOType::State {
                 // get the witness for the input
-                match &self.witness {
-                    Some(wit) => {
-                        // check if witness is of type ZeroBalanceProof
-                        // get the witness from index
-                        let witness = wit[inp.get_witness_index() as usize].clone();
-                        let state_witness = witness.to_state_witness().unwrap();
-                        // check if state witness is carrying a zero balance proof
-                        let zero_proof = state_witness.get_zero_proof();
-                        match zero_proof {
-                            Some(_x) => {
-                                return true;
-                            }
-                            None => {
-                                return false;
-                            }
-                        }
+                //  match &self.witness {
+                //      Some(wit) => {
+                let wit = self.witness.clone();
+                // check if witness is of type ZeroBalanceProof
+                // get the witness from index
+                let witness = wit[inp.get_witness_index() as usize].clone();
+                let state_witness = witness.to_state_witness().unwrap();
+                // check if state witness is carrying a zero balance proof
+                let zero_proof = state_witness.get_zero_proof();
+                match zero_proof {
+                    Some(_x) => {
+                        return true;
                     }
                     None => {
                         return false;
                     }
                 }
+                //        }
+                //        None => {
+                //            return false;
+                //        }
+                // }
             }
         }
         false
@@ -288,7 +290,7 @@ impl ScriptTransaction {
     // verify the witnesses and the proofs of same value and zero balance proof as required
     pub fn verify_witnesses(&self) -> Result<(), &'static str> {
         // get the witness vector
-        let witness_vector: Vec<Witness> = self.witness.clone().expect("Witness Array is empty");
+        let witness_vector: Vec<Witness> = self.witness.clone();
         // loop over inputs and extract their corresponding witnesses
         for (i, inp) in self.inputs.iter().enumerate() {
             match inp.in_type {
