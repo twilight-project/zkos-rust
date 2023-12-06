@@ -639,7 +639,7 @@ fn lend_order_tx_program_stack_initialized_test() {
         timebounds: 0,
     };
     let error = Commitment::blinded(0u64);
-    let err_string = String::from(error);
+    let err_string = vec![String::from(error)];
     // convert to input
     let input_state: Input = Input::state(InputData::state(
         Utxo::default(),
@@ -730,7 +730,7 @@ fn trade_order_settle_tx_program_stack_initialized_test() {
         timebounds: 0,
     };
     let payment = Commitment::blinded(2u64);
-    let pay_string = String::from(payment);
+    let pay_string = vec![String::from(payment)];
     // convert to input
     let input_state: Input = Input::state(InputData::state(
         Utxo::default(),
@@ -828,7 +828,7 @@ fn trade_order_settle_tx_lost_program_stack_initialized_test() {
         timebounds: 0,
     };
     let payment = Commitment::blinded(6u64);
-    let pay_string = String::from(payment);
+    let pay_string = vec![String::from(payment)];
     // convert to input
     let input_state: Input = Input::state(InputData::state(
         Utxo::default(),

@@ -14,10 +14,11 @@ use quisquislib::{
     ristretto::RistrettoPublicKey,
 };
 //use serde::{Deserialize, Serialize};
+//use rangeproof::signed_integer::SignedInteger;
 use zkvm::merkle::{CallProof, Hasher, MerkleTree};
 use zkvm::{
     zkos_types::{Input, InputData, Output, OutputCoin, OutputData, ValueWitness, Witness},
-    IOType, Program,
+    IOType, Program, String as ZString,
 };
 
 use crate::{ScriptTransaction, Transaction};
@@ -357,7 +358,7 @@ pub fn settle_trader_order(
 // pub fn settle_lend_order()-> Transaction {
 
 // }
-pub fn get_trader_order_program() -> Program {
+pub fn get_trader_order_program_old() -> Program {
     let order_prog = Program::build(|p| {
         p.commit()
             .expr()
@@ -371,6 +372,119 @@ pub fn get_trader_order_program() -> Program {
     });
     return order_prog;
 }
+/// Program to prove the PositionSize calculation
+/// PositionSize = IM * Leverage * EntryPrice
+/// Memo Commitmtent = IM
+/// Data -> PositionSize, Leverage, EntryPrice
+pub fn get_trader_order_program() -> Program {
+    let order_prog = Program::build(|p| {
+        p.roll(3) // Get IM to top of stack
+            .commit()
+            .expr()
+            .roll(1) // Get EntryPrice to top of stack
+            .scalar()
+            .mul() // EntryPrice * IM
+            .roll(1) // Get Leverage to top of stack
+            .commit()
+            .expr()
+            .mul() // Leverage * EntryPrice * IM
+            .roll(1)
+            .scalar()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
+
+/// Program to prove the Settlement calculations
+/// (AM - IM - mD) * EntryPrice * SettlePrice = PositionSize * (EntryPrice - SettlePrice) * OrderSide(-1/1) + Error
+/// Error = (AM - IM - mD) * EntryPrice * SettlePrice - (PositionSize * (EntryPrice - SettlePrice) * OrderSide)
+/// and TVL1 = TVL0 - Payment  where payment = Am -IM
+/// Memo and State used
+/// Memo = IM , Data -> PositionSize, Leverage, EntryPrice, OrderSide
+/// InputMemo provides AM
+/// State = TVL , TPS InputState -> mD, Error  
+/// SettlePrice - > tx_data
+/*  Stack
+    IM ->PositionSize->Leverage->EntryPrice->OrderSide->AM
+    ->TVL_0->TVL_1->TPS0->TPS1->mD->Error->SettlePrice -> IM
+
+    PositionSize->Leverage->EntryPrice->OrderSide
+    ->TVL_0->TPS0 -> TVL_1->TPS1->mD->Error->SettlePrice -> AM-IM -> AM-IM
+
+     PositionSize->Leverage->EntryPrice->OrderSide
+    ->TVL_0->TPS0 -> TVL_1->TPS1Error->SettlePrice -> AM-IM -> AM-IM-mD
+
+    PositionSize->Leverage->EntryPrice->OrderSide
+    ->TVL_0->TPS0 -> TVL_1->TPS1->Error->SettlePrice -> AM-IM -> AM-IM-mD * SettlePrice
+*/
+pub fn get_settle_trader_order_program() -> Program {
+    let order_prog = Program::build(|p| {
+        p.roll(3) //drop TPS1
+            .drop()
+            .roll(3)
+            .drop() //drop TPS0
+            .roll(10) // Get IM to top of stack
+            .commit()
+            .dup(0) // duplicate IM
+            .expr()
+            .neg() // -IM
+            .roll(7) // Get AM to top of stack
+            .commit()
+            .dup(0) // duplicate AM
+            .expr()
+            .roll(2) // get -IM to top
+            .add() // AM - IM = Payment
+            .roll(2) // get IM
+            .expr()
+            .neg() // -IM
+            .roll(2) //get AM
+            .expr()
+            .add() //AM -IM
+            .roll(4) //marginDifference
+            .commit()
+            .expr()
+            .neg() // -mD
+            .add() // AM - IM - mD
+            .dup(2) //duplicate  SettlePrice
+            .scalar()
+            .mul() // SettlePrice * (AM - IM - mD)
+            .dup(7) //duplicate entryprice
+            .scalar()
+            .mul() // EntryPrice * SettlePrice * (AM - IM - mD)
+            .roll(7) // get EntryPrice
+            .scalar()
+            .roll(3) //get SettlePrice
+            .scalar()
+            .neg() //-settlePrice
+            .add() // entryPrice - settlePrice
+            .roll(6) // get Order Side (-1 for Long / 1 for short)
+            .scalar()
+            .mul() // OrderSide * (EntryPrice - SettlePrice)
+            .roll(7) // get PositionSize
+            .scalar()
+            .mul() // PositionSize * OrderSide * (EntryPrice - SettlePrice)
+            .roll(3) //get Error
+            .scalar()
+            .add() // Error + PositionSize * OrderSide * (EntryPrice - SettlePrice)
+            .eq() //(Payment - marginDifference)*EntryPrice*SettlePrice = Error + PositionSize * OrderSide * (EntryPrice - SettlePrice)
+            .roll(1) // get Payment = AM - IM as expression
+            .neg()
+            .roll(3) //get TVL0
+            .commit()
+            .expr()
+            .add() //TVL0 - Payment
+            .roll(2) // get TVL1
+            .commit()
+            .expr()
+            .eq() // TVL1 = TVL0 - Payment
+            .and() // Bind both constraints
+            .verify()
+            .drop(); // drop leverage
+    });
+    return order_prog;
+}
+
 pub fn contract_initialize_program_with_stack_short() -> Program {
     let order_prog = Program::build(|p| {
         p.drop()
@@ -383,6 +497,56 @@ pub fn contract_initialize_program_with_stack_short() -> Program {
             .add()
             .range()
             .drop();
+    });
+    return order_prog;
+}
+pub fn lend_order_deposit_program() -> Program {
+    let order_prog = Program::build(|p| {
+        // TPS1 - TPS0 = PS or TPS1 = PS + TPS0
+        p.roll(1) //TPS1
+            .commit()
+            .expr()
+            .dup(1) // TPS0
+            .commit()
+            .expr()
+            .dup(6) // Poolshare
+            .commit()
+            .expr()
+            .add() //
+            .eq() //  TPS0 + PoolShare = TPS1
+            //.and() // range && TPS0 + PoolShare = TPS1
+            .roll(3) //TLV1
+            .commit()
+            .expr()
+            .dup(4) //TLV0
+            .commit()
+            .expr()
+            .dup(7) // Deposit
+            .commit()
+            .expr()
+            .add() //Deposit + tlv
+            .eq() // TLV1 = Deposit + TLV0
+            .and() // TPS== &&  TLV== &&
+            .roll(1) // error
+            .scalar()
+            .roll(2) // TPS0
+            .commit()
+            .expr()
+            .roll(5) //Deposit
+            .commit()
+            .expr()
+            .mul() //Deposit * TPS0
+            .add() // Deposit * TPS0 + error
+            .roll(2) // TVL0
+            .commit()
+            .expr()
+            .roll(3) // Poolshare
+            .commit()
+            .expr()
+            .mul() // TVL0 * Poolshare
+            .eq()
+            .and()
+            .verify();
     });
     return order_prog;
 }
@@ -423,7 +587,7 @@ mod test {
     use quisquislib::elgamal::ElGamalCommitment;
     use quisquislib::keys::SecretKey;
     use rand::rngs::OsRng;
-    use zkvm::zkos_types::OutputMemo;
+    use zkvm::zkos_types::{OutputMemo, OutputState};
 
     #[test]
     fn test_verify_query_order() {
@@ -440,7 +604,7 @@ mod test {
     }
 
     #[test]
-    fn TEST_verify_settle_requests() {
+    fn Test_verify_settle_requests() {
         let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
         let (pk, _enc) = acc.get_account();
         let message = ("0a000000000000006163636f756e745f6964040000008c0000000000000022306366363661623465306432373239626538373835333366376663313866336364313862316337383764396230336262343163303263326235316561353239373437326330633433323934646131653035643736353235633234393336383234303636356565353632353363656435333466656362616536313437336130343737663631613866616634224000000000000000180bdfbb82e758e70684c3125b011a10b2205db929867c7507e3b156ff96be2f6a2aaeb522576b54743fdf5f10bc7ecb88328d15d35c98a2b0512b60fc0da405").as_bytes();
@@ -498,5 +662,273 @@ mod test {
         let verify_query = verify_trade_lend_order(coin_input, output, signature, proof);
         println!("verify_query: {:?}", verify_query);
         assert!(verify_query.is_ok());
+    }
+    use crate::vm_run::{Prover, Verifier};
+    #[test]
+    fn test_trade_order_tx_new() {
+        let correct_program = self::get_trader_order_program();
+        println!("\n Program \n{:?}", correct_program);
+
+        //create InputCoin and OutputMemo
+
+        let mut rng = rand::thread_rng();
+        let sk_in: quisquislib::ristretto::RistrettoSecretKey = SecretKey::random(&mut rng);
+        let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+        let commit_in = ElGamalCommitment::generate_commitment(
+            &pk_in,
+            Scalar::random(&mut rng),
+            Scalar::from(100u64),
+        );
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let out_coin = OutputCoin {
+            encrypt: commit_in,
+            owner: add.as_hex(),
+        };
+        let in_data: InputData = InputData::coin(Utxo::default(), out_coin, 0);
+        let coin_in: Input = Input::coin(in_data);
+        let input: Vec<Input> = vec![coin_in];
+
+        //*****  OutputMemo  *********/
+        //****************************/
+        let script_address =
+            Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
+        //IM
+        let commit_memo = Commitment::blinded(100u64);
+        //Leverage committed
+        let leverage = Commitment::blinded(5u64);
+        // entryprice in cents
+        let entry_price = 50u64;
+        // PositionSize
+        let position_size = 25000u64;
+
+        let data: Vec<ZString> = vec![
+            ZString::from(Scalar::from(position_size)),
+            ZString::from(leverage),
+            ZString::from(Scalar::from(entry_price)),
+        ];
+        let memo_out = OutputMemo {
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: commit_memo,
+            data: Some(data),
+            timebounds: 0,
+        };
+        let out_data = OutputData::Memo(memo_out);
+        let memo = Output::memo(out_data);
+        let output: Vec<Output> = vec![memo];
+
+        //cretae unsigned Tx with program proof
+        let result = Prover::build_proof(correct_program, &input, &output, false, None);
+        println!("{:?}", result);
+        let (prog_bytes, proof) = result.unwrap();
+        let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
+        println!("{:?}", verify);
+    }
+
+    #[test]
+    fn test_trade_settle_order_stack_new() {
+        let correct_program = self::get_settle_trader_order_program();
+        println!("\n Program \n{:?}", correct_program);
+
+        //create InputMemo and OutputCoin
+
+        let mut rng = rand::thread_rng();
+        let sk_in: quisquislib::ristretto::RistrettoSecretKey = SecretKey::random(&mut rng);
+        let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+        let commit_in = ElGamalCommitment::generate_commitment(
+            &pk_in,
+            Scalar::random(&mut rng),
+            Scalar::from(82u64),
+        );
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let out_coin = OutputCoin {
+            encrypt: commit_in,
+            owner: add.as_hex(),
+        };
+        let coin_out: Output = Output::coin(OutputData::coin(out_coin));
+
+        //*****  InputMemo  *********/
+        //****************************/
+        let script_address =
+            Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
+        //IM
+        let commit_memo = Commitment::blinded(50u64);
+        //Leverage committed
+        let leverage = Commitment::blinded(5u64);
+        // entryprice in cents
+        let entry_price = 500u64;
+        // PositionSize
+        let position_size = 125000u64;
+        let order_side: u64 = 1u64;
+        let data: Vec<ZString> = vec![
+            ZString::from(Scalar::from(position_size)),
+            ZString::from(leverage),
+            ZString::from(Scalar::from(entry_price)),
+            ZString::from(Scalar::from(order_side)),
+        ];
+        let memo_out = OutputMemo {
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: commit_memo,
+            data: Some(data),
+            timebounds: 0,
+        };
+        let coin_value: Commitment = Commitment::blinded(82u64); // AM to be pushed back to the user
+        let memo_in = Input::memo(InputData::memo(
+            Utxo::default(),
+            memo_out,
+            0,
+            Some(coin_value),
+        ));
+
+        //create output state
+        let tvl_1: Commitment = Commitment::blinded(118u64);
+        let tps_1: Commitment = Commitment::blinded(10u64);
+        let s_var: ZString = ZString::from(tps_1.clone());
+        let s_var_vec: Vec<ZString> = vec![s_var];
+        // create Output state
+        let out_state: OutputState = OutputState {
+            nonce: 2,
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: tvl_1,
+            state_variables: Some(s_var_vec),
+            timebounds: 0,
+        };
+
+        let output: Vec<Output> = vec![coin_out, Output::state(OutputData::State(out_state))];
+        // create Input State
+        let tvl_0: Commitment = Commitment::blinded(150u64);
+        let tps_0: Commitment = Commitment::blinded(10u64);
+        let s_var: ZString = ZString::from(tps_0.clone());
+        let in_state_var_vec: Vec<ZString> = vec![s_var];
+        let temp_out_state = OutputState {
+            nonce: 1,
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: tvl_0.clone(),
+            state_variables: Some(in_state_var_vec),
+            timebounds: 0,
+        };
+
+        let margin_difference = Commitment::blinded(5u64);
+        let error_int = -zkvm::ScalarWitness::Integer(175000u64.into());
+        let error_scalar: Scalar = error_int.into();
+        let pay_string: Vec<ZString> = vec![
+            ZString::from(margin_difference),
+            ZString::from(error_scalar),
+        ];
+        // convert to input
+        let input_state: Input = Input::state(InputData::state(
+            Utxo::default(),
+            temp_out_state.clone(),
+            Some(pay_string),
+            1,
+        ));
+        let input: Vec<Input> = vec![memo_in, input_state];
+        //tx_date i.e., settle price
+        let tx_data: zkvm::String = zkvm::String::from(Scalar::from(450u64));
+
+        //cretae unsigned Tx with program proof
+        let result = Prover::build_proof(
+            correct_program,
+            &input,
+            &output,
+            false,
+            Some(tx_data.clone()),
+        );
+        println!("{:?}", result);
+        let (prog_bytes, proof) = result.unwrap();
+        let verify =
+            Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, Some(tx_data));
+        println!("{:?}", verify);
+    }
+    #[test]
+    fn test_lend_order_deposit_program_stack() {
+        let correct_program = self::lend_order_deposit_program();
+        println!("\n Program \n{:?}", correct_program);
+
+        //create InputCoin and OutputMemo
+
+        let mut rng = rand::thread_rng();
+        let sk_in: quisquislib::ristretto::RistrettoSecretKey = SecretKey::random(&mut rng);
+        let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+        let commit_in = ElGamalCommitment::generate_commitment(
+            &pk_in,
+            Scalar::random(&mut rng),
+            Scalar::from(10u64),
+        );
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let out_coin = OutputCoin {
+            encrypt: commit_in,
+            owner: add.as_hex(),
+        };
+        let in_data: InputData = InputData::coin(Utxo::default(), out_coin, 0);
+        let coin_in: Input = Input::coin(in_data);
+
+        //outputMemo
+        let script_address =
+            Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
+        // create deposit amount
+        let memo_deposit = Commitment::blinded(1000u64);
+        //order size
+        let pool_share_normalized = Commitment::blinded(10000u64);
+        let data: Vec<ZString> = vec![ZString::from(pool_share_normalized)];
+        let memo_out = OutputMemo {
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: memo_deposit,
+            data: Some(data),
+            timebounds: 0,
+        };
+        let out_data = OutputData::Memo(memo_out);
+        let memo = Output::memo(out_data);
+
+        //create output state
+        let tvl_1: Commitment = Commitment::blinded(110000u64);
+        let tps_1: Commitment = Commitment::blinded(10010u64);
+        let s_var: ZString = ZString::from(tps_1.clone());
+        let s_var_vec: Vec<ZString> = vec![s_var];
+        // create Output state
+        let out_state: OutputState = OutputState {
+            nonce: 2,
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: tvl_1,
+            state_variables: Some(s_var_vec),
+            timebounds: 0,
+        };
+
+        let output: Vec<Output> = vec![memo, Output::state(OutputData::State(out_state))];
+        // create Input State
+        let tvl_0: Commitment = Commitment::blinded(100000u64);
+        let tps_0: Commitment = Commitment::blinded(10u64);
+        let s_var: ZString = ZString::from(tps_0.clone());
+        let in_state_var_vec: Vec<ZString> = vec![s_var];
+        let temp_out_state = OutputState {
+            nonce: 1,
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: tvl_0.clone(),
+            state_variables: Some(in_state_var_vec),
+            timebounds: 0,
+        };
+        let error = Scalar::from(999900000u64);
+        let err_string = vec![ZString::from(error)];
+        // convert to input
+        let input_state: Input = Input::state(InputData::state(
+            Utxo::default(),
+            temp_out_state.clone(),
+            Some(err_string),
+            1,
+        ));
+        let input: Vec<Input> = vec![coin_in, input_state];
+
+        //cretae unsigned Tx with program proof
+        let result = Prover::build_proof(correct_program, &input, &output, false, None);
+        println!("{:?}", result);
+        let (prog_bytes, proof) = result.unwrap();
+        let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
+        println!("{:?}", verify);
     }
 }

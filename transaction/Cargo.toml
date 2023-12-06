@@ -43,9 +43,13 @@ path = "../address"
 [dependencies.zkvm]
 path = "../zkvm"
 
+#[dependencies.rangeproof]
+#path = "../rangeproof"
+
 [dependencies.readerwriter]
 path = "../readerwriter"
 features = ["merlin"]
+
 
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
