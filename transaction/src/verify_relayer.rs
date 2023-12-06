@@ -506,15 +506,14 @@ pub fn lend_order_deposit_program() -> Program {
         p.roll(1) //TPS1
             .commit()
             .expr()
-            .dup(1) // TPS0
+            .dup(2) // TPS0
             .commit()
             .expr()
-            .dup(6) // Poolshare
+            .dup(6) // nPoolshare
             .commit()
             .expr()
             .add() //
-            .eq() //  TPS0 + PoolShare = TPS1
-            //.and() // range && TPS0 + PoolShare = TPS1
+            .eq() //  TPS0 + nPoolShare = TPS1
             .roll(3) //TLV1
             .commit()
             .expr()
@@ -540,10 +539,10 @@ pub fn lend_order_deposit_program() -> Program {
             .roll(2) // TVL0
             .commit()
             .expr()
-            .roll(3) // Poolshare
+            .roll(3) // nPoolshare
             .commit()
             .expr()
-            .mul() // TVL0 * Poolshare
+            .mul() // TVL0 * nPoolshare
             .eq()
             .and()
             .verify();
@@ -870,7 +869,7 @@ mod test {
         let script_address =
             Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
         // create deposit amount
-        let memo_deposit = Commitment::blinded(1000u64);
+        let memo_deposit = Commitment::blinded(10000u64);
         //order size
         let pool_share_normalized = Commitment::blinded(10000u64);
         let data: Vec<ZString> = vec![ZString::from(pool_share_normalized)];
