@@ -18,7 +18,7 @@ use crate::program::{Program, ProgramItem};
 use crate::tx::{TxHeader, UnsignedTx};
 use crate::vm::{Delegate, VMScript, VM};
 //use crate::zkos_types::{Input, Output};
-
+use std::time::Instant;
 /// This is the entry point API for creating a transaction.
 /// Prover passes the list of instructions through the VM,
 /// creates an aggregated transaction signature (for `signtx` instruction),
@@ -117,11 +117,17 @@ impl<'g> Prover<'g> {
         prover.cs.transcript().append_message(b"ZkVM.txid", &txid.0);
 
         // Generate the R1CS proof
+        // time this code
+
+        let now = Instant::now();
         let proof = prover
             .cs
             .prove(bp_gens)
             .map_err(|_| VMError::InvalidR1CSProof)?;
         // Defer signing of the transaction to the UnsignedTx API.
+        let elapsed = now.elapsed();
+        println!("Elapsed Prover: {:.2?}", elapsed);
+        println!("Prover: Proof Size{:?}", proof.serialized_size());
         Ok(UnsignedTx {
             header,
             program: bytecode,

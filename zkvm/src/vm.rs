@@ -1050,7 +1050,10 @@ where
                     match input.input.as_state_script_data() {
                         None => (),
                         Some(script_data) => {
-                            self.push_item(script_data.clone());
+                            //load the script data vector on stack
+                            for data in script_data.iter() {
+                                self.push_item(data.clone());
+                            }
                         }
                     }
                 }

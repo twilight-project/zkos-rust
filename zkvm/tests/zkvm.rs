@@ -135,9 +135,10 @@ fn build_and_verify(
             mintime_ms: 0u64,
             maxtime_ms: 0u64,
         };
+        //   println!("\nHERE\n");
         let gens = PedersenGens::default();
         let utx = Prover::build_tx(program, header, &bp_gens)?;
-
+        // println!("\n\n Unsigned Tx: {:?}", utx);
         let sig = if utx.signing_instructions.len() == 0 {
             Signature {
                 R: RISTRETTO_BASEPOINT_COMPRESSED,
@@ -176,6 +177,7 @@ fn build_and_verify(
 
     let vtx = tx.verify(&bp_gens, inputs, outputs)?;
     Ok(vtx)
+    //Ok(())
 }
 
 // fn build_and_verify_without_signature(
@@ -658,6 +660,71 @@ fn order_message_prog(balance: u64, order_qty: u64) -> Program {
     return order_prog;
 }
 
+//tests for Public/Private data constraints comparison
+// eq used     uPNL = OrderSize * (1/ currentPrice - 1/ orderPrice)
+//          uPNL = OrderSize * (orderPrice - currentPrice) / (currentPrice * orderPrice)
+//         uPNL * currentPrice * orderPrice = OrderSize * (orderPrice - currentPrice)
+fn order_size_public_prog(
+    order_size: Scalar,
+    order_price: Scalar,
+    current_price: Scalar,
+    upnl: Scalar,
+) -> Program {
+    let order_prog = Program::build(|p| {
+        p.push(upnl)
+            .scalar()
+            .push(current_price)
+            .scalar()
+            .push(order_price)
+            .scalar()
+            .mul()
+            .mul()
+            .push(order_price)
+            .scalar()
+            .push(current_price)
+            .scalar()
+            .neg()
+            .add()
+            .push(order_size)
+            .scalar()
+            .mul()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
+
+fn order_size_private_prog(
+    order_size: u64,
+    order_price: Scalar,
+    current_price: Scalar,
+    upnl: u64,
+) -> Program {
+    let order_prog = Program::build(|p| {
+        p.push(Commitment::blinded(upnl))
+            .commit()
+            .expr()
+            .push(current_price)
+            .scalar()
+            .push(order_price)
+            .scalar()
+            .mul()
+            .mul()
+            .push(order_price)
+            .scalar()
+            .push(current_price)
+            .scalar()
+            .neg()
+            .add()
+            .push(Commitment::blinded(order_size))
+            .commit()
+            .expr()
+            .mul()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
 fn order_message_prog_input_output(
     balance: u64,
     order_qty: u64,
@@ -758,8 +825,13 @@ fn contract_initialize_program() -> Program {
 }
 #[test]
 fn order_message_old() {
-    let correct_program = contract_initialize_program();
+    let order_size = Scalar::from(2100u64);
+    let order_price = Scalar::from(105u64);
+    let current_price = Scalar::from(100u64);
+    let upnl = Scalar::from(1u64);
 
+    let correct_program = order_size_public_prog(order_size, order_price, current_price, upnl);
+    //let correct_program = order_size_private_prog(2100u64, order_price, current_price, 1u64);
     print!("\n Program \n{:?}", correct_program);
     let input: Vec<Input> = vec![];
     let output: Vec<Output> = vec![];
