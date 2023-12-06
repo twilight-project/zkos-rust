@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use bulletproofs::r1cs;
 use bulletproofs::r1cs::ConstraintSystem;
 use bulletproofs::r1cs::R1CSProof;
@@ -139,16 +141,19 @@ impl Verifier {
             proof,
             mut verifier,
         } = verifiable_tx;
-
+        // time this code
+        let now = Instant::now();
         // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
         verifier.cs.transcript().append_message(b"ZkVM.txid", &id);
 
         // Verify the R1CS proof
+
         verifier
             .cs
             .verify(&proof, &pc_gens, bp_gens)
             .map_err(|_| VMError::InvalidR1CSProof)?;
-
+        let elapsed = now.elapsed();
+        println!("Elapsed Verifier: {:.2?}", elapsed);
         // Verify the signatures over txid
         let mut signtx_transcript = Transcript::new(b"ZkVM.signtx");
         signtx_transcript.append_message(b"txid", &id);
