@@ -550,6 +550,59 @@ pub fn lend_order_deposit_program() -> Program {
     return order_prog;
 }
 
+pub fn lend_order_settle_program() -> Program {
+    let order_prog = Program::build(|p| {
+        // TPS1 - TPS0 = PS or TPS1 = PS + TPS0
+        p.scalar() // Error
+            .neg() // -Error
+            .dup(4) //TLV0
+            .commit()
+            .expr()
+            .dup(7) // nPoolShare
+            .commit()
+            .expr()
+            .mul() //nPoolShare * TLV0
+            .add() // nPoolShare * TLV0 - Error
+            .dup(2) // TPS0
+            .commit()
+            .expr()
+            .dup(6) // nWithdraw
+            .commit()
+            .expr()
+            .mul() // TPS0 * nWithdraw
+            .eq() //  TPS0 * nWithdraw = nPoolShare * TLV0 - Error
+            .roll(6) //nPoolShare
+            .commit()
+            .expr()
+            .neg() // -nPoolShare
+            .roll(2) //TPS0
+            .commit()
+            .expr()
+            .add() // TPS0 -nPoolShare
+            .roll(2) //TPS1
+            .commit()
+            .expr()
+            .eq() //  TPS1 = TPS0 - nPoolShare
+            .and() // Adding 2 Equalities together
+            .roll(1) //TVL1
+            .commit()
+            .expr()
+            .roll(2) //TVL0
+            .commit()
+            .expr()
+            .roll(3) //nWithdraw
+            .commit()
+            .expr()
+            .neg()
+            .add() // TLV0- nWithdraw
+            .eq() // TLV1 = TLV0 - nWithdraw
+            .and() // rolling all constraints together
+            .verify()
+            .drop(); //dropping deposit off stack
+    });
+    return order_prog;
+}
+
 fn create_program_tree() -> Vec<Program> {
     let prog1 = self::get_trader_order_program();
     let prog2: Program = self::contract_initialize_program_with_stack_short();
@@ -922,6 +975,102 @@ mod test {
             1,
         ));
         let input: Vec<Input> = vec![coin_in, input_state];
+
+        //cretae unsigned Tx with program proof
+        let result = Prover::build_proof(correct_program, &input, &output, false, None);
+        println!("{:?}", result);
+        let (prog_bytes, proof) = result.unwrap();
+        let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
+        println!("{:?}", verify);
+    }
+
+    #[test]
+    fn test_lend_settle_order_stack() {
+        let correct_program = self::lend_order_settle_program();
+        println!("\n Program \n{:?}", correct_program);
+
+        //create InputMemo and OutputCoin
+
+        let mut rng = rand::thread_rng();
+        let sk_in: quisquislib::ristretto::RistrettoSecretKey = SecretKey::random(&mut rng);
+        let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+        let commit_in = ElGamalCommitment::generate_commitment(
+            &pk_in,
+            Scalar::random(&mut rng),
+            Scalar::from(1098901u64),
+        );
+        let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+        let out_coin = OutputCoin {
+            encrypt: commit_in,
+            owner: add.as_hex(),
+        };
+        let coin_out: Output = Output::coin(OutputData::coin(out_coin));
+
+        //*****  InputMemo  *********/
+        //****************************/
+        let script_address =
+            Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
+        // Initial Deposit
+        let commit_memo = Commitment::blinded(10000u64);
+        //Poolsize committed
+        let pool_share = Commitment::blinded(10000u64);
+
+        let data: Vec<ZString> = vec![ZString::from(pool_share)];
+        let memo_out = OutputMemo {
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: commit_memo,
+            data: Some(data),
+            timebounds: 0,
+        };
+        let withdraw: Commitment = Commitment::blinded(1098801u64); // Withdraw to be pushed back to the user
+        let memo_in = Input::memo(InputData::memo(
+            Utxo::default(),
+            memo_out,
+            0,
+            Some(withdraw),
+        ));
+
+        //create output state
+        let tvl_1: Commitment = Commitment::blinded(1099u64);
+        let tps_1: Commitment = Commitment::blinded(10u64);
+        let s_var: ZString = ZString::from(tps_1.clone());
+        let s_var_vec: Vec<ZString> = vec![s_var];
+        // create Output state
+        let out_state: OutputState = OutputState {
+            nonce: 2,
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: tvl_1,
+            state_variables: Some(s_var_vec),
+            timebounds: 0,
+        };
+
+        let output: Vec<Output> = vec![coin_out, Output::state(OutputData::State(out_state))];
+        // create Input State
+        let tvl_0: Commitment = Commitment::blinded(1100000u64);
+        let tps_0: Commitment = Commitment::blinded(10010u64);
+        let s_var: ZString = ZString::from(tps_0.clone());
+        let in_state_var_vec: Vec<ZString> = vec![s_var];
+        let temp_out_state = OutputState {
+            nonce: 1,
+            script_address: script_address.as_hex(),
+            owner: add.as_hex(),
+            commitment: tvl_0.clone(),
+            state_variables: Some(in_state_var_vec),
+            timebounds: 0,
+        };
+        let error_int = -zkvm::ScalarWitness::Integer(990u64.into());
+        let error_scalar: Scalar = error_int.into();
+        let pay_string: Vec<ZString> = vec![ZString::from(error_scalar)];
+        // convert to input
+        let input_state: Input = Input::state(InputData::state(
+            Utxo::default(),
+            temp_out_state.clone(),
+            Some(pay_string),
+            1,
+        ));
+        let input: Vec<Input> = vec![memo_in, input_state];
 
         //cretae unsigned Tx with program proof
         let result = Prover::build_proof(correct_program, &input, &output, false, None);
