@@ -219,163 +219,72 @@ pub enum InputData {
     Coin {
         /// txID, output Index  (Index of transaction output)
         utxo: Utxo,
-        // Owning address or predicate root.
-        // owner: String,
-        // Elgamal encryption on amount of coins.
-        //encryption: ElGamalCommitment,
+        /// Output Coin containing address and encryption
         out_coin: OutputCoin,
-
-        //coin: Coin,
         ///Index of witness that authorizes spending the coin.
         witness: u8,
-        //Same value proof.  Pedersen will come from corresponding output MEMO
-        //proof: Option<SigmaProof>,
-
-        //program length
-        // program_length: Option<u16>,
-        //program
-        // program: Option<Vec<u8>>,
-        //arbitrary data
-        //data: Option<ZkvmString>,
     },
     Memo {
         /// txID, output Index  (Index of transaction output)
         utxo: Utxo,
-        // Script Address
-        // script_address: String,
-        // Owning address or predicate root.
-        // owner: String,
-        // Pedersen commitment on amount of coins.
-        //commitment: CompressedRistretto,
-        ///Additional varibales
-        // data: ZkvmString,
+        /// OutputMemo carrying script address/owner address/commitment value/ Auxiliary memo data like entry price, leverage etc
         out_memo: OutputMemo,
         ///Index of witness that authorizes spending the coin.
         witness: u8,
-        //UTXO being spent must have been created at least this many blocks ago.
-        //timebounds: u32,
-        ///Same value proof. Encryption will come from corresponding output COIN
-        //proof: Option<SigmaProof>,
-
         ///same value proof Commitment Value. SHOULD BE REMOVED LATER
         /// ?????????????? Needed because the outout is encrypted with arbitrary value not necessarily the same as the Output commitment
         /// inside Input here
         /// Commitment because ?? value is needed for svproof. cleartext does not need a proof
         /// Ideally should be changed to zkvm::String
         coin_value: Option<Commitment>,
-        //program length
-        //  program_length: u16,
-        //program
-        //   program: Vec<u8>,
     },
 
     State {
         /// txID, output Index  (Index of transaction output)
         utxo: Utxo,
-        /// Nonce. tracks all the interactuons with the state
-        //nonce: u32,
-        /// Script Address
-        //script_address: String,
-        /// Owning address or predicate root.
-        // owner: String,
-        /// Pedersen commitment on amount of coins.
-        //commitment: CompressedRistretto,
+        //OutputState: type holding script address/owner address/commitment value/ state variable list
         out_state: OutputState,
         ///Index of witness that authorizes spending the coin.
         witness: u8,
-        //UTXO being spent must have been created at least this many blocks ago.
-        //timebounds: u32,
-        ///program length
-        // program_length: u16,
-        ///program
-        // program: Vec<u8>,
-
-        ///Additional varibales
-        script_data: Option<ZkvmString>,
+        ///Additional varibales needed for state transition
+        script_data: Option<Vec<ZkvmString>>,
     },
 }
 
 impl InputData {
-    //pub const fn coin(utxo: Utxo, coin: Coin, witness: u8) -> Self {
-    //  Self::Coin { utxo, coin, witness}
-    //}
-    pub const fn coin(
-        utxo: Utxo,
-        // owner: String,
-        // encryption: ElGamalCommitment,
-        out_coin: OutputCoin,
-        witness: u8,
-        // proof: Option<SigmaProof>,
-        // program_length: Option<u16>,
-        // program: Option<Vec<u8>>,
-        // data: Option<ZkvmString>,
-    ) -> Self {
+    pub const fn coin(utxo: Utxo, out_coin: OutputCoin, witness: u8) -> Self {
         Self::Coin {
             utxo,
             out_coin,
             witness,
-            // proof,
-            //   program_length,
-            //  program,
-            //data,
         }
     }
 
     pub const fn memo(
         utxo: Utxo,
-        // script_address: String,
-        // owner: String,
-        // commitment: CompressedRistretto,
-        // data: ZkvmString,
         out_memo: OutputMemo,
         witness: u8,
-        // timebounds: u32,
-        //proof: Option<SigmaProof>,
         coin_value: Option<Commitment>,
-        // program_length: u16,
-        // program: Vec<u8>,
     ) -> Self {
         Self::Memo {
             utxo,
-            // script_address,
-            // owner,
-            // commitment,
-            // data,
             witness,
-            // timebounds,
             out_memo,
-            //proof,
             coin_value,
-            //  program_length,
-            //  program,
         }
     }
 
     pub const fn state(
         utxo: Utxo,
-        // nonce: u32,
-        // script_address: String,
-        // owner: String,
-        // commitment: CompressedRistretto,
         out_state: OutputState,
-        script_data: Option<ZkvmString>,
+        script_data: Option<Vec<ZkvmString>>,
         witness: u8,
-        // timebounds: u32,
-        // program_length: u16,
-        // program: Vec<u8>,
     ) -> Self {
         Self::State {
             utxo,
             out_state,
-            //nonce,
-            //script_address,
-            //owner,
-            //commitment,
             script_data,
             witness,
-            // timebounds,
-            // program_length,
-            // program,
         }
     }
     // pub const fn memo()
@@ -493,7 +402,7 @@ impl InputData {
         }
     }
 
-    pub const fn as_state_script_data(&self) -> Option<&ZkvmString> {
+    pub const fn as_state_script_data(&self) -> Option<&Vec<ZkvmString>> {
         match self {
             InputData::State { script_data, .. } => script_data.as_ref(),
             _ => None,
