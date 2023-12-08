@@ -554,7 +554,7 @@ pub fn lend_order_settle_program() -> Program {
     let order_prog = Program::build(|p| {
         // TPS1 - TPS0 = PS or TPS1 = PS + TPS0
         p.scalar() // Error
-            .neg() // -Error
+            //.neg() // -Error
             .dup(4) //TLV0
             .commit()
             .expr()
@@ -570,12 +570,12 @@ pub fn lend_order_settle_program() -> Program {
             .commit()
             .expr()
             .mul() // TPS0 * nWithdraw
-            .eq() //  TPS0 * nWithdraw = nPoolShare * TLV0 - Error
+            .eq() //  TPS0 * nWithdraw = nPoolShare * TLV0 + Error
             .roll(6) //nPoolShare
             .commit()
             .expr()
             .neg() // -nPoolShare
-            .roll(2) //TPS0
+            .roll(3) //TPS0
             .commit()
             .expr()
             .add() // TPS0 -nPoolShare
@@ -598,7 +598,13 @@ pub fn lend_order_settle_program() -> Program {
             .eq() // TLV1 = TLV0 - nWithdraw
             .and() // rolling all constraints together
             .verify()
-            .drop(); //dropping deposit off stack
+            // .drop() //dropping deposit off stack
+            // .drop()
+            // .drop()
+            // .drop()
+            // .drop()
+            // .drop()
+            .drop();
     });
     return order_prog;
 }
@@ -997,7 +1003,7 @@ mod test {
         let commit_in = ElGamalCommitment::generate_commitment(
             &pk_in,
             Scalar::random(&mut rng),
-            Scalar::from(1098901u64),
+            Scalar::from(219u64),
         );
         let add: Address = Address::standard_address(Network::default(), pk_in.clone());
         let out_coin = OutputCoin {
@@ -1011,9 +1017,9 @@ mod test {
         let script_address =
             Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
         // Initial Deposit
-        let commit_memo = Commitment::blinded(10000u64);
+        let commit_memo = Commitment::blinded(300u64);
         //Poolsize committed
-        let pool_share = Commitment::blinded(10000u64);
+        let pool_share = Commitment::blinded(245u64);
 
         let data: Vec<ZString> = vec![ZString::from(pool_share)];
         let memo_out = OutputMemo {
@@ -1023,7 +1029,7 @@ mod test {
             data: Some(data),
             timebounds: 0,
         };
-        let withdraw: Commitment = Commitment::blinded(1098801u64); // Withdraw to be pushed back to the user
+        let withdraw: Commitment = Commitment::blinded(33u64); // Withdraw to be pushed back to the user
         let memo_in = Input::memo(InputData::memo(
             Utxo::default(),
             memo_out,
@@ -1032,8 +1038,8 @@ mod test {
         ));
 
         //create output state
-        let tvl_1: Commitment = Commitment::blinded(1099u64);
-        let tps_1: Commitment = Commitment::blinded(10u64);
+        let tvl_1: Commitment = Commitment::blinded(3194u64);
+        let tps_1: Commitment = Commitment::blinded(23030u64);
         let s_var: ZString = ZString::from(tps_1.clone());
         let s_var_vec: Vec<ZString> = vec![s_var];
         // create Output state
@@ -1048,8 +1054,8 @@ mod test {
 
         let output: Vec<Output> = vec![coin_out, Output::state(OutputData::State(out_state))];
         // create Input State
-        let tvl_0: Commitment = Commitment::blinded(1100000u64);
-        let tps_0: Commitment = Commitment::blinded(10010u64);
+        let tvl_0: Commitment = Commitment::blinded(3227u64);
+        let tps_0: Commitment = Commitment::blinded(23275u64);
         let s_var: ZString = ZString::from(tps_0.clone());
         let in_state_var_vec: Vec<ZString> = vec![s_var];
         let temp_out_state = OutputState {
@@ -1060,7 +1066,7 @@ mod test {
             state_variables: Some(in_state_var_vec),
             timebounds: 0,
         };
-        let error_int = -zkvm::ScalarWitness::Integer(990u64.into());
+        let error_int = -zkvm::ScalarWitness::Integer(22540u64.into());
         let error_scalar: Scalar = error_int.into();
         let pay_string: Vec<ZString> = vec![ZString::from(error_scalar)];
         // convert to input
