@@ -957,18 +957,20 @@ fn value_witness_test() {
 
     //create OutputMemo
 
-    let _out_memo = zkvm::zkos_types::OutputMemo {
+    let out_memo = zkvm::zkos_types::OutputMemo {
         script_address: add.as_hex(),
         owner: add.as_hex(),
         commitment: Commitment::blinded(10u64),
         data: None,
         timebounds: 0,
     };
+    let out_memo = Output::memo(OutputData::memo(out_memo));
 
     // create InputCoin Witness
     let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
         coin_in.clone(),
         sk_in,
+        out_memo.clone(),
         enc_acc,
         pk_in.clone(),
         commit_1.to_point(),
@@ -980,6 +982,7 @@ fn value_witness_test() {
     let value_wit = witness.to_value_witness().unwrap();
     let res = value_wit.verify_value_witness(
         coin_in.clone(),
+        out_memo.clone(),
         pk_in.clone(),
         enc_acc,
         commit_1.to_point(),

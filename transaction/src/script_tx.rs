@@ -1,9 +1,15 @@
+use std::borrow::Borrow;
+
 use address::{Address, Network};
 use merlin::Transcript;
-use quisquislib::{accounts::Account, ristretto::RistrettoPublicKey};
+use quisquislib::{
+    accounts::Account,
+    ristretto::{RistrettoPublicKey, RistrettoSecretKey},
+};
 //use quisquislib::{keys::PublicKey, ristretto::RistrettoSecretKey};
 use serde::{Deserialize, Serialize};
 use zkvm::{
+    tx,
     zkos_types::{Input, Output, OutputCoin, OutputMemo, Witness}, // OutputCoin, Utxo},
     IOType,
     Program,
@@ -49,6 +55,17 @@ pub struct ScriptTransaction {
     pub(crate) witness: Vec<Witness>,
     // Transaction data. e.g., supporting data needed for a script transaction at the top level.
     pub(crate) tx_data: Option<zkvm::String>,
+}
+
+struct unsignedScriptTx {
+    //Script program to be executed by the VM
+    program: Vec<u8>,
+    //Call Proof for program Merkle tree inclusion
+    call_proof: CallProof,
+    inputs: Vec<Input>,
+    outputs: Vec<Output>,
+    proof: R1CSProof,
+    tx_data: Option<zkvm::String>,
 }
 
 impl ScriptTransaction {
@@ -111,54 +128,139 @@ impl ScriptTransaction {
         )
     }
     /// run the program and create a proof
-    pub fn create_script_tx_without_witness(
-        _prog: Program,
-        _inputs: &[Input],
-        _outputs: &[Output],
-    ) {
+    fn create_script_tx_without_witness(
+        prog: Program,
+        call_proof: CallProof,
+        inputs: &[Input],
+        outputs: &[Output],
+        tx_data: Option<zkvm::String>,
+        contract_deploy_flag: bool,
+    ) -> Result<unsignedScriptTx, zkvm::VMError> {
+        // execute the program and create a proof
+        let (program, proof) = crate::vm_run::Prover::build_proof(
+            prog,
+            &inputs,
+            &outputs,
+            contract_deploy_flag,
+            tx_data.clone(),
+        )?;
 
-        //Run the program and create a proof
+        Ok(unsignedScriptTx {
+            program,
+            call_proof,
+            inputs: inputs.to_vec(),
+            outputs: outputs.to_vec(),
+            proof,
+            tx_data,
+        })
     }
 
-    ///create signatures and zero balance proofs for all inputs
-    // pub fn create_witness_without_tx(inputs: &[Input], sk_list: &[Scalar]) -> Vec<Witness> {
-    //     let mut witness: Vec<Witness> = Vec::with_capacity(inputs.len());
-    //     //iterate over Inputs and check its type
-    //     for (i, inp) in self.inputs.iter().enumerate() {
-    //         match inp.in_type {
-    //             IOType::Coin => {
-    //                 let in_coin: &OutputCoin = inp.as_out_coin().expect("Input is not a coin");
-    //                 // get corresponding OutputMemo
-    //                 let out_memo: Output = self.outputs[i];
-    //                 let acc: Account = inp.to_quisquis_account().expect("Input is not an account");
-    //                 // get the public key from account
-    //                 let (pk, _) = acc.get_account();
-    //                 // get Pedersen commitment value from Memo
-    //                 let memo_commitment = out_memo
-    //                     .output
-    //                     .get_commitment()
-    //                     .expect("Memo is not a coin");
-    //                 // create coin input witness
-    //                 let coin_witness: zkvm::zkos_types::ValueWitness =
-    //                 // verify the witness
-    //                 // get account from input
-    //             }
-    //         //if coin mark witness as Signature
-    //         match inp.in_type {
-    //             IOType::Coin => {
-    //                 witness.push(Witness::Signature(sign));
-    //             }
-    //             //if data mark witness as ZeroBalanceProof
-    //             IOType::Memo => {
-    //                 witness.push(Witness::Signature(sign));
-    //             }
-    //             IOType::State => {
-    //                 witness.push(Witness::Signature(sign));
-    //             }
-    //         }
-    //     }
-    //     witness
-    // }
+    ///create signatures and zero balance proofs for all inputs and corresponding outputs
+    pub fn create_witness_script_tx(
+        sk_list: &[RistrettoSecretKey],
+        unsigned_tx: unsignedScriptTx,
+    ) -> Vec<Witness> {
+        let mut witness: Vec<Witness> = Vec::with_capacity(unsigned_tx.inputs.len());
+        let inputs: &Vec<Input> = unsigned_tx.inputs.borrow();
+        let outputs: &Vec<Output> = unsigned_tx.outputs.borrow();
+        //iterate over Inputs and check its type
+        for (i, inp) in inputs.iter().enumerate() {
+            match inp.in_type {
+                IOType::Coin => {
+                    let in_coin: &OutputCoin = inp.as_out_coin().expect("Input is not a coin");
+                    // get corresponding OutputMemo
+                    let out_memo: Output = outputs[i].clone();
+                    let acc: Account = inp
+                        .to_quisquis_account()
+                        .expect("Input is not a quisquis account");
+                    // get the public key from account
+                    let (pk, _) = acc.get_account();
+                    // get Pedersen commitment value from Memo
+                    let memo_commitment = out_memo
+                        .output
+                        .get_commitment()
+                        .expect("Memo is not a coin");
+                    // get commitment value and scalar
+                    let (memo_value, memo_scalar) = memo_commitment.witness().unwrap();
+                    let memo_commit = memo_commitment.to_point();
+                    let value = memo_value
+                        .to_integer()
+                        .expect("Can not cconvert to signed int")
+                        .to_u64()
+                        .expect("Value is not a u64");
+                    // create coin input witness
+                    let input_coin = inp.clone();
+                    let sk = sk_list[i].clone();
+                    let coin_witness = zkvm::zkos_types::ValueWitness::create_value_witness(
+                        input_coin,
+                        sk,
+                        out_memo,
+                        acc,
+                        pk,
+                        memo_commit,
+                        value,
+                        memo_scalar,
+                    );
+                    witness.push(Witness::ValueWitness(coin_witness));
+                }
+                IOType::Memo => {
+                    let in_memo: &OutputMemo = inp.as_out_memo().unwrap();
+                    // get corresponding OutputCoin
+                    let out_coin: Output = outputs[i].clone();
+                    let acc: Account = out_coin
+                        .to_quisquis_account()
+                        .expect("Output is not a quisquis account");
+                    // get the public key from account
+                    let (pk, _) = acc.get_account();
+                    // get Pedersen commitment from Memo for same value proof. this value is coming from coin value
+                    let memo_commitment = inp
+                        .input
+                        .get_coin_value_input_memo()
+                        .expect("Input is not a Memo");
+                    // get commitment value and scalar
+                    let (memo_value, memo_scalar) = memo_commitment.witness().unwrap();
+                    let memo_commit = memo_commitment.to_point();
+                    let value = memo_value
+                        .to_integer()
+                        .expect("Can not cconvert to signed int")
+                        .to_u64()
+                        .expect("Value is not a u64");
+
+                    // create memo input witness
+                    let input_memo = inp.clone();
+                    let sk = sk_list[i].clone();
+                    let memo_witness = zkvm::zkos_types::ValueWitness::create_value_witness(
+                        input_memo,
+                        sk,
+                        out_coin,
+                        acc,
+                        pk,
+                        memo_commit,
+                        value,
+                        memo_scalar,
+                    );
+                    witness.push(Witness::ValueWitness(memo_witness));
+                }
+                IOType::State => {
+                    // get the witness for the input
+                    let state_witness = witness[i]
+                        .clone()
+                        .to_state_witness()
+                        .expect("Witness is not a state witness for Input State");
+                    let owner = inp
+                        .as_owner_address()
+                        .expect("Owner address does not exist");
+                    // extract pk from owner string
+                    let address: Address = Address::from_hex(owner, address::AddressType::Standard)
+                        .expect("Hex address is not decodable");
+                    let pk: RistrettoPublicKey = address.into();
+                    let state_witness = state_witness.create_state_witness(inp.clone(), pk);
+                    witness.push(Witness::StateWitness(state_witness));
+                }
+            }
+        }
+        witness
+    }
 
     /// verify the script tx
     pub fn verify(&self) -> Result<(), &'static str> {

@@ -545,7 +545,7 @@ impl Input {
         }
     }
 
-    // return Input with Witness = 0 for signing
+    // return Input with Witness = 0
     pub fn as_input_for_signing(&self) -> Input {
         match self.input {
             InputData::Coin {
@@ -558,11 +558,14 @@ impl Input {
                 ref out_memo,
                 ref coin_value,
                 ..
-            } => Input::memo(InputData::memo(
+            } => 
+            let coin_value = coin_value.unwrap().expect("Error::InvalidInputType. Only allowed for Memo type");
+
+            Input::memo(InputData::memo(
                 utxo.clone(),
-                out_memo.clone(),
+                out_memo.verifier_view(),
                 0,
-                coin_value.clone(),
+                coin_value.to_point(),
             )),
             InputData::State {
                 ref utxo,
@@ -1015,6 +1018,19 @@ impl Output {
         };
         Output::coin(OutputData::coin(coin))
     }
+    pub fn to_verifier_view(&self) -> Self {
+        match self.output {
+            OutputData::Memo(ref out_memo) => {
+                let out_memo = out_memo.verifier_view();
+                Output::memo(OutputData::Memo(out_memo))
+            }
+            OutputData::State(ref out_state) => {
+                let out_state = out_state.verifier_view();
+                Output::state(OutputData::State(out_state))
+            }
+            _ => self.clone(),
+        }
+    }
 }
 /// Create a output of Coin which is valid on the Default network.
 impl From<Account> for Output {
@@ -1273,10 +1289,11 @@ impl ValueWitness {
     pub fn get_value_proof(&self) -> &SigmaProof {
         &self.value_proof
     }
-
+    /// assuming the inouts passed are already converted to represent verifier view of commitments
     pub fn create_value_witness(
         input: Input,
         secret_key: RistrettoSecretKey,
+        output: Output,
         enc_acc: Account,
         pubkey: RistrettoPublicKey,
         pedersen_commitment: CompressedRistretto,
@@ -1284,9 +1301,14 @@ impl ValueWitness {
         rscalar: Scalar, //commitment scalar
     ) -> Self {
         //create the Signature over the Input Coin/Memo with the secret key
-        //create message bytes using input
-        //CONVERT INPUT TO VERIFIER VIEW
-        let message = bincode::serialize(&input).unwrap();
+
+        let input_verifier_view = input.as_input_for_signing();
+        let output_verifier_view = output.to_verifier_view();
+
+        //create message bytes using input and output verifier view
+        let mut message: Vec<u8>;
+        message = bincode::serialize(&input_verifier_view).unwrap();
+        message.extend(bincode::serialize(&output_verifier_view).unwrap());
 
         //create the signature over the input
         let sign = pubkey.sign_msg(&message, &secret_key, ("ValueSign").as_bytes());
@@ -1303,12 +1325,15 @@ impl ValueWitness {
     pub fn verify_value_witness(
         &self,
         input: Input,
+        output: Output,
         pubkey: RistrettoPublicKey,
         enc_acc: Account,
         commitment: CompressedRistretto,
     ) -> Result<bool, &'static str> {
         //create message to verify the Signature over the Input State with the public key
-        let message = bincode::serialize(&input).unwrap();
+        let mut message: Vec<u8>;
+        message = bincode::serialize(&input).unwrap();
+        message.extend(bincode::serialize(&output).unwrap());
         //verify the Signature over the InputData with the public key
 
         let verify_sig = pubkey.verify_msg(&message, &self.sign, ("ValueSign").as_bytes());
