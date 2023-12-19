@@ -213,7 +213,7 @@ pub fn insert_bulk_utxo_in_psql_memo_or_state(
 }
 
 pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str) {
-    let mut bulk_query_remove: String = format!("DELETE FROM {} WHERE utxo = any($1);", table_name);
+    let bulk_query_remove: String = format!("DELETE FROM {} WHERE utxo = any($1);", table_name);
     let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
     client.execute(&bulk_query_remove, &[&remove_utxo]).unwrap();
 }

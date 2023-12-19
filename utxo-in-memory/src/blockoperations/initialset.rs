@@ -53,7 +53,7 @@ pub fn load_genesis_sets_test() -> Vec<RecordUtxo> {
 // }
 
 pub fn set_genesis_sets() {
-    let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
+    let (acc, _prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
     let recordutxo = transaction::reference_tx::create_genesis_block(10000, 100, acc);
     let mut file =
         std::fs::File::create("../utxo-in-memory\\src\\blockoperations\\genesis_sets.txt").unwrap();

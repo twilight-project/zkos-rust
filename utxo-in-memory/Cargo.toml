@@ -36,9 +36,9 @@ temp-env = "0.3.4"
 
 
 [dependencies.quisquis-rust]
-path = "../../quisquis-rust"
-#git = "ssh://github.com/twilight-project/quisquis-rust.git"
-#branch = "update_dark_tx"
+# path = "../../quisquis-rust"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "update_dark_tx"
 
 [dependencies.transaction]
 path = "../transaction"
@@ -62,3 +62,9 @@ path = "../address"
 # default = []
 # nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
 
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "utxo_benchmark"
+harness = false
