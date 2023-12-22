@@ -254,9 +254,8 @@ impl Standard {
         use sha3::Digest;
         let network = Network::from_u8(bytes[0])?;
         let addr_type = AddressType::from_slice(&bytes, network)?;
-        let gr = slice_to_pkpoint(&bytes[1..33])?;
-        let grsk = slice_to_pkpoint(&bytes[33..65])?;
-        let public_key = RistrettoPublicKey::new_from_pk(gr, grsk);
+        let public_key = RistrettoPublicKey::from_bytes(&bytes[1..65])?;
+
         let (checksum_bytes, checksum) = (&bytes[0..65], &bytes[65..69]);
         let mut hasher = Keccak256::new();
         hasher.update(checksum_bytes);
