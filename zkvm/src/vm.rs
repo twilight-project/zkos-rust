@@ -995,7 +995,7 @@ where
                     // For DEMO purposes PUSHING temporary data Stored in Memo
                     //push the Optional Memo data onto stack
                     // push the coin value on stack if present
-                    match input.input.get_coin_value_input_memo() {
+                    match input.input.get_coin_value_from_memo() {
                         Some(data) => {
                             self.push_item(String::from(data.clone()));
                         }
