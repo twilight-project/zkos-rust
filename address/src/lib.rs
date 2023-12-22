@@ -377,21 +377,22 @@ impl Default for Script {
         }
     }
 }
-/// Deserialize a public key from a slice. The input slice is 64 bytes
-/// Utility Function
-fn slice_to_pkpoint(data: &[u8]) -> Result<CompressedRistretto, &'static str> {
-    if data.len() != 32 {
-        return Err("Invalid Key Length");
-    }
-    let gr = CompressedRistretto::from_slice(&data);
-    match gr.decompress() {
-        Some(_) => (),
-        None => {
-            return Err("InvalidPoint");
-        }
-    };
-    Ok(gr)
-}
+//MOVED Inside qq-rust-lib
+// Deserialize a public key from a slice. The input slice is 64 bytes
+// Utility Function
+// fn slice_to_pkpoint(data: &[u8]) -> Result<CompressedRistretto, &'static str> {
+//     if data.len() != 32 {
+//         return Err("Invalid Key Length");
+//     }
+//     let gr = CompressedRistretto::from_slice(&data);
+//     match gr.decompress() {
+//         Some(_) => (),
+//         None => {
+//             return Err("InvalidPoint");
+//         }
+//     };
+//     Ok(gr)
+// }
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------

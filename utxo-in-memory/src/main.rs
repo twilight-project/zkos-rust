@@ -1,24 +1,15 @@
 // #[macro_use]
-use utxo_in_memory::blockoperations;
-use utxo_in_memory::db::LocalDBtrait;
+
 extern crate lazy_static;
+//use tungstenite::{connect, Message};
 use utxo_in_memory::*;
-use serde::Deserialize;
-use tungstenite::{connect, Message};
-use url::Url;
 
 fn main() {
-
     let sw = Stopwatch::start_new();
     init_utxo();
     let time1 = sw.elapsed();
     println!("init_utxo: {:#?}", time1);
 }
-
-
-use curve25519_dalek::scalar::Scalar;
-use quisquislib::accounts::Account;
-use std::io::prelude::*;
 
 // pub fn load_utxo() {
 //     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
