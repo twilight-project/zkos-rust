@@ -41,12 +41,9 @@ path = "../mulmsgsig"
 [dependencies.address]
 path = "../address"
 
-#[dependencies.elgamalsign]
-#path = "../elgamalsign"
-
 [dependencies.zkschnorr]
-#git = "ssh://github.com/twilight-project/ZkSchnorr.git"
-path = "../../ZkSchnorr"
+git = "ssh://github.com/twilight-project/ZkSchnorr.git"
+#path = "../../ZkSchnorr"
 
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
@@ -56,7 +53,7 @@ features = ["yoloproofs"]
 [dependencies.quisquis-rust]
 path ="../../quisquis-rust"
 #git = "ssh://github.com/twilight-project/quisquis-rust.git"
-#branch = "update_dark_tx"
+#branch = "develop"
 
 [features]
 default = []
