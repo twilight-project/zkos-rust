@@ -141,7 +141,7 @@ impl TransferTransaction {
     // pub fn create_witness_proof_transfer_tx(witness_comm_scalar: Option<&[Scalar]>) -> {
 
     // }
-    /// Option<Scalar> carries the final scalar used in the reciever ourput encryption
+    /// Option<Scalar> carries the final scalar used in the reciever out    put encryption
     /// This is required to process burnMessage
     /// is Some if the reciever is zero balance in input
     /// WORKS FOR SINGLE RECIEVER YET. SHOULD BE UPDATED TO SUPPORT MULTIPLE RECIEVERS
@@ -231,7 +231,10 @@ impl TransferTransaction {
         //create vec of Outputs -- Senders + Recievers in this case
         let mut outputs: Vec<Output> = Vec::new();
         for out in output_accounts.iter() {
-            outputs.push(Output::from(out.clone()));
+            outputs.push(Output::from_quisquis_account(
+                out.clone(),
+                address::Network::default(),
+            ));
         }
 
         let version = 1u64;

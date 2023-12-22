@@ -1,11 +1,13 @@
 #![allow(non_snake_case)]
 #![allow(missing_docs)]
 
+use core::panic;
+
 //use crate::readerwriter::{Encodable, ExactSizeEncodable, Writer, WriteError};
 use crate::constraints::Commitment;
-use crate::encoding::*;
 use crate::tx::TxID;
 use crate::types::String as ZkvmString;
+use crate::{encoding::*, verifier};
 use bincode;
 use bincode::{deserialize, serialize};
 use bulletproofs::PedersenGens;
@@ -18,15 +20,6 @@ use quisquislib::ristretto::RistrettoPublicKey;
 use quisquislib::ristretto::RistrettoSecretKey;
 use serde::{Deserialize, Serialize};
 use zkschnorr::Signature;
-
-/// Identification of transaction in a block.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
-pub struct TxPointer {
-    /// block id
-    block_height: u64,
-    /// output index
-    tx_index: u16,
-}
 
 /// Identification of unspend transaction output.
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize, Serialize)]
@@ -80,7 +73,7 @@ impl Utxo {
     pub fn tx_id_to_vec(&self) -> Vec<u8> {
         self.txid.0 .0.to_vec()
     }
-
+    /// Used in test suites to create a random UtxoID
     pub fn random() -> Self {
         let mut rng = rand::thread_rng();
         let txid: [u8; 32] = rand::Rng::gen(&mut rng);
@@ -92,7 +85,6 @@ impl Utxo {
     }
 }
 ///Default returns a Utxo with id = 0 and witness index = 0
-///
 impl Default for Utxo {
     fn default() -> Utxo {
         let id: [u8; 32] = [0; 32];
@@ -227,15 +219,11 @@ pub enum InputData {
     Memo {
         /// txID, output Index  (Index of transaction output)
         utxo: Utxo,
-        /// OutputMemo carrying script address/owner address/commitment value/ Auxiliary memo data like entry price, leverage etc
+        /// OutputMemo carrying script address/owner address/commitment value/ etc that already exist as output
         out_memo: OutputMemo,
-        ///Index of witness that authorizes spending the coin.
+        ///Index of witness that authorizes spending the coin. Value witness is expected
         witness: u8,
-        ///same value proof Commitment Value. SHOULD BE REMOVED LATER
-        /// ?????????????? Needed because the outout is encrypted with arbitrary value not necessarily the same as the Output commitment
-        /// inside Input here
-        /// Commitment because ?? value is needed for svproof. cleartext does not need a proof
-        /// Ideally should be changed to zkvm::String
+        /// Coin value to be created for the input memo
         coin_value: Option<Commitment>,
     },
 
@@ -287,7 +275,6 @@ impl InputData {
             witness,
         }
     }
-    // pub const fn memo()
     pub const fn as_utxo(&self) -> Option<&Utxo> {
         match self {
             Self::Coin { utxo, .. } => Some(utxo),
@@ -362,43 +349,17 @@ impl InputData {
         }
     }
 
-    /*  pub const fn as_sigma_proof(&self) -> Option<&SigmaProof> {
-        match self {
-            InputData::Coin { proof, .. } => proof.as_ref(),
-            InputData::Memo { proof, .. } => proof.as_ref(),
-            _ => None,
-        }
-    }*/
-
-    pub const fn get_coin_value_input_memo(&self) -> &Option<Commitment> {
+    pub const fn get_coin_value_from_memo(&self) -> &Option<Commitment> {
         match self {
             InputData::Memo { coin_value, .. } => coin_value,
             _ => &None,
         }
     }
 
-    // pub const fn as_program_length(&self) -> Option<&u16> {
-    //     match self {
-    //         InputData::Coin { program_length, .. } => program_length.as_ref(),
-    //         InputData::Memo { program_length, .. } => Some(program_length),
-    //         InputData::State { program_length, .. } => Some(program_length),
-    //     }
-    // }
-
-    // pub const fn as_program(&self) -> Option<&Vec<u8>> {
-    //     match self {
-    //         InputData::Coin { program, .. } => program.as_ref(),
-    //         InputData::Memo { program, .. } => Some(program),
-    //         InputData::State { program, .. } => Some(program),
-    //     }
-    // }
-
     pub const fn as_memo_data(&self) -> Option<&Vec<ZkvmString>> {
         match self {
-            // InputData::Coin { data, .. } => data.as_ref(),
             InputData::Memo { out_memo, .. } => out_memo.data.as_ref(),
             _ => None,
-            //InputData::State { script_data, .. } => Some(script_data),
         }
     }
 
@@ -406,7 +367,6 @@ impl InputData {
         match self {
             InputData::State { script_data, .. } => script_data.as_ref(),
             _ => None,
-            //InputData::State { script_data, .. } => Some(script_data),
         }
     }
 
@@ -414,19 +374,8 @@ impl InputData {
         match self {
             InputData::State { out_state, .. } => out_state.state_variables.as_ref(),
             _ => None,
-            //InputData::State { script_data, .. } => Some(script_data),
         }
     }
-
-    // pub const fn as_script_data(&self) -> Option<&ZkvmString> {
-    //     match self {
-    //         InputData::State {
-    //             script_data: ZkvmString,
-    //             ..
-    //         } => Some(script_data),
-    //         _ => None,
-    //     }
-    //}
 }
 
 impl PartialEq for InputData {
@@ -545,7 +494,79 @@ impl Input {
         }
     }
 
-    // return Input with Witness = 0
+    /// replace the witness index of each input with the new index
+    pub fn replace_witness_index(&mut self, witness_index: u8) {
+        match self.input {
+            InputData::Coin {
+                ref mut witness, ..
+            } => *witness = witness_index,
+            InputData::Memo {
+                ref mut witness, ..
+            } => *witness = witness_index,
+            InputData::State {
+                ref mut witness, ..
+            } => *witness = witness_index,
+        }
+    }
+    /// function to return the encrypted values for the input to be placed in transaction
+    ///
+    pub fn verifier_view(&self) -> Input {
+        match self.input {
+            InputData::Memo {
+                ref utxo,
+                ref out_memo,
+                ref coin_value,
+                ref witness,
+                ..
+            } => {
+                let commit: Option<Commitment>;
+                if let Some(value) = coin_value {
+                    commit = Some(Commitment::Closed(value.to_point()));
+                } else {
+                    commit = None;
+                }
+                Input::memo(InputData::memo(
+                    utxo.clone(),
+                    out_memo.verifier_view(),
+                    witness.clone(),
+                    commit,
+                ))
+            }
+            InputData::State {
+                ref utxo,
+                ref out_state,
+                ref script_data,
+                ref witness,
+                ..
+            } => {
+                let verifier_script_data: Option<Vec<ZkvmString>>;
+                if let Some(data) = script_data {
+                    let mut script_data: Vec<ZkvmString> = Vec::new();
+                    for x in data.iter() {
+                        match x {
+                            ZkvmString::Commitment(commitment) => {
+                                script_data.push(Commitment::Closed(commitment.to_point()).into());
+                            }
+                            _ => {
+                                script_data.push(x.clone());
+                            }
+                        }
+                    }
+                    verifier_script_data = Some(script_data);
+                } else {
+                    verifier_script_data = None;
+                }
+                Input::state(InputData::state(
+                    utxo.clone(),
+                    out_state.verifier_view(),
+                    verifier_script_data,
+                    witness.clone(),
+                ))
+            }
+            _ => self.clone(),
+        }
+    }
+    /// return Input with Witness = 0
     pub fn as_input_for_signing(&self) -> Input {
         match self.input {
             InputData::Coin {
@@ -558,14 +579,11 @@ impl Input {
                 ref out_memo,
                 ref coin_value,
                 ..
-            } => 
-            let coin_value = coin_value.unwrap().expect("Error::InvalidInputType. Only allowed for Memo type");
-
-            Input::memo(InputData::memo(
+            } => Input::memo(InputData::memo(
                 utxo.clone(),
-                out_memo.verifier_view(),
+                out_memo.clone(),
                 0,
-                coin_value.to_point(),
+                coin_value.clone(),
             )),
             InputData::State {
                 ref utxo,
@@ -583,7 +601,7 @@ impl Input {
     // Works only for Coin Input Type
     pub fn to_quisquis_account(&self) -> Result<Account, &'static str> {
         match self.input {
-            InputData::Coin { ref out_coin, .. } => Ok(out_coin.to_quisquis_account()),
+            InputData::Coin { ref out_coin, .. } => Ok(out_coin.to_quisquis_account()?),
             _ => Err("Error::InvalidInputType. Only allowed for Coin type"),
         }
     }
@@ -637,11 +655,11 @@ impl OutputCoin {
     pub fn to_input(&self, utxo: Utxo, witness_index: u8) -> Input {
         Input::coin(InputData::coin(utxo, self.clone(), witness_index))
     }
-    pub fn to_quisquis_account(&self) -> Account {
+    pub fn to_quisquis_account(&self) -> Result<Account, &'static str> {
         let add: address::Address =
-            address::Address::from_hex(&self.owner, address::AddressType::Standard).unwrap();
+            address::Address::from_hex(&self.owner, address::AddressType::Standard)?;
         let pub_key: RistrettoPublicKey = add.as_coin_address().public_key;
-        Account::set_account(pub_key.clone(), self.encrypt.clone())
+        Ok(Account::set_account(pub_key.clone(), self.encrypt.clone()))
     }
 }
 
@@ -652,7 +670,6 @@ impl Encodable for OutputCoin {
         Ok(())
     }
 }
-
 impl ExactSizeEncodable for OutputCoin {
     fn encoded_size(&self) -> usize {
         64 + 69
@@ -662,8 +679,6 @@ impl ExactSizeEncodable for OutputCoin {
 /// A complete twilight typed Memo Output valid for a specific network.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OutputMemo {
-    ///Script Data (Address/Owner/Commitment)
-    // pub contract_info: Contract,
     /// Script Address
     pub script_address: String,
     /// Owning address or predicate root.
@@ -691,42 +706,6 @@ impl OutputMemo {
             timebounds,
         }
     }
-    pub fn verifier_view(&self) -> OutputMemo {
-        // let mut data_str: ZkvmString;
-        // if self.data.is_some() {
-        //     match self.data.unwrap() {
-        //         ZkvmString::Commitment(commitment) => {
-        //         data_str = Commitment::Closed(self.data.to_point());
-
-        //     }
-
-        //
-
-        //         OutputMemo {
-        //             script_address: self.script_address.clone(),
-        //             owner: self.owner.clone(),
-        //             commitment: Commitment::Closed(data_commitment.clone().to_point()),
-        //             data: self.data.clone(),
-        //             timebounds: self.timebounds,
-        //         }
-        //     }
-        //     _ => OutputMemo {
-        //         script_address: self.script_address.clone(),
-        //         owner: self.owner.clone(),
-        //         commitment: Commitment::Closed(self.commitment.clone().to_point()),
-        //         data: self.data.clone(),
-        //         timebounds: self.timebounds,
-        //     },
-        //   }
-        // }
-        OutputMemo {
-            script_address: self.script_address.clone(),
-            owner: self.owner.clone(),
-            commitment: Commitment::Closed(self.commitment.clone().to_point()),
-            data: self.data.clone(),
-            timebounds: self.timebounds,
-        }
-    }
     //Use this function to create Output Memo in case of Trader from Wasm
     pub fn new_from_wasm(
         script_address: String,
@@ -750,8 +729,40 @@ impl OutputMemo {
             timebounds: 0,
         }
     }
+    pub fn verifier_view(&self) -> OutputMemo {
+        // check if any of the data is a comm
+        let data_str: Option<Vec<ZkvmString>>;
+        match &self.data {
+            None => data_str = None,
+            Some(x) => {
+                // loop over the state variables and convert the commitments to points
+                let mut data_string: Vec<ZkvmString> = Vec::new();
+                for data in x.iter() {
+                    match data {
+                        ZkvmString::Commitment(commitment) => {
+                            data_string.push(ZkvmString::Commitment(Box::new(Commitment::Closed(
+                                commitment.to_point(),
+                            ))));
+                        }
+                        _ => {
+                            data_string.push(data.clone());
+                        }
+                    }
+                }
+                data_str = Some(data_string);
+            }
+        }
+        OutputMemo {
+            script_address: self.script_address.clone(),
+            owner: self.owner.clone(),
+            commitment: Commitment::Closed(self.commitment.clone().to_point()),
+            data: data_str,
+            timebounds: self.timebounds,
+        }
+    }
 }
-///Dummy values for testing Memo
+
+/// Empty OutputMemo for testing
 impl Default for OutputMemo {
     fn default() -> Self {
         Self {
@@ -769,8 +780,6 @@ impl Default for OutputMemo {
 pub struct OutputState {
     /// nonce for tracking the interations with state
     pub nonce: u32,
-    ///Contract Info Data (script Address/ Owner / Commitment value)
-    //pub contract_info: Contract,
     /// Script Address
     pub script_address: String,
     /// Owning address or predicate root.
@@ -782,7 +791,7 @@ pub struct OutputState {
     /// Timebounds
     pub timebounds: u32,
 }
-///Dummy value for state variable testing
+/// Empty OutputState for testing
 impl Default for OutputState {
     fn default() -> Self {
         Self {
@@ -833,17 +842,6 @@ impl OutputState {
             timebounds: self.timebounds,
         }
     }
-}
-
-/// A complete twilight typed Contract valid for a specific network.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Contract {
-    // Script Address
-    // pub script_address: String,
-    // Owning address or predicate root.
-    // pub owner: String,
-    // Pedersen commitment on amount of coins.
-    //  pub commitment: CompressedRistretto,
 }
 
 impl OutputData {
@@ -931,13 +929,6 @@ impl OutputData {
             _ => None,
         }
     }
-    // pub const fn get_contract_info(&self) -> Option<&Contract> {
-    //     match self {
-    //         Self::Memo(memo) => Some(&memo.contract_info),
-    //         Self::State(state) => Some(&state.contract_info),
-    //         _ => None,
-    //     }
-    // }
 }
 /// A complete twilight typed Output valid for a specific network.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -1004,7 +995,7 @@ impl Output {
 
     pub fn to_quisquis_account(&self) -> Result<Account, &'static str> {
         match self.output {
-            OutputData::Coin(ref out_coin) => Ok(out_coin.to_quisquis_account()),
+            OutputData::Coin(ref out_coin) => Ok(out_coin.to_quisquis_account()?),
             _ => Err("Error::InvalidOutputType. Only allowed for Coin type"),
         }
     }
@@ -1031,13 +1022,10 @@ impl Output {
             _ => self.clone(),
         }
     }
-}
-/// Create a output of Coin which is valid on the Default network.
-impl From<Account> for Output {
-    fn from(account: Account) -> Self {
+    /// Create a output of Coin which is valid on the given Network
+    fn output_from_account(account: Account, net: address::Network) -> Self {
         let (pk, comm) = account.get_account();
-        let owner: String =
-            address::Address::standard_address(address::Network::default(), pk).as_hex();
+        let owner: String = address::Address::standard_address(net, pk).as_hex();
         let coin: OutputCoin = OutputCoin {
             encrypt: comm,
             owner,
@@ -1048,14 +1036,14 @@ impl From<Account> for Output {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Witness {
-    // Signature in Script Tx
+    // ZkSchnorr Signature
     Signature(Signature),
-    // Signature ands Proof over state inputs ScriptTx
-    State(StateWitness),
-    // Signature and proof over Coin/Memo inputs for same value in ScriptTx
-    ValueWitness(ValueWitness),
-    // Zero balance proof for TransferTx
+    //Zero balance proof for TransferTx
     Proof(SigmaProof),
+    // Signature and proof over Coin<->Memo pairs for same value in ScriptTx
+    ValueWitness(ValueWitness),
+    // Signature and Proof over state inputs<-> ScriptTx
+    State(StateWitness),
 }
 use crate::VMError;
 impl Witness {
@@ -1076,7 +1064,8 @@ impl Witness {
     }
 
     /// Downcasts Witness to `ValueWitness` type.
-    /// This is used for the same value proof and signature. Used by CoinInput and MemoInput in script tx       
+    /// This is used for the same value proof and signature.
+    //Used by CoinInput and MemoInput in script tx
     pub fn to_value_witness(self) -> Result<ValueWitness, VMError> {
         match self {
             Witness::ValueWitness(x) => Ok(x),
@@ -1105,7 +1094,7 @@ impl From<StateWitness> for Witness {
     }
 }
 
-//Upcast SigmaProof to Witness
+//Upcast Valuewitness to Witness
 impl From<ValueWitness> for Witness {
     fn from(x: ValueWitness) -> Self {
         Witness::ValueWitness(x)
@@ -1116,158 +1105,6 @@ impl From<ValueWitness> for Witness {
 impl From<SigmaProof> for Witness {
     fn from(x: SigmaProof) -> Self {
         Witness::Proof(x)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StateWitness {
-    sign: Signature,
-    zero_proof: Option<Vec<Scalar>>,
-}
-
-impl StateWitness {
-    pub fn set_state_witness(sign: Signature, zero_proof: Option<Vec<Scalar>>) -> Self {
-        Self { sign, zero_proof }
-    }
-
-    pub fn get_sign(&self) -> &Signature {
-        &self.sign
-    }
-
-    pub fn create_state_witness(
-        input: Input,
-        secret_key: RistrettoSecretKey,
-
-        pubkey: RistrettoPublicKey,
-        zero_proof: Option<Vec<Scalar>>,
-    ) -> Self {
-        let in_state = input.input.clone();
-        //create the Signature over the Input State with the secret key
-        // // convert State commitment into verifier view
-        // let commit: Commitment = Commitment::Closed(in_state.as_commitment().unwrap().to_point());
-        // // if in_state.as_state_variables().is_some(){
-        // let state_variables = in_state.as_state_variables().unwrap();
-        // let mut new_state_variables: Vec<ZkvmString> = Vec::new();
-        // // convert the state variable commitments to verifier view if any
-        // for state in state_variables.iter() {
-        //     match state {
-        //         ZkvmString::Commitment(a) => {
-        //             let a_point = a.to_point();
-        //             let new_commitment = Commitment::Closed(a_point);
-        //             new_state_variables.push(ZkvmString::Commitment(Box::new(new_commitment)));
-        //         }
-        //         _ => new_state_variables.push(Clone::clone(&state)),
-        //     }
-        // }
-        // //}
-        // // recreate the input state with the Verifier view values
-        // let out_state = OutputState {
-        //     nonce: in_state.as_nonce().unwrap().clone(),
-
-        //     script_address: in_state.as_script_address().unwrap().clone(),
-        //     commitment: commit.clone(),
-        //     owner: in_state.owner().unwrap().clone(),
-        //     state_variables: Some(new_state_variables),
-        //     timebounds: in_state.as_timebounds().unwrap().clone(),
-        // };
-
-        // //IGNORE Witness index at the time creating the signature
-        // let verifier_input = Input::state(InputData::state(
-        //     input.as_utxo().unwrap().clone(),
-        //     out_state,
-        //     input.input.as_state_script_data().cloned(),
-        //     0,
-        // ));
-        let input_out_state = input.as_out_state().unwrap().clone();
-        let verifier_out_state = input_out_state.verifier_view();
-        let verifier_input = Input::state(InputData::state(
-            input.get_utxo(),
-            verifier_out_state,
-            input.input.as_state_script_data().cloned(),
-            0,
-        ));
-        //The sign must happen on the verifier View of the input so that it can be verified acorrectly
-
-        //create message bytes using input_state
-        let message = bincode::serialize(&verifier_input).unwrap();
-        //println!("message  {:?}", message);
-        let sign = pubkey.sign_msg(&message, &secret_key, ("StateSign").as_bytes());
-
-        Self { sign, zero_proof }
-    }
-    /// verify_state_witness verifies the zero value proof and signature
-    /// invoked if a new contract has to be deployed.
-    /// fails if and value or state witness is not zero
-    pub fn verify_state_witness(
-        &self,
-        input: Input,
-        pubkey: RistrettoPublicKey,
-    ) -> Result<bool, &'static str> {
-        //create message to verify the Signature over the Input State with the public key
-        // The witness is 0 for the purposes of signature verification
-        //recreate the input state with the Witness as zero
-
-        //verify the Signature over the Input state with the public key
-        let verifier_input = Input::state(InputData::state(
-            input.as_utxo().unwrap().clone(),
-            input.as_out_state().unwrap().clone(),
-            input.input.as_state_script_data().cloned(),
-            0,
-        ));
-        let message = bincode::serialize(&verifier_input).unwrap();
-        // println!("\n \nmessage  {:?}", message);
-        let verify_sig = pubkey.verify_msg(&message, &self.sign, ("StateSign").as_bytes());
-        if verify_sig.is_err() {
-            return Err("Input State Signature verification failed");
-        }
-        let in_state = input.input;
-        // the first index of zero_proof is the Zero commitment on Value state
-        let zero_witness_proof_scalar = self.zero_proof.as_ref().unwrap()[0].clone();
-        // recreate the commitment using the zero scalar
-        let gens = PedersenGens::default();
-        let proof = gens.commit(0u64.into(), zero_witness_proof_scalar);
-        let state_commit = in_state.as_commitment().unwrap().to_point();
-        // compare the zero committed points
-        if state_commit != proof.compress() {
-            return Err("Error::The zero proof does not match the state commitment");
-        }
-        //get extra state_variables if available
-        if in_state.as_state_variables().is_some() {
-            //verify the zero proofs if any over the state variables
-            let state_variables = in_state.as_state_variables().unwrap();
-            let commitment_witness = self.zero_proof.as_ref().unwrap();
-            if commitment_witness.len() - 1 > state_variables.len() {
-                return Err("Error::There are more zero proofs than state variables");
-            }
-            //index is to go through the proofs against the committed variables
-            let mut index: usize = 1;
-
-            for variable in state_variables {
-                match variable {
-                    ZkvmString::Commitment(x) => {
-                        let state_comit = x.to_point();
-                        //recreate commitment using 0 as value and scalar from the proof
-                        let proof_point = gens
-                            .commit(0u64.into(), commitment_witness[index].clone())
-                            .compress();
-                        //verify the proof
-                        if state_comit != proof_point {
-                            return Err("Error::The zero proof does not match the state variable");
-                        }
-                        index += 1;
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        Ok(true)
-    }
-}
-//return iterator over zero proofs  (if any)
-impl StateWitness {
-    pub fn get_zero_proof(&self) -> Option<impl Iterator<Item = &Scalar>> {
-        self.zero_proof.as_ref().map(|x| x.iter())
     }
 }
 
@@ -1301,8 +1138,8 @@ impl ValueWitness {
         rscalar: Scalar, //commitment scalar
     ) -> Self {
         //create the Signature over the Input Coin/Memo with the secret key
-
-        let input_verifier_view = input.as_input_for_signing();
+        let mut input_verifier_view = input.verifier_view();
+        input_verifier_view = input_verifier_view.as_input_for_signing();
         let output_verifier_view = output.to_verifier_view();
 
         //create message bytes using input and output verifier view
@@ -1354,6 +1191,189 @@ impl ValueWitness {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateWitness {
+    sign: Signature,
+    zero_proof: Option<Vec<Scalar>>,
+}
+
+impl StateWitness {
+    pub fn set_state_witness(sign: Signature, zero_proof: Option<Vec<Scalar>>) -> Self {
+        Self { sign, zero_proof }
+    }
+
+    pub fn get_sign(&self) -> &Signature {
+        &self.sign
+    }
+
+    pub fn create_state_witness(
+        input: &Input,
+        output: &Output,
+        secret_key: RistrettoSecretKey,
+        pubkey: RistrettoPublicKey,
+        contract_deploy_flag: bool,
+    ) -> Self {
+        //create the Signature over the Input State with the secret key
+
+        //create input State for verifier view
+        let mut verifier_input = input.verifier_view();
+        // set witness = 0
+        verifier_input = verifier_input.as_input_for_signing();
+
+        //The sign must happen on the verifier View of the input so that it can be verified acorrectly
+
+        //create verifier view of the output
+        let verifier_output = output.to_verifier_view();
+
+        //create message bytes using input_state + output_state
+        let mut message: Vec<u8>;
+        message = bincode::serialize(&verifier_input).unwrap();
+        message.extend(bincode::serialize(&verifier_output).unwrap());
+
+        //println!("message  {:?}", message);
+        let sign = pubkey.sign_msg(&message, &secret_key, ("StateSign").as_bytes());
+        // Contract calling
+        if !contract_deploy_flag {
+            return Self {
+                sign,
+                zero_proof: None,
+            };
+        } else {
+            // create the zero proof over the input state commitment and state variables
+            let state_var = input.as_out_state().unwrap();
+            let state_commitment = state_var.clone().commitment;
+            // get value, witness for state commitment
+            let (state_value, state_value_blinding) = state_commitment.witness().unwrap();
+            // check if value is zero
+            if state_value != 0.into() {
+                panic!("Error::The value of the state commitment is not zero");
+            }
+            // create the zero proof over the state commitment and state variables
+            let mut zero_proof: Vec<Scalar> = Vec::new();
+            zero_proof.push(state_value_blinding);
+            // get the state variables
+            let state_variables = state_var.state_variables.as_ref();
+            match state_variables {
+                Some(x) => {
+                    // loop over the state variables and create the zero proofs
+                    for state_variable in x.iter() {
+                        match state_variable {
+                            ZkvmString::Commitment(commitment) => {
+                                let (value, blinding) = commitment.witness().unwrap();
+                                if value != 0.into() {
+                                    panic!("Error::The value of the state variable is not zero");
+                                }
+                                zero_proof.push(blinding);
+                            }
+                            _ => {}
+                        }
+                    }
+                    return Self {
+                        sign,
+                        zero_proof: Some(zero_proof),
+                    };
+                }
+                None => {
+                    return Self {
+                        sign,
+                        zero_proof: Some(zero_proof),
+                    };
+                }
+            }
+        }
+    }
+    /// verify_state_witness verifies the zero value proof and signature
+    /// invoked if a new contract has to be deployed.
+    /// fails if and value or state witness is not zero
+    pub fn verify_state_witness(
+        &self,
+        input: Input,
+        output: Output,
+        pubkey: RistrettoPublicKey,
+        contract_deploy_flag: bool,
+    ) -> Result<bool, &'static str> {
+        //create message to verify the Signature over the Input State with the public key
+
+        // The witness is 0 for the purposes of signature verification
+        //recreate the input state with the Witness as zero
+        let verifier_input = input.as_input_for_signing();
+
+        //create message bytes using input_state + output_state
+        let mut message: Vec<u8>;
+        message = bincode::serialize(&verifier_input).map_err(|_| {
+            " Serialization Error::Failed to serialize the input for signature verification"
+        })?;
+
+        message.extend(bincode::serialize(&output).map_err(|_| {
+            "Serialization Error::Failed to serialize the output for signature verification"
+        })?);
+        //verify the Signature over the Input state with the public key
+
+        // println!("\n \nmessage  {:?}", message);
+        let verify_sig = pubkey.verify_msg(&message, &self.sign, ("StateSign").as_bytes());
+        if verify_sig.is_err() {
+            return Err("Input State Signature verification failed");
+        }
+        // Contract calling
+        if !contract_deploy_flag {
+            return Ok(true);
+        } else {
+            // Contract is being deployed so verify the zero proofs
+            // Both for state commitments and state variables
+            let in_state = input.input;
+            // the first index of zero_proof is the Zero commitment on Value state
+            let zero_witness_proof_scalar = self.zero_proof.as_ref().unwrap()[0].clone();
+            // recreate the commitment using the zero scalar
+            let gens = PedersenGens::default();
+            let proof = gens.commit(0u64.into(), zero_witness_proof_scalar);
+            let state_commit = in_state.as_commitment().unwrap().to_point();
+            // compare the zero committed points
+            if state_commit != proof.compress() {
+                return Err("Error::The zero proof does not match the state commitment");
+            }
+            //get extra state_variables if available
+            if in_state.as_state_variables().is_some() {
+                //verify the zero proofs if any over the state variables
+                let state_variables = in_state.as_state_variables().unwrap();
+                let commitment_witness = self.zero_proof.as_ref().unwrap();
+                if commitment_witness.len() - 1 > state_variables.len() {
+                    return Err("Error::There are more zero proofs than state variables");
+                }
+                //index is to go through the proofs against the committed variables
+                let mut index: usize = 1;
+
+                for variable in state_variables {
+                    match variable {
+                        ZkvmString::Commitment(x) => {
+                            let state_comit = x.to_point();
+                            //recreate commitment using 0 as value and scalar from the proof
+                            let proof_point = gens
+                                .commit(0u64.into(), commitment_witness[index].clone())
+                                .compress();
+                            //verify the proof
+                            if state_comit != proof_point {
+                                return Err(
+                                    "Error::The zero proof does not match the state variable",
+                                );
+                            }
+                            index += 1;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            Ok(true)
+        }
+    }
+}
+//return iterator over zero proofs  (if any)
+impl StateWitness {
+    pub fn get_zero_proof(&self) -> Option<impl Iterator<Item = &Scalar>> {
+        self.zero_proof.as_ref().map(|x| x.iter())
+    }
+}
+//****SHOULD BE DECLARED IN RELAYER WALLET */
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ZkosCreateOrder {
     pub input: Input,         //coin type input

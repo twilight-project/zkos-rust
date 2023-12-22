@@ -29,12 +29,10 @@ path = "../../quisquis-rust"
 #git = "ssh://github.com/twilight-project/quisquis-rust.git"
 #branch = "update_dark_tx"
 
-#[dependencies.elgamalsign]
-#path = "../elgamalsign"
 
 [dependencies.zkschnorr]
-#git = "ssh://github.com/twilight-project/ZkSchnorr.git"
-path = "../../ZkSchnorr"
+git = "ssh://github.com/twilight-project/ZkSchnorr.git"
+#path = "../../ZkSchnorr"
 
 
 [dependencies.address]
