@@ -126,6 +126,18 @@ impl Transaction {
             _ => vec![],
         }
     }
+    /// return fee from the tx
+    pub fn get_tx_fee(&self) -> u64 {
+        match self.tx.clone() {
+            TransactionData::TransactionTransfer(transfer_transaction) => {
+                transfer_transaction.fee.clone()
+            }
+            TransactionData::TransactionScript(script_transaction) => {
+                script_transaction.fee.clone()
+            }
+            TransactionData::Message(message) => message.fee.clone(),
+        }
+    }
     pub fn verify(&self) -> Result<(), &'static str> {
         match self.tx.clone() {
             TransactionData::TransactionTransfer(transfer_transaction) => {

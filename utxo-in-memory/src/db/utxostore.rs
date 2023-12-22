@@ -134,8 +134,7 @@ where
                     path,
                     &bincode::serialize(&new_snapshot_id).unwrap(),
                     &bincode::serialize(&data).unwrap(),
-                )
-                .unwrap();
+                ).expect("error in leveldb_custom_put");
             });
         }
 

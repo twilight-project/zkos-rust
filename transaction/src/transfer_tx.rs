@@ -25,6 +25,7 @@ pub struct TransferTransaction {
     //transaction header
     pub(crate) version: u64,
     pub(crate) maturity: u64,
+    pub(crate) fee: u64,
     //lengths of vectors to come
     pub(crate) input_count: u8,
     pub(crate) output_count: u8,
@@ -115,6 +116,7 @@ impl TransferTransaction {
     fn set_tranfer_transaction(
         version: u64,
         maturity: u64,
+        fee: u64,
         input_count: u8,
         output_count: u8,
         witness_count: u8,
@@ -127,6 +129,7 @@ impl TransferTransaction {
         TransferTransaction {
             version,
             maturity,
+            fee,
             input_count,
             output_count,
             witness_count,
@@ -281,6 +284,7 @@ impl TransferTransaction {
                     TransferTransaction::set_tranfer_transaction(
                         version,
                         maturity,
+                        0u64, // fee is zero for dark tx for NOW
                         input_count as u8,
                         output_count as u8,
                         witnesses.len() as u8,
@@ -297,6 +301,7 @@ impl TransferTransaction {
                 TransferTransaction::set_tranfer_transaction(
                     version,
                     maturity,
+                    0u64, // fee is zero for dark tx for NOW
                     input_count as u8,
                     output_count as u8,
                     0u8,
@@ -543,6 +548,7 @@ impl TransferTransaction {
                 Ok(TransferTransaction::set_tranfer_transaction(
                     0u64,
                     0u64,
+                    0u64, // fee is zero for quisquis tx for NOW
                     9u8,
                     9u8,
                     witnesses.len() as u8,
@@ -566,6 +572,7 @@ impl TransferTransaction {
                 Ok(TransferTransaction::set_tranfer_transaction(
                     0u64,
                     0u64,
+                    0u64, // fee is zero for quisquis tx for NOW
                     9u8,
                     9u8,
                     0u8,
