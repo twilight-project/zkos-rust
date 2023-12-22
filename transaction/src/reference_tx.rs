@@ -589,6 +589,7 @@ pub fn create_refenece_deploy_transaction(sk: RistrettoSecretKey, value_sats: u6
     let value_witness = ValueWitness::create_value_witness(
         coin_input.clone(),
         sk,
+        memo.clone(),
         input_account,
         pk.clone(),
         commit_memo.to_point(),
@@ -627,16 +628,18 @@ pub fn create_refenece_deploy_transaction(sk: RistrettoSecretKey, value_sats: u6
         None,
         1,
     ));
+
+    let output: Vec<Output> = vec![memo.clone(), Output::state(OutputData::State(out_state))];
     // create statewitness for input state / output state
     let state_witness: StateWitness =
-        StateWitness::create_state_witness(input_state.clone(), sk, pk, Some(zero_proof));
+        StateWitness::create_state_witness(&input_state, &memo, sk, pk, true);
 
     // create witness vector
     let witness: Vec<Witness> = vec![
         Witness::ValueWitness(value_witness),
         Witness::State(state_witness),
     ];
-    let output: Vec<Output> = vec![memo, Output::state(OutputData::State(out_state))];
+
     let temp_out_state_verifier = temp_out_state.verifier_view();
     let iput_state_verifier = Input::state(InputData::state(
         Utxo::default(),
@@ -727,7 +730,7 @@ mod test {
         println!("sk {:?}", sk);
         let json_string = r#"{"out_type":"Coin","output":{"Coin":{"encrypt":{"c":[106,163,174,147,81,79,55,141,28,169,116,21,134,81,98,243,135,43,152,117,5,7,161,94,166,168,39,247,227,70,238,23],"d":[122,73,92,91,165,170,231,41,101,208,255,229,221,175,123,102,124,17,113,48,66,228,216,90,0,222,133,245,166,13,208,66]},"owner":"0cf8c2f329b2d11a0864d1ddb7f552da15a5a1b183a38a7ba24b62b50ea12b8e7dd259343a949615ad56a830fef97418c01232548df6b7334e346a75cb16c30c35ed3b9628"}}}"#;
         let out: Output = serde_json::from_str(json_string).unwrap();
-        let account: Account = out.as_out_coin().unwrap().to_quisquis_account();
+        let account: Account = out.as_out_coin().unwrap().to_quisquis_account().unwrap();
         let (pk, _enc) = account.get_account();
         let verify_acc = account.verify_account(&sk, Scalar::from(19680u64));
         println!("verify_acc {:?}", verify_acc);
@@ -765,6 +768,7 @@ mod test {
         let value_witness = ValueWitness::create_value_witness(
             inp_coin.clone(),
             sk,
+            memo.clone(),
             account,
             pk.clone(),
             commit_memo.to_point(),
@@ -806,7 +810,7 @@ mod test {
 
         // create statewitness for input state / output state
         let state_witness: StateWitness =
-            StateWitness::create_state_witness(input_state.clone(), sk, pk, Some(zero_proof));
+            StateWitness::create_state_witness(&input_state, &memo, sk, pk, true);
 
         // create witness vector
         let witness: Vec<Witness> = vec![

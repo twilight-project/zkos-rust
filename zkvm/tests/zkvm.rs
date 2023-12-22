@@ -843,7 +843,7 @@ fn order_message_old() {
 }
 
 #[test]
-fn state_witness_test() {
+fn test_state_witness_deploy_contract() {
     let mut rng = rand::thread_rng();
     let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
     let _r = Scalar::random(&mut rng);
@@ -865,19 +865,19 @@ fn state_witness_test() {
         String::U64(10u64),
     ];
     let state_value = Commitment::blinded(0u64);
-    let (_, state_value_blind) = state_value.witness().unwrap();
-    let state_commitment_witness: Vec<Scalar> = vec![
-        state_value_blind.clone(),
-        comit_1_blind.clone(),
-        comit_2_blind.clone(),
-    ];
+    // let (_, state_value_blind) = state_value.witness().unwrap();
+    // let state_commitment_witness: Vec<Scalar> = vec![
+    //     state_value_blind.clone(),
+    //     comit_1_blind.clone(),
+    //     comit_2_blind.clone(),
+    // ];
 
     let out_state = OutputState {
         nonce: 1u32,
         script_address: add.as_hex(),
         owner: add.as_hex(),
         commitment: state_value.clone(),
-        state_variables: Some(state_variables),
+        state_variables: Some(state_variables.clone()),
         timebounds: 0,
     };
     let in_data: InputData = InputData::state(
@@ -887,11 +887,24 @@ fn state_witness_test() {
         1,
     );
     let input: Input = Input::state(in_data);
+    // create Output State to be included in signature
+    let out_state = OutputState {
+        nonce: 2u32,
+        script_address: add.as_hex(),
+        owner: add.as_hex(),
+        commitment: state_value.clone(),
+        state_variables: Some(state_variables.clone()),
+        timebounds: 0,
+    };
+    //convert outputState to Output
+    let output: Output = Output::state(OutputData::State(out_state.clone()));
+
     let witness = Witness::State(StateWitness::create_state_witness(
-        input.clone(),
+        &input,
+        &output,
         sk_in,
         pk_in.clone(),
-        Some(state_commitment_witness.clone()),
+        true,
     ));
 
     // verify the witness
@@ -916,18 +929,128 @@ fn state_witness_test() {
     //     state_variables: Some(new_state_variables),
     //     timebounds: 0,
     // };
-    let new_out_state = out_state.verifier_view();
-    let new_in_data: InputData = InputData::state(
+    let verifier_input = input.verifier_view();
+
+    let verifier_output = output.to_verifier_view();
+
+    let res = state_wit.verify_state_witness(verifier_input, verifier_output, pk_in.clone(), true);
+    println!("res {:?}", res);
+}
+#[test]
+fn test_state_witness_deploy_contract_only_state_commitment() {
+    let mut rng = rand::thread_rng();
+    let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
+    let _r = Scalar::random(&mut rng);
+    let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+    //let (g, h) = pk_in.as_point();
+
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+
+    let state_value = Commitment::blinded(0u64);
+
+    let out_state = OutputState {
+        nonce: 1u32,
+        script_address: add.as_hex(),
+        owner: add.as_hex(),
+        commitment: state_value.clone(),
+        state_variables: None,
+        timebounds: 0,
+    };
+    let in_data: InputData = InputData::state(
         Utxo::default(),
-        /*add.as_hex(), commit_in*/ new_out_state,
+        /*add.as_hex(), commit_in*/ out_state.clone(),
         None,
         1,
     );
-    let new_input: Input = Input::state(new_in_data);
-    let res = state_wit.verify_state_witness(new_input, pk_in.clone());
+    let input: Input = Input::state(in_data);
+    // create Output State to be included in signature
+    let out_state = OutputState {
+        nonce: 2u32,
+        script_address: add.as_hex(),
+        owner: add.as_hex(),
+        commitment: state_value.clone(),
+        state_variables: None,
+        timebounds: 0,
+    };
+    //convert outputState to Output
+    let output: Output = Output::state(OutputData::State(out_state.clone()));
+
+    let witness = Witness::State(StateWitness::create_state_witness(
+        &input,
+        &output,
+        sk_in,
+        pk_in.clone(),
+        true,
+    ));
+
+    // verify the witness
+    let state_wit = witness.to_state_witness().unwrap();
+
+    let verifier_input = input.verifier_view();
+
+    let verifier_output = output.to_verifier_view();
+
+    let res = state_wit.verify_state_witness(verifier_input, verifier_output, pk_in.clone(), true);
     println!("res {:?}", res);
 }
 
+#[test]
+fn test_state_witness_contract_call() {
+    let mut rng = rand::thread_rng();
+    let sk_in: RistrettoSecretKey = RistrettoSecretKey::random(&mut rng);
+    let _r = Scalar::random(&mut rng);
+    let pk_in: RistrettoPublicKey = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+    //let (g, h) = pk_in.as_point();
+
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+
+    let state_value = Commitment::blinded(0u64);
+
+    let out_state = OutputState {
+        nonce: 1u32,
+        script_address: add.as_hex(),
+        owner: add.as_hex(),
+        commitment: state_value.clone(),
+        state_variables: None,
+        timebounds: 0,
+    };
+    let in_data: InputData = InputData::state(
+        Utxo::default(),
+        /*add.as_hex(), commit_in*/ out_state.clone(),
+        None,
+        1,
+    );
+    let input: Input = Input::state(in_data);
+    // create Output State to be included in signature
+    let out_state = OutputState {
+        nonce: 2u32,
+        script_address: add.as_hex(),
+        owner: add.as_hex(),
+        commitment: state_value.clone(),
+        state_variables: None,
+        timebounds: 0,
+    };
+    //convert outputState to Output
+    let output: Output = Output::state(OutputData::State(out_state.clone()));
+
+    let witness = Witness::State(StateWitness::create_state_witness(
+        &input,
+        &output,
+        sk_in,
+        pk_in.clone(),
+        false,
+    ));
+
+    // verify the witness
+    let state_wit = witness.to_state_witness().unwrap();
+
+    let verifier_input = input.verifier_view();
+
+    let verifier_output = output.to_verifier_view();
+
+    let res = state_wit.verify_state_witness(verifier_input, verifier_output, pk_in.clone(), false);
+    println!("res {:?}", res);
+}
 #[test]
 fn value_witness_test() {
     let mut rng = rand::thread_rng();
@@ -940,15 +1063,11 @@ fn value_witness_test() {
     let commit_in = ElGamalCommitment::generate_commitment(&pk_in, rscalar, Scalar::from(10u64));
     let enc_acc = Account::set_account(pk_in, commit_in);
 
-    let out_coin = OutputCoin {
+    let coin = OutputCoin {
         encrypt: commit_in,
         owner: add.as_hex(),
     };
-    let in_data: InputData = InputData::coin(
-        Utxo::default(),
-        /*add.as_hex(), commit_in*/ out_coin,
-        0,
-    );
+    let in_data: InputData = InputData::coin(Utxo::default(), coin, 0);
     let coin_in: Input = Input::coin(in_data.clone());
 
     //create first Commitment Witness
@@ -960,12 +1079,12 @@ fn value_witness_test() {
     let out_memo = zkvm::zkos_types::OutputMemo {
         script_address: add.as_hex(),
         owner: add.as_hex(),
-        commitment: Commitment::blinded(10u64),
+        commitment: commit_1.clone(),
         data: None,
         timebounds: 0,
     };
     let out_memo = Output::memo(OutputData::memo(out_memo));
-
+    let memo_commitment_point = commit_1.to_point();
     // create InputCoin Witness
     let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
         coin_in.clone(),
@@ -973,19 +1092,24 @@ fn value_witness_test() {
         out_memo.clone(),
         enc_acc,
         pk_in.clone(),
-        commit_1.to_point(),
+        memo_commitment_point.clone(),
         10u64,
         rscalar,
     ));
 
     // verify the witness
     let value_wit = witness.to_value_witness().unwrap();
+
+    // recreate the input coin with the Verifier view values
+    let verifier_input = coin_in.verifier_view();
+    // recreate the output memo with the Verifier view values
+    let verifier_output = out_memo.to_verifier_view();
     let res = value_wit.verify_value_witness(
-        coin_in.clone(),
-        out_memo.clone(),
+        verifier_input.clone(),
+        verifier_output.clone(),
         pk_in.clone(),
         enc_acc,
-        commit_1.to_point(),
+        memo_commitment_point,
     );
     println!("res {:?}", res);
 }
