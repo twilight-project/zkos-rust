@@ -10,7 +10,7 @@ pub use self::threadpool::ThreadPool;
 use db::{LocalDBtrait, LocalStorage};
 pub use pgsql::init_psql;
 use std::sync::{Arc, Mutex};
-use tungstenite::{connect, Message};
+use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
 use zkvm::zkos_types::Output;
 lazy_static! {
@@ -36,12 +36,33 @@ pub fn init_utxo() {
     //     utxo_storage.block_height = 1;
     // }
 }
+//To be done later
+// fn establish_websocket_connection(
+// ) -> Result<(WebSocket<dyn jsonrpc_core::futures_util::Stream>, Response), String> {
+//     let url_str = "ws://165.232.134.41:7001/latestblock";
+//     let url = Url::parse(url_str).map_err(|e| format!("Invalid URL: {}", e))?;
 
+//     let (socket, response) =
+//         connect(url).map_err(|e| format!("WebSocket connection error: {}", e))?;
+
+//     Ok((socket, response))
+// }
 pub fn zk_oracle_subscriber() {
-    let (mut socket, response) =
-        connect(Url::parse("ws://165.232.134.41:7001/latestblock").unwrap())
-            .expect("Can't connect");
+    let url_str = "ws://165.232.134.41:7001/latestblock";
+    let url = Url::parse(url_str);
+    let url: Url = match url {
+        Ok(url) => url,
+        Err(e) => {
+            println!("Invalid URL: {}", e);
+            return;
+        }
+    };
 
+    let (mut socket, _response) =
+        connect(url).expect("Can't establish a web socket connection to ZKOracle");
+
+    //match establish_websocket_connection() {
+    //  Ok((mut socket, response)) =>
     loop {
         let msg = socket.read_message().expect("Error reading message");
         match msg {
@@ -60,6 +81,11 @@ pub fn zk_oracle_subscriber() {
             _ => (),
         }
     }
+    //Err(error) => {
+    // Handle the error in a more controlled manner
+    //   eprintln!("Error: {}", error);
+    // }
+    //}
 }
 
 fn save_snapshot() {
@@ -69,5 +95,7 @@ fn save_snapshot() {
     for i in 0..utxo_storage.partition_size {
         println!("get snap:{:#?}", utxo_storage.data.get(&i).unwrap().len());
     }
-    utxo_storage.take_snapshot();
+    let res = utxo_storage.take_snapshot();
+    // log the result
+    println!("get snap:{:#?}", res);
 }
