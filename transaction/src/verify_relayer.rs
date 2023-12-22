@@ -59,7 +59,8 @@ pub fn verify_trade_lend_order(
 
     // verify the Signature over input and Same value Sigma Proof
     let value_witness = ValueWitness::set_value_witness(signature.clone(), proof.clone());
-    let verify = value_witness.verify_value_witness(input_sign, pk, enc_acc, commitment);
+    let verify =
+        value_witness.verify_value_witness(input_sign, output.clone(), pk, enc_acc, commitment);
     if verify.is_ok() {
         Ok(true)
     } else {
@@ -93,7 +94,7 @@ pub fn verify_settle_requests(input: Input, signature: Signature) -> Result<(), 
         let memo_verifier = memo.verifier_view();
         let coin_value = input
             .input
-            .get_coin_value_input_memo()
+            .get_coin_value_from_memo()
             .as_ref()
             .unwrap()
             .to_owned();
@@ -317,7 +318,7 @@ pub fn settle_trader_order(
         .public_key;
     let (_, out_encryption_scalar) = input_memo
         .input
-        .get_coin_value_input_memo()
+        .get_coin_value_from_memo()
         .as_ref()
         .unwrap()
         .to_owned()
@@ -705,6 +706,7 @@ mod test {
         let witness = ValueWitness::create_value_witness(
             input_sign.clone(),
             sk,
+            output.clone(),
             enc_acc,
             pk.clone(),
             out_memo_verifier.commitment.into(),
