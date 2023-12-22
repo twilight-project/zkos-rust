@@ -50,9 +50,9 @@ branch = "develop"
 features = ["yoloproofs"]
 
 [dependencies.quisquis-rust]
-path ="../../quisquis-rust"
-#git = "ssh://github.com/twilight-project/quisquis-rust.git"
-#branch = "develop"
+#path ="../../quisquis-rust"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "develop"
 
 [features]
 default = []

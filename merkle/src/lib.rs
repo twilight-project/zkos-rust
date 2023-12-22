@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 //! API for operations on merkle binary trees.
-use address::{Address, Network, Script};
+use address::{Address, Network};
 use core::marker::PhantomData;
 use merlin::Transcript;
 use readerwriter::*;

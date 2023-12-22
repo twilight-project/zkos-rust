@@ -36,29 +36,15 @@ temp-env = "0.3.4"
 
 
 [dependencies.quisquis-rust]
-path = "../../quisquis-rust"
-#git = "ssh://github.com/twilight-project/quisquis-rust.git"
-#branch = "update_dark_tx"
+#path = "../../quisquis-rust"
+git = "ssh://github.com/twilight-project/quisquis-rust.git"
+branch = "develop"
 
 [dependencies.transaction]
 path = "../transaction"
-# [dependencies.elgamalsign]
-# path = "../elgamalsign"
+
 [dependencies.zkvm]
 path = "../zkvm"
 
 [dependencies.address]
 path = "../address"
-
-#[dependencies.block]
-#path = "./blockoperations"
-
-# [dependencies.bulletproofs]
-# git = "https://github.com/dalek-cryptography/bulletproofs"
-# branch = "develop"
-# features = ["yoloproofs"]
-
-# [features]
-# default = []
-# nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
-

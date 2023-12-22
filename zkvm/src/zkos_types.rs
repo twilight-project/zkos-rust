@@ -5,9 +5,9 @@ use core::panic;
 
 //use crate::readerwriter::{Encodable, ExactSizeEncodable, Writer, WriteError};
 use crate::constraints::Commitment;
+use crate::encoding::*;
 use crate::tx::TxID;
 use crate::types::String as ZkvmString;
-use crate::{encoding::*, verifier};
 use bincode;
 use bincode::{deserialize, serialize};
 use bulletproofs::PedersenGens;
