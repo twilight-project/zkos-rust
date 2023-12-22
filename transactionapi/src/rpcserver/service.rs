@@ -20,16 +20,16 @@ lazy_static! {
     pub static ref THREADPOOL_RPC_QUEUE: Mutex<ThreadPool> =
         Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue")));
 }
-pub fn tx_queue(transaction: Transaction) {
+pub fn tx_queue(transaction: Transaction, fee: u64) {
     {
         let queue = THREADPOOL_RPC_QUEUE.lock().unwrap();
         queue.execute(move || {
-            tx_commit(transaction);
+            tx_commit(transaction, fee);
         });
     } // Mutex lock is automatically dropped here
 }
 
-pub async fn tx_commit(transaction: Transaction) -> Result<String, String> {
+pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, String> {
     let client = Client::new();
     let url = "http://165.232.134.41:7000/transaction";
 
@@ -42,6 +42,7 @@ pub async fn tx_commit(transaction: Transaction) -> Result<String, String> {
     let payload = Payload {
         id: hex::encode(checksum.to_vec()),
         tx: tx_hex,
+        fee,
     };
     // let json_data = serde_json::to_string(&payload)?;
     let json_data = match serde_json::to_string(&payload) {
@@ -120,6 +121,7 @@ pub fn tx_status(transaction: TransactionStatusId) {}
 struct Payload {
     id: String,
     tx: String,
+    fee: u64,
 }
 
 #[derive(Serialize, Deserialize)]

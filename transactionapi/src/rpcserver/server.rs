@@ -1,29 +1,26 @@
 use super::service;
 // use crate::rpcserver::types::*;
-use crate::{TransactionStatusId, TxResponse};
-use bincode::deserialize;
-use jsonrpc_core::futures_util::future::ok;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
 use jsonrpc_http_server::{hyper, ServerBuilder};
-use quisquislib::ristretto::RistrettoPublicKey;
+
 use std::collections::HashMap;
-use transaction::{Transaction, TransactionData, TransactionType};
+use transaction::{TransactionData, TransactionType};
 use utxo_in_memory::blockoperations::blockprocessing::{
     all_coin_type_output, all_coin_type_utxo, all_memo_type_utxo, all_state_type_utxo,
     search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key,
     search_memo_type_utxo_by_utxo_key, search_state_type_utxo_by_utxo_key, verify_utxo,
 };
-use utxo_in_memory::db::{LocalDBtrait, LocalStorage};
+use utxo_in_memory::db::LocalDBtrait;
 use utxo_in_memory::UTXO_STORAGE;
 /***************** POstgreSQL Insert Code *********/
 use utxo_in_memory::pgsql::{
     get_utxo_from_db_by_block_height_range, QueryUtxoFromDB, TestCommand, TestCommandString,
-    UtxoHexDecodeResult, UtxoHexEncodedResult, UtxoOutputRaw,
+    UtxoHexEncodedResult,
 };
 /**************** POstgreSQL Insert Code End **********/
-use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
+
 use zkvm::zkos_types::{MessageType, Utxo};
 #[derive(Default, Clone, Debug)]
 struct Meta {
@@ -122,15 +119,18 @@ pub fn rpcserver() {
             // verify the tx
             //let transfer_tx = TransactionData::to_transfer(tx.clone().tx).unwrap();
             let tx_verified = tx.clone().verify();
+
             //let tx_verified = verify_transaction(tx.clone());
             match tx_verified {
                 Ok(()) => {
+                    // get the tx fee from verified tx
+                    let fee = tx.get_tx_fee();
                     // commit the tx
                     // check if transaction is Transfer/BurnMessage
                     match tx.tx_type {
                         TransactionType::Transfer | TransactionType::Script => {
                             println!("Transfer Tx / Script tx");
-                            let result = service::tx_commit(tx.clone()).await;
+                            let result = service::tx_commit(tx.clone(), fee).await;
                             let response: String = match result {
                                 Ok(response_body) => response_body,
                                 Err(err) => err.to_string(),
@@ -153,7 +153,7 @@ pub fn rpcserver() {
                             match message.msg_type {
                                 MessageType::Burn => {
                                     // send the ZkOS burn tx to the Zkos Oracle
-                                    let result = service::tx_commit(tx.clone()).await;
+                                    let result = service::tx_commit(tx.clone(), fee).await;
                                     //match result {
                                     // Ok(_) => {
                                     println!("ZkOS burn tx submitted to Zkos Oracle");
@@ -212,7 +212,7 @@ pub fn rpcserver() {
     });
 
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
-        let mut address: address::Standard;
+        let address: address::Standard;
 
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
@@ -490,7 +490,7 @@ pub fn rpcserver() {
                 Ok(queryparams) => match queryparams.test_command {
                     TestCommandString::TakeSnapshotintoLevelDB => {
                         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-                        utxo_storage.take_snapshot();
+                        let _res = utxo_storage.take_snapshot();
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::LoadBackupFromLevelDB => {
