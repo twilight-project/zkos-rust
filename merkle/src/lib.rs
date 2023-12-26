@@ -508,7 +508,7 @@ impl CallProof {
     where
         M: MerkleItem,
     {
-        let path = Path::new(list, item_index, hasher).unwrap();
+        let path = Path::new(list, item_index, hasher)?;
         Some(CallProof::new(network, path))
     }
     /// Verifies that the program is committed to the merkle tree.
