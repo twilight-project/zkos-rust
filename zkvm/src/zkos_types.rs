@@ -1373,21 +1373,3 @@ impl StateWitness {
         self.zero_proof.as_ref().map(|x| x.iter())
     }
 }
-//****SHOULD BE DECLARED IN RELAYER WALLET */
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ZkosCreateOrder {
-    pub input: Input,         //coin type input
-    pub output: Output,       // memo type output
-    pub signature: Signature, //quisquis signature
-    pub proof: SigmaProof,
-}
-impl ZkosCreateOrder {
-    pub fn new(input: Input, output: Output, vw: ValueWitness) -> Self {
-        Self {
-            input,
-            output,
-            signature: vw.get_signature().clone(),
-            proof: vw.get_value_proof().clone(),
-        }
-    }
-}
