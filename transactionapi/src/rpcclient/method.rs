@@ -29,7 +29,7 @@ impl Method {}
 // allOutputs
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AllOutputsResponse {
-    all_output: Vec<zkvm::zkos_types::Output>,
+    pub all_output: Vec<zkvm::zkos_types::Output>,
 }
 impl AllOutputsResponse {
     pub fn get_response(
@@ -63,7 +63,7 @@ impl AllOutputsResponse {
 // getUtxos
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetUtxosResponse {
-    all_utxo: Vec<zkvm::zkos_types::Utxo>,
+    pub all_utxo: Vec<zkvm::zkos_types::Utxo>,
 }
 impl GetUtxosResponse {
     pub fn get_response(
@@ -80,7 +80,7 @@ impl GetUtxosResponse {
 // allUtxos ,allMemoUtxos, allSateUtxos,  allOutputs
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AllUtxoResponse {
-    all_utxo: Vec<String>,
+    pub all_utxo: Vec<String>,
 }
 impl AllUtxoResponse {
     pub fn get_response(
@@ -97,7 +97,7 @@ impl AllUtxoResponse {
 // getOutput
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetCoinOutputResponse {
-    all_utxo: Option<zkvm::zkos_types::Output>,
+    pub all_utxo: Option<zkvm::zkos_types::Output>,
 }
 impl GetCoinOutputResponse {
     pub fn get_response(
@@ -114,7 +114,7 @@ impl GetCoinOutputResponse {
 // getMemoOutput
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetMemoOutputResponse {
-    all_utxo: Option<zkvm::zkos_types::Output>,
+    pub all_utxo: Option<zkvm::zkos_types::Output>,
 }
 impl GetMemoOutputResponse {
     pub fn get_response(
@@ -131,7 +131,7 @@ impl GetMemoOutputResponse {
 // getStateOutput
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetStateOutputResponse {
-    all_utxo: Option<zkvm::zkos_types::Output>,
+    pub all_utxo: Option<zkvm::zkos_types::Output>,
 }
 impl GetStateOutputResponse {
     pub fn get_response(
@@ -148,7 +148,7 @@ impl GetStateOutputResponse {
 // getUtxosFromDB
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetUtxosFromDBResponse {
-    utxo_vec: Vec<utxo_in_memory::pgsql::UtxoOutputRaw>,
+    pub utxo_vec: Vec<utxo_in_memory::pgsql::UtxoOutputRaw>,
 }
 impl GetUtxosFromDBResponse {
     pub fn get_response(
