@@ -349,31 +349,45 @@ impl ScriptTransaction {
         let hasher: zkvm::Hasher<Program> = zkvm::Hasher::<Program>::new(b"ZkOS.MerkelTree");
         let bytecode = self.program.clone();
         // recreate ProgramItem from Vec[u8]
-        let prog = Program::parse(&bytecode).unwrap();
-
-        // identify address from input state
+        let prog = match Program::parse(&bytecode) {
+            Ok(prog) => prog,
+            Err(_e) => {
+                return Err("Program is not a valid bytecode");
+            }
+        };
+        // get the script address from Inputs and Outputs
         // the first input will always be a Coin or a Memo
         let inp = self.inputs[0].clone();
-        let mut script_address;
+        let mut script_address = String::new();
         if inp.in_type == IOType::Coin {
             // get corresponding OutputMemo
-            let out_memo: Output = self.outputs[0].clone();
-            script_address = out_memo.output.get_script_address().unwrap().to_owned();
+            let out_memo = match self.outputs[0].as_out_memo() {
+                Some(out_memo) => out_memo,
+                None => {
+                    return Err("First Output is not a Memo");
+                }
+            };
+            script_address = out_memo.script_address.clone();
         }
         if inp.in_type == IOType::Memo {
-            script_address = inp.as_script_address().unwrap().to_owned();
+            script_address = match inp.as_script_address() {
+                Some(addr) => addr.to_owned(),
+                None => {
+                    return Err("Script Address does not exist");
+                }
+            }
         }
         if inp.in_type == IOType::State {
-            return Err("Input is not a Coin or a Memo");
+            return Err("First Input is not a Coin or a Memo");
         }
-        // FIGURE OUT A WAY TO PROVIDE THE TREE ROOT HASH
-        // let verify_call_proof = self
-        //     .call_proof
-        //     .verify_call_proof(&script_address, &prog, &hasher);
-        // if verify_call_proof == false {
-        //     return Err("Call Proof Verification Failed");
-        // }
-        Ok(())
+        // verify the call proof
+        let verify_call_proof = self
+            .call_proof
+            .verify_call_proof(script_address, &prog, &hasher);
+        match verify_call_proof {
+            true => Ok(()),
+            false => Err("Call Proof Verification Failed"),
+        }
     }
     // check if script is deploying contract
     // can also use Utxo existance to check this but this is more efficient
