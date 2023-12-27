@@ -10,7 +10,8 @@ use transaction::{TransactionData, TransactionType};
 use utxo_in_memory::blockoperations::blockprocessing::{
     all_coin_type_output, all_coin_type_utxo, all_memo_type_utxo, all_state_type_utxo,
     search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key,
-    search_memo_type_utxo_by_utxo_key, search_state_type_utxo_by_utxo_key, verify_utxo,
+    search_memo_type_utxo_by_address, search_memo_type_utxo_by_utxo_key,
+    search_state_type_utxo_by_address, search_state_type_utxo_by_utxo_key, verify_utxo,
 };
 use utxo_in_memory::db::LocalDBtrait;
 use utxo_in_memory::UTXO_STORAGE;
@@ -251,6 +252,96 @@ pub fn rpcserver() {
             Ok(response_body)
         }
     });
+    io.add_method_with_meta(
+        "getMemoUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let address: address::Standard;
+
+            let hex_str = match params.parse::<Vec<String>>() {
+                Ok(vec) => {
+                    if vec.is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    let hex_address = vec[0].clone();
+                    if hex_address.trim().is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    hex_address
+                }
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+            address = match address::Standard::from_hex_with_error(&hex_str) {
+                Ok(addr) => addr,
+                Err(e) => {
+                    let err = JsonRpcError::invalid_params(e.to_string());
+                    return Err(err);
+                }
+            };
+
+            let utxos = search_memo_type_utxo_by_address(address);
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: Utxo not available for provided address}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
+    io.add_method_with_meta(
+        "getStateUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let address: address::Standard;
+
+            let hex_str = match params.parse::<Vec<String>>() {
+                Ok(vec) => {
+                    if vec.is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    let hex_address = vec[0].clone();
+                    if hex_address.trim().is_empty() {
+                        let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
+                        return Err(err);
+                    }
+                    hex_address
+                }
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+            address = match address::Standard::from_hex_with_error(&hex_str) {
+                Ok(addr) => addr,
+                Err(e) => {
+                    let err = JsonRpcError::invalid_params(e.to_string());
+                    return Err(err);
+                }
+            };
+
+            let utxos = search_state_type_utxo_by_address(address);
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: Utxo not available for provided address}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
 
     io.add_method_with_meta("allUtxos", move |params: Params, _meta: Meta| async move {
         let utxos: Vec<String> = all_coin_type_utxo();

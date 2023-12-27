@@ -486,6 +486,52 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
 
     return filtered_utxo;
 }
+pub fn search_memo_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
+    let mut filtered_utxo: Vec<Utxo> = Vec::new();
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Memo as usize;
+    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+
+    for (key, output_data) in utxos {
+        let addr = output_data.output.get_owner_address().unwrap();
+        if address::Standard::from_hex(addr).public_key == address.public_key {
+            match bincode::deserialize(&key) {
+                Ok(value) => {
+                    filtered_utxo.push(value);
+                }
+                Err(args) => {
+                    let err = format!("Deserialization error, {:?}", args);
+                    println!("{}", err)
+                }
+            }
+        }
+    }
+
+    return filtered_utxo;
+}
+pub fn search_state_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
+    let mut filtered_utxo: Vec<Utxo> = Vec::new();
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::State as usize;
+    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+
+    for (key, output_data) in utxos {
+        let addr = output_data.output.get_owner_address().unwrap();
+        if address::Standard::from_hex(addr).public_key == address.public_key {
+            match bincode::deserialize(&key) {
+                Ok(value) => {
+                    filtered_utxo.push(value);
+                }
+                Err(args) => {
+                    let err = format!("Deserialization error, {:?}", args);
+                    println!("{}", err)
+                }
+            }
+        }
+    }
+
+    return filtered_utxo;
+}
 
 pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
