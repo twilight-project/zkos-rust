@@ -969,6 +969,12 @@ impl Output {
         self.out_type
     }
 
+    /// get output data
+    /// return OutputData
+    pub fn as_output_data(&self) -> &OutputData {
+        &self.output
+    }
+
     //return out_coin from output
     pub fn as_out_coin(&self) -> Option<&OutputCoin> {
         match self.output {
