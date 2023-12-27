@@ -248,6 +248,20 @@ pub struct Standard {
 }
 
 impl Standard {
+    /// Create a standard address which is valid on the given network.
+    pub fn new(network: Network, public_key: RistrettoPublicKey) -> Standard {
+        Standard {
+            network,
+            addr_type: AddressType::Standard,
+            public_key,
+        }
+    }
+
+    /// get public key from standard address
+    pub fn get_public_key(&self) -> RistrettoPublicKey {
+        self.public_key
+    }
+
     /// Parse an address from a vector of bytes, fail if the magic byte is incorrect, if public
     /// keys are not valid points, and if checksums missmatch.
     pub fn from_bytes(bytes: &[u8]) -> Result<Standard, &'static str> {
@@ -366,6 +380,12 @@ impl Script {
     /// Serialize the address bytes as a BTC-Base58 string.
     pub fn as_base58(&self) -> String {
         bs58::encode(self.as_bytes()).into_string()
+    }
+
+    /// get root hash from script address
+    /// Byte Format : [script tree root hash]
+    pub fn get_root_hash(&self) -> [u8; 32] {
+        self.root
     }
 }
 impl Default for Script {
