@@ -14,6 +14,8 @@ pub enum Method {
     /// Queries status of a transaction by hash and returns the final transaction result.
     TxStatus,
     getUtxos,
+    getMemoUtxos,
+    getStateUtxos,
     allUtxos,
     allMemoUtxos,
     allSateUtxos,
@@ -66,6 +68,38 @@ pub struct GetUtxosResponse {
     pub all_utxo: Vec<zkvm::zkos_types::Utxo>,
 }
 impl GetUtxosResponse {
+    pub fn get_response(
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Vec<zkvm::zkos_types::Utxo> {
+        let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
+            Ok(response) => serde_json::from_value(response).unwrap(),
+            Err(arg) => Vec::new(),
+        };
+        utxo_vec
+    }
+}
+// getMemoUtxos
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetMemoUtxosResponse {
+    pub all_utxo: Vec<zkvm::zkos_types::Utxo>,
+}
+impl GetMemoUtxosResponse {
+    pub fn get_response(
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Vec<zkvm::zkos_types::Utxo> {
+        let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
+            Ok(response) => serde_json::from_value(response).unwrap(),
+            Err(arg) => Vec::new(),
+        };
+        utxo_vec
+    }
+}
+// getStateUtxos
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetStateUtxosResponse {
+    pub all_utxo: Vec<zkvm::zkos_types::Utxo>,
+}
+impl GetStateUtxosResponse {
     pub fn get_response(
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> Vec<zkvm::zkos_types::Utxo> {

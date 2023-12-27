@@ -613,6 +613,28 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
 
                 return rpc_response(res);
             }
+            Method::getStateUtxos => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
+            Method::getMemoUtxos => {
+                let client = reqwest::blocking::Client::new();
+                let clint_clone = client.clone();
+                let res = clint_clone
+                    .post(url)
+                    .headers(construct_headers())
+                    .body(self.into_json())
+                    .send();
+
+                return rpc_response(res);
+            }
             Method::allUtxos => {
                 let client = reqwest::blocking::Client::new();
                 let clint_clone = client.clone();
@@ -785,6 +807,38 @@ mod test {
     fn check_getUtxos_test() {
         let tx_send: RpcBody<Vec<String>> =
             RpcRequest::new(vec!["0cba90f5645c15f43b243dbca276d5a6f8e8308b89f6ce54a569ea52326ad736669242166e4b84335d9b59363bf98de48ba016f88cbff1eadcc30c78afda48353290251e90".to_string()], crate::rpcclient::method::Method::getUtxos);
+        let res: Result<
+            crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send("http://165.232.134.41:3030".to_string());
+
+        let response = GetUtxosResponse::get_response(res.unwrap());
+        println!("Utxo : {:#?}", response);
+        let mut file = File::create("foo_response.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&response).unwrap())
+            .unwrap();
+    }
+    // cargo test -- --nocapture --test check_getMemoUtxos_test --test-threads 5
+    #[test]
+    fn check_getMemoUtxos_test() {
+        let tx_send: RpcBody<Vec<String>> =
+            RpcRequest::new(vec!["0cba90f5645c15f43b243dbca276d5a6f8e8308b89f6ce54a569ea52326ad736669242166e4b84335d9b59363bf98de48ba016f88cbff1eadcc30c78afda48353290251e90".to_string()], crate::rpcclient::method::Method::getMemoUtxos);
+        let res: Result<
+            crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+            reqwest::Error,
+        > = tx_send.send("http://165.232.134.41:3030".to_string());
+
+        let response = GetUtxosResponse::get_response(res.unwrap());
+        println!("Utxo : {:#?}", response);
+        let mut file = File::create("foo_response.txt").unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&response).unwrap())
+            .unwrap();
+    }
+    // cargo test -- --nocapture --test check_getStateUtxos_test --test-threads 5
+    #[test]
+    fn check_getStateUtxos_test() {
+        let tx_send: RpcBody<Vec<String>> =
+            RpcRequest::new(vec!["0cba90f5645c15f43b243dbca276d5a6f8e8308b89f6ce54a569ea52326ad736669242166e4b84335d9b59363bf98de48ba016f88cbff1eadcc30c78afda48353290251e90".to_string()], crate::rpcclient::method::Method::getStateUtxos);
         let res: Result<
             crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
             reqwest::Error,
