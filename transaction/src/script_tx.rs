@@ -167,7 +167,7 @@ impl ScriptTransaction {
     // create verifier view for the transaction
     // Should be replace with Encoding function for Tx which should do this automatically
     // Currrently bincode is used for encoding which shall be replaced with a custom encoding function
-    fn create_verifier_view(
+    pub fn create_verifier_view(
         inputs: &[Input],
         outputs: &[Output],
         tx_data: Option<zkvm::String>,
