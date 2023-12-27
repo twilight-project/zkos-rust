@@ -173,7 +173,7 @@ impl GetUtxosFromDBResponse {
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTxCommit {
-    txHash: String,
+    pub txHash: String,
 }
 impl GetTxCommit {
     pub fn get_txhash(resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>) -> String {
