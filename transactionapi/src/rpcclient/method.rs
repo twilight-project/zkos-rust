@@ -176,18 +176,20 @@ pub struct GetTxCommit {
     pub txHash: String,
 }
 impl GetTxCommit {
-    pub fn get_txhash(resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>) -> String {
-        let tx_hash: String = match resp.result {
+    pub fn get_txhash(
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+    ) -> Result<String, String> {
+        let tx_hash: Result<String, String> = match resp.result {
             Ok(response) => match response {
                 serde_json::Value::String(txHash) => {
                     match serde_json::from_str::<GetTxCommit>(&txHash) {
-                        Ok(value) => value.txHash,
-                        Err(_) => txHash,
+                        Ok(value) => Ok(value.txHash),
+                        Err(_) => Err(txHash),
                     }
                 }
-                _ => "errror".to_string(),
+                _ => Err("errror".to_string()),
             },
-            Err(arg) => arg.to_string(),
+            Err(arg) => Err(arg.to_string()),
         };
         tx_hash
     }
