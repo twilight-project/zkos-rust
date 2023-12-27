@@ -171,3 +171,24 @@ impl GetUtxosFromDBResponse {
         GetUtxosFromDBResponse { utxo_vec: utxo_vec }
     }
 }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetTxCommit {
+    txHash: String,
+}
+impl GetTxCommit {
+    pub fn get_txhash(resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>) -> String {
+        let tx_hash: String = match resp.result {
+            Ok(response) => match response {
+                serde_json::Value::String(txHash) => {
+                    match serde_json::from_str::<GetTxCommit>(&txHash) {
+                        Ok(value) => value.txHash,
+                        Err(_) => txHash,
+                    }
+                }
+                _ => "errror".to_string(),
+            },
+            Err(arg) => arg.to_string(),
+        };
+        tx_hash
+    }
+}
