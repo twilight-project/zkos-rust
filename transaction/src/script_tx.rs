@@ -128,6 +128,7 @@ impl ScriptTransaction {
         outputs: &[Output],
         tx_data: Option<zkvm::String>,
         contract_deploy_flag: bool,
+        fee: u64,
     ) -> Result<ScriptTransaction, zkvm::VMError> {
         // execute the program and create a proof
         let (program, proof) = crate::vm_run::Prover::build_proof(
@@ -150,7 +151,7 @@ impl ScriptTransaction {
             ScriptTransaction::create_verifier_view(inputs, outputs, tx_data);
         Ok(ScriptTransaction::set_script_transaction(
             0u64,
-            0u64,
+            fee,
             0u64,
             inputs.len() as u8,
             outputs.len() as u8,
