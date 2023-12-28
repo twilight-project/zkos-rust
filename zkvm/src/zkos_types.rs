@@ -711,29 +711,6 @@ impl OutputMemo {
             timebounds,
         }
     }
-    //Use this function to create Output Memo in case of Trader from Wasm
-    pub fn new_from_wasm(
-        script_address: String,
-        owner_address: String,
-        balance: u64,
-        order_size: u64,
-        scalar: Scalar,
-    ) -> Self {
-        //create ScalarWitness
-
-        let commitment = crate::Commitment::blinded_with_factor(balance, scalar);
-        // order size has to be in commitment
-        let data_commitment = Commitment::blinded_with_factor(order_size, scalar);
-        let data = Some(vec![ZkvmString::Commitment(Box::new(data_commitment))]);
-        // create OutputMemo
-        OutputMemo {
-            script_address,
-            owner: owner_address,
-            commitment,
-            data,
-            timebounds: 0,
-        }
-    }
     pub fn verifier_view(&self) -> OutputMemo {
         // check if any of the data is a comm
         let data_str: Option<Vec<ZkvmString>>;
