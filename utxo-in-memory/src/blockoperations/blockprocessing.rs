@@ -577,16 +577,65 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     if transaction.tx_type == TransactionType::Script {
         for input in tx_inputs {
             let utxo = input.as_utxo().unwrap();
+            let client_output: OutputData = match input.in_type {
+                IOType::Coin => OutputData::Coin(input.as_out_coin().unwrap().clone()),
+                IOType::Memo => OutputData::Memo(input.as_out_memo().unwrap().clone()),
+                IOType::State => OutputData::State(input.as_out_state().unwrap().clone()),
+            };
             let utxo_test = Utxo::new(TxID(Hash([0; 32])), 0);
             if utxo.to_owned() != utxo_test {
                 let utxo_input_type = input.in_type as usize;
                 let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
 
-                if utxo_storage.search_key(&utxo_key, utxo_input_type) == false {
-                    return false;
-                };
-            } else {
-                continue;
+                let utxo_output_from_chain_result =
+                    utxo_storage.get_utxo_by_id(utxo_key.clone(), utxo_input_type);
+
+                match utxo_output_from_chain_result {
+                    Ok(utxo_output_from_chain) => match input.in_type {
+                        IOType::Coin => {
+                            if utxo_output_from_chain
+                                .as_out_coin()
+                                .unwrap()
+                                .clone()
+                                .eq(client_output.get_output_coin().unwrap())
+                            {
+                                continue;
+                            } else {
+                                return false;
+                            }
+                        }
+                        IOType::Memo => {
+                            if utxo_output_from_chain
+                                .as_out_memo()
+                                .unwrap()
+                                .clone()
+                                .eq(client_output.get_output_memo().unwrap())
+                            {
+                                continue;
+                            } else {
+                                return false;
+                            }
+                        }
+                        IOType::State => {
+                            if utxo_output_from_chain
+                                .as_out_state()
+                                .unwrap()
+                                .clone()
+                                .eq(client_output.get_output_state().unwrap())
+                            {
+                                continue;
+                            } else {
+                                return false;
+                            }
+                        }
+                    },
+
+                    Err(arg) => {
+                        return false;
+                    }
+                }
+
+                // return true;
             }
         }
     } else if transaction.tx_type == TransactionType::Transfer {
