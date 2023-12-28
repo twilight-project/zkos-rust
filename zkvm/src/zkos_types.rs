@@ -55,6 +55,11 @@ impl Utxo {
         deserialize(bytes).ok()
     }
 
+    pub fn from_hex(hex: &str) -> Option<Self> {
+        let bytes = hex::decode(hex).ok()?;
+        Self::from_bytes(&bytes)
+    }
+
     pub const fn tx_id(&self) -> &TxID {
         &self.txid
     }
