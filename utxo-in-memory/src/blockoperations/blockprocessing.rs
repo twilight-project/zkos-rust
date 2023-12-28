@@ -641,29 +641,72 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     } else if transaction.tx_type == TransactionType::Transfer {
         for input in tx_inputs {
             let utxo = input.as_utxo().unwrap();
+            let client_output: OutputData = match input.in_type {
+                IOType::Coin => OutputData::Coin(input.as_out_coin().unwrap().clone()),
+                _ => return false,
+            };
             let utxo_test = Utxo::new(TxID(Hash([0; 32])), 0);
             if utxo.to_owned() != utxo_test {
                 let utxo_key = bincode::serialize(utxo).unwrap();
-                if utxo_storage.search_key(&utxo_key, 0) == false {
-                    return false;
-                };
-            } else {
-                continue;
+
+                let utxo_output_from_chain_result =
+                    utxo_storage.get_utxo_by_id(utxo_key.clone(), 0);
+
+                match utxo_output_from_chain_result {
+                    Ok(utxo_output_from_chain) => match input.in_type {
+                        IOType::Coin => {
+                            if utxo_output_from_chain
+                                .as_out_coin()
+                                .unwrap()
+                                .clone()
+                                .eq(client_output.get_output_coin().unwrap())
+                            {
+                                continue;
+                            } else {
+                                return false;
+                            }
+                        }
+                        _ => return false,
+                    },
+
+                    Err(arg) => {
+                        return false;
+                    }
+                }
             }
         }
     } else if transaction.tx_type == TransactionType::Message {
         // check if message is burn
         let message = transaction.tx.to_message().unwrap();
+        let input = message.input.clone();
         if message.msg_type == zkvm::zkos_types::MessageType::Burn {
             let utxo = message.input.as_utxo().unwrap();
-            let utxo_key = bincode::serialize(utxo).unwrap();
-            if utxo_storage.search_key(&utxo_key, 0) == false {
-                return false;
+            let client_output: OutputData = match input.in_type {
+                IOType::Coin => OutputData::Coin(input.as_out_coin().unwrap().clone()),
+                _ => return false,
             };
-        } else {
-            // HAVE TO PUT IN CHECKS FOR OTHER TYPES OF MESSAGES WHEN THEY ARE IMPLEMENTED
-            // SEARCH IN the APRROPRIATE INPUT TYPE SET
-            return false;
+            let utxo_key = bincode::serialize(utxo).unwrap();
+            let utxo_output_from_chain_result = utxo_storage.get_utxo_by_id(utxo_key.clone(), 0);
+            match utxo_output_from_chain_result {
+                Ok(utxo_output_from_chain) => match input.in_type {
+                    IOType::Coin => {
+                        if utxo_output_from_chain
+                            .as_out_coin()
+                            .unwrap()
+                            .clone()
+                            .eq(client_output.get_output_coin().unwrap())
+                        {
+                        } else {
+                            return false;
+                        }
+                    }
+                    _ => return false,
+                },
+
+                Err(arg) => {
+                    return false;
+                }
+            }
         }
     }
 
