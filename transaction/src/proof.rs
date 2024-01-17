@@ -59,7 +59,7 @@ impl RevealProof {
 /// Used in Dark Transaction and Quisquis Tx
 /// Store Dark Tx Proof
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DarkTxProof {
+pub struct DarkProof {
     pub(super) delta_accounts: Vec<Account>,
     pub(super) epsilon_accounts: Vec<Account>,
     pub(super) updated_delta_accounts: Vec<Account>,
@@ -84,7 +84,7 @@ pub struct ShuffleTxProof {
     pub(super) output_shuffle_proof: ShuffleProof,
     pub(super) output_shuffle_statement: ShuffleStatement,
 }
-impl DarkTxProof {
+impl DarkProof {
     /// Serializes the proof into a byte array
     ///
     /// # Layoutec<>
@@ -173,7 +173,7 @@ impl DarkTxProof {
         receivers_count: usize,
         base_pk: RistrettoPublicKey,
         update_outputs_statement: Option<(&[Account], Scalar, Scalar)>, //None in case of quisquis tx
-    ) -> DarkTxProof {
+    ) -> DarkProof {
         //create DLEQ proof for same balance value committed based on Epsilon and delta account
         let delta_dleq = Prover::verify_delta_compact_prover(
             &delta_accounts,
@@ -212,28 +212,21 @@ impl DarkTxProof {
             Prover::verify_non_negative_sender_receiver_prover(&bl_rp_vector, &scalars_bp_vector);
 
         // check if is is dark or quisquis tx
-        match update_outputs_statement {
+       let updated_output_proof =  match update_outputs_statement {
             // Dark Tx
             Some((updated_outputs, updated_out_pk_rscalar, updated_out_comm_rscalar)) => {
-                let updated_output_proof = Prover::verify_update_account_dark_tx_prover(
+                Some(Prover::verify_update_account_dark_tx_prover(
                     updated_delta_account,
                     updated_outputs,
                     updated_out_pk_rscalar,
                     updated_out_comm_rscalar,
-                );
-                DarkTxProof {
-                    delta_accounts: delta_accounts.to_vec(),
-                    epsilon_accounts: epsilon_accounts.to_vec(),
-                    updated_delta_accounts: updated_delta_account.to_vec(),
-                    delta_dleq,
-                    updated_sender_epsilon_accounts,
-                    sender_account_dleq,
-                    range_proof,
-                    updated_output_proof: Some(updated_output_proof),
-                    receivers_count,
-                }
+                ))
+                
             } // Quisquis Tx
-            None => DarkTxProof {
+            None => None, 
+        };
+            
+            DarkProof {
                 delta_accounts: delta_accounts.to_vec(),
                 epsilon_accounts: epsilon_accounts.to_vec(),
                 updated_delta_accounts: updated_delta_account.to_vec(),
@@ -241,10 +234,10 @@ impl DarkTxProof {
                 updated_sender_epsilon_accounts,
                 sender_account_dleq,
                 range_proof,
-                updated_output_proof: None,
+                updated_output_proof,
                 receivers_count,
-            },
-        }
+            }
+        
       
     }
     /// Dark ordered proof creation using Multithreading
@@ -261,7 +254,7 @@ impl DarkTxProof {
         senders_count: usize,
         receivers_count: usize,
         base_pk: RistrettoPublicKey,
-        update_outputs_statement: Option<(Arc<Vec<Account>>, Scalar, Scalar)>) -> Result<DarkTxProof, &'static str> {
+        update_outputs_statement: Option<(Arc<Vec<Account>>, Scalar, Scalar)>) -> Result<DarkProof, &'static str> {
         // prepare data for passing to threads
         let delta_accounts_proof = Arc::clone(&delta_accounts);
         let epsilon_accounts_proof = Arc::clone(&epsilon_accounts);
@@ -371,7 +364,7 @@ impl DarkTxProof {
                      }},
                         None => None,
                     };
-            Ok(DarkTxProof {
+            Ok(DarkProof {
                 delta_accounts: delta_accounts.to_vec(),
                 epsilon_accounts: epsilon_accounts.to_vec(),
                 updated_delta_accounts: updated_delta_account.to_vec(),
@@ -907,7 +900,7 @@ mod test {
             })
             .collect::<Vec<Account>>();
         // create proof for Dark Tx variant
-        let dark_tx_proof = DarkTxProof::create_dark_ordered_proof(
+        let dark_tx_proof = DarkProof::create_dark_ordered_proof(
             //&mut prover,
             &value_vector,
             &delta_accounts,
