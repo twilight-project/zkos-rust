@@ -23,7 +23,7 @@ mod tests;
 // re-exports
 pub use self::errors::TxError;
 pub use self::message::Message;
-pub use self::proof::{DarkTxProof, ShuffleTxProof};
+pub use self::proof::{DarkProof, ShuffleTxProof};
 pub use self::reference_tx::{Receiver, Sender};
 pub use self::script_tx::ScriptTransaction;
 pub use self::transaction::{Transaction, TransactionData, TransactionType};

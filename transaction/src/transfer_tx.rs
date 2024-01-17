@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 //#![deny(missing_docs)]
 
-use crate::proof::{DarkTxProof, ShuffleTxProof};
+use crate::proof::{DarkProof, ShuffleTxProof};
 use merlin::Transcript;
 use zkvm::zkos_types::{Input, Output, Witness};
 
@@ -34,7 +34,7 @@ pub struct TransferTransaction {
     pub(crate) inputs: Vec<Input>,
     pub(crate) outputs: Vec<Output>,
     //Dark Tx proof
-    pub(crate) proof: DarkTxProof,
+    pub(crate) proof: DarkProof,
     //input and output shuffle proof
     pub(crate) shuffle_proof: Option<ShuffleTxProof>,
     //required for lit to dark case. contains same value proof
@@ -113,7 +113,7 @@ fn verify_zero_balance_witness(
 
 impl TransferTransaction {
     // Private constructor
-    fn set_tranfer_transaction(
+    fn set_transfer_transaction(
         version: u64,
         maturity: u64,
         fee: u64,
@@ -122,7 +122,7 @@ impl TransferTransaction {
         witness_count: u8,
         inputs: Vec<Input>,
         outputs: Vec<Output>,
-        proof: DarkTxProof,
+        proof: DarkProof,
         shuffle_proof: Option<ShuffleTxProof>,
         witness: Option<Vec<Witness>>,
     ) -> TransferTransaction {
@@ -212,7 +212,7 @@ impl TransferTransaction {
         // add comm_update_scalar to encrypt_scalar_sum
         encrypt_scalar_sum += comm_update_scalar;
         // create dark tx proof including the updated output accounts proof
-        let dark_tx_proof = DarkTxProof::create_dark_ordered_proof(
+        let dark_tx_proof = DarkProof::create_dark_ordered_proof(
             //&mut prover,
             &value_vector_scalar,
             &delta_accounts,
@@ -260,7 +260,7 @@ impl TransferTransaction {
                 );
 
                 Ok((
-                    TransferTransaction::set_tranfer_transaction(
+                    TransferTransaction::set_transfer_transaction(
                         version,
                         maturity,
                         fee, // fee is zero for dark tx for NOW
@@ -277,7 +277,7 @@ impl TransferTransaction {
                 ))
             }
             None => Ok((
-                TransferTransaction::set_tranfer_transaction(
+                TransferTransaction::set_transfer_transaction(
                     version,
                     maturity,
                     fee, // fee is zero for dark tx for NOW
@@ -370,7 +370,7 @@ impl TransferTransaction {
         let sender_sk = Arc::new(sender_sk.to_vec());
         let output_accounts_proof = Arc::new(output_accounts.clone());
 
-        let dark_tx_proof = DarkTxProof::create_dark_ordered_proof_parallel(
+        let dark_tx_proof = DarkProof::create_dark_ordered_proof_parallel(
             value_vector_scalar,
             delta_accounts,
             epsilon_accounts,
@@ -417,7 +417,7 @@ impl TransferTransaction {
                 );
 
                 Ok((
-                    TransferTransaction::set_tranfer_transaction(
+                    TransferTransaction::set_transfer_transaction(
                         version,
                         maturity,
                         fee, // fee is zero for dark tx for NOW
@@ -434,7 +434,7 @@ impl TransferTransaction {
                 ))
             }
             None => Ok((
-                TransferTransaction::set_tranfer_transaction(
+                TransferTransaction::set_transfer_transaction(
                     version,
                     maturity,
                     fee, // fee is zero for dark tx for NOW
@@ -586,7 +586,7 @@ impl TransferTransaction {
         // 3. Knowledge of secret key for senders and correct update to their balance (DLOG)
         // 4. Range proof on the updated sender balance and reciever values
         // 5. Zero balance proof in case of new account creation for reciever
-        let dark_tx_proof = DarkTxProof::create_dark_ordered_proof(
+        let dark_tx_proof = DarkProof::create_dark_ordered_proof(
             //&mut prover,
             &value_vector_scalar,
             &delta_accounts,
@@ -650,7 +650,7 @@ impl TransferTransaction {
                     input_shuffle.get_permutation().to_owned(),
                     address::Network::default(),
                 );
-                Ok(TransferTransaction::set_tranfer_transaction(
+                Ok(TransferTransaction::set_transfer_transaction(
                     0u64,
                     0u64,
                     fee, // fee is zero for quisquis tx for NOW
@@ -674,7 +674,7 @@ impl TransferTransaction {
                     input_shuffle.get_permutation().to_owned(),
                     address::Network::default(),
                 );
-                Ok(TransferTransaction::set_tranfer_transaction(
+                Ok(TransferTransaction::set_transfer_transaction(
                     0u64,
                     0u64,
                     fee, // fee is zero for quisquis tx for NOW
