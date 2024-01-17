@@ -270,6 +270,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
         // &annonymity_com_scalar_vector,
         diff,
         None,
+        2u64
     );
 
     Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
@@ -317,7 +318,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
     let updated_balance_reciever: Vec<u64> = vec![5];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransaction
-    let transfer = TransferTransaction::create_dark_transaction(
+    let transfer = TransferTransaction::create_private_transaction(
         &values,
         &accounts,
         &updated_sender_balance,
@@ -327,6 +328,7 @@ pub fn create_dark_reference_transaction() -> Transaction {
         sender_count,
         receiver_count,
         None,
+        1u64,
     );
     let (transfer, _comm_scalar) = transfer.unwrap();
 
@@ -533,7 +535,7 @@ pub fn create_dark_reference_tx_for_utxo_test(
 
     //create quisquis transfertransaction
 
-    let transfer = TransferTransaction::create_dark_transaction(
+    let transfer = TransferTransaction::create_private_transaction(
         &value_vector,
         &account_vector,
         &updated_balance_sender,
@@ -543,6 +545,7 @@ pub fn create_dark_reference_tx_for_utxo_test(
         sender_count,
         receiver_count,
         None,
+        0u64,
     );
     let (transfer, _comm_scalar) = transfer.unwrap();
     Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer))

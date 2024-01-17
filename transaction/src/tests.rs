@@ -825,7 +825,7 @@ fn test_dark_transaction_single_sender_reciever() {
     let reciever_value_balance: Vec<u64> = vec![500];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransactio
-    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+    let dark_transfer = crate::TransferTransaction::create_private_transaction(
         &value_vector,
         &account_vector,
         &updated_balance_sender,
@@ -835,6 +835,7 @@ fn test_dark_transaction_single_sender_reciever() {
         sender_count,
         receiver_count,
         Some(&vec![alice_comm_scalar]),
+        0,
     );
     let (transfer, comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
@@ -912,7 +913,7 @@ fn test_dark_transaction_pow_2() {
     let reciever_value_balance: Vec<u64> = vec![500, 300];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransactio
-    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+    let dark_transfer = crate::TransferTransaction::create_private_transaction(
         &value_vector,
         &account_vector,
         &updated_balance_sender,
@@ -922,6 +923,7 @@ fn test_dark_transaction_pow_2() {
         sender_count,
         receiver_count,
         Some(&vec![alice_comm_rscalar, fay_comm_rscalar]),
+        0
     );
     let (tranfer, _comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
@@ -1007,7 +1009,7 @@ fn test_dark_transaction_odd() {
     let reciever_value_balance: Vec<u64> = vec![300, 200, 300];
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransactio
-    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+    let dark_transfer = crate::TransferTransaction::create_private_transaction(
         &value_vector,
         &account_vector,
         &updated_balance_sender,
@@ -1021,6 +1023,7 @@ fn test_dark_transaction_odd() {
             jay_comm_rscalar,
             fay_comm_rscalar,
         ]),
+        0
     );
     let (transfer, _comm_scalar) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
@@ -1114,6 +1117,7 @@ fn test_quisquis_transaction_single_sender_reciever() {
         // &anonymity_scalar_vector,
         diff,
         None,
+        0
     );
 
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
@@ -1177,7 +1181,7 @@ fn test_create_burn_message() {
     let reciever_value_balance: Vec<u64> = vec![500];
     //println!("Data : {:?}", sender_count);
     //create Dark transfer transaction
-    let dark_transfer = crate::TransferTransaction::create_dark_transaction(
+    let dark_transfer = crate::TransferTransaction::create_private_transaction(
         &value_vector,
         &account_vector,
         &updated_balance_sender,
@@ -1187,6 +1191,7 @@ fn test_create_burn_message() {
         sender_count,
         receiver_count,
         Some(&vec![burn_comm_scalar]),
+        0
     );
     let (transfer, comm_scalar_final) = dark_transfer.unwrap();
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
@@ -1237,4 +1242,83 @@ fn test_create_burn_message() {
     //     Scalar::from(500u64),
     // );
     // assert_eq!(new_enc, enc);
+}
+
+
+#[test]
+fn test_private_transaction_parallel_proof_single_sender_reciever() {
+    let mut rng = rand::thread_rng();
+
+    // create sender and reciever
+    // lets say bob wants to sent 435 tokens to alice from his account
+    let (bob_account_1, bob_sk_account_1) =
+        Account::generate_random_account_with_value(1000u64.into());
+    //create alice account with 0 balance
+    let alice_pk = RistrettoPublicKey::generate_base_pk();
+    let alice_comm_scalar = Scalar::random(&mut rng);
+    let alice_commitment =
+        ElGamalCommitment::generate_commitment(&alice_pk, alice_comm_scalar, Scalar::from(0u64));
+
+    let alice_account = Account::set_account(alice_pk, alice_commitment);
+
+    // create sender array
+    let alice_reciever = crate::Receiver::set_receiver(435, alice_account);
+    let bob_sender = crate::Sender::set_sender(-435, bob_account_1, vec![alice_reciever]);
+    let tx_vector: Vec<crate::Sender> = vec![bob_sender];
+
+    let (value_vector, account_vector, sender_count, receiver_count) =
+        crate::Sender::generate_value_and_account_vector(tx_vector).unwrap();
+    println!(
+        "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
+        value_vector, sender_count, receiver_count
+    );
+    // no need for anonymity as it is private transaction
+    //Create sender updated account vector for the verification of sk and bl-v
+    let bl_first_sender = 1000 - 435; //bl-v
+                                      //let bl_second_sender = 20 - 3; //bl-v
+    let updated_balance_sender: Vec<u64> = vec![bl_first_sender]; //, bl_second_sender];
+                                                                  //Create vector of sender secret keys
+    let sk_sender: Vec<RistrettoSecretKey> = vec![bob_sk_account_1]; //, bob_sk_account_2];
+
+    // create input from account vector
+    let bob_utxo = Utxo::random(); //Simulating a valid UTXO input
+    let bob_input =
+        Input::input_from_quisquis_account(&bob_account_1, bob_utxo, 0, Network::default());
+
+    //Simulating a non UTXO input. Provide a valid witness index and Zero balance proof
+    let alice_input =
+        Input::input_from_quisquis_account(&alice_account, Utxo::default(), 0, Network::default());
+    let inputs: Vec<Input> = vec![bob_input, alice_input];
+
+    // let utxo = Utxo::default();
+    // let inputs: Vec<Input> = account_vector
+    //     .iter()
+    //     .map(|acc| Input::input_from_quisquis_account(acc, utxo, 0, Network::default()))
+    //     .collect();
+
+    let reciever_value_balance: Vec<u64> = vec![435];
+    //println!("Data : {:?}", sender_count);
+    //create quisquis transfertransactio
+    let priv_transfer = crate::TransferTransaction::create_private_transaction_parallel(
+        &value_vector,
+        &account_vector,
+        &updated_balance_sender,
+        &reciever_value_balance,
+        &inputs,
+        &sk_sender,
+        sender_count,
+        receiver_count,
+        Some(&vec![alice_comm_scalar]),
+        0,
+    );
+    let (transfer, _comm_output_scalar) = priv_transfer.unwrap();
+    let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
+        transfer.clone(),
+    ));
+    println!("Transaction : {:?}", tx.clone());
+
+    // Verify the transaction
+    let verify = tx.verify();
+    println!("Verify : {:?}", verify);
+    assert!(verify.is_ok());
 }

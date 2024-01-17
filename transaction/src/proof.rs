@@ -2,6 +2,8 @@
 #![deny(missing_docs)]
 //! Definition of the proof struct.
 
+use std::sync::Arc;
+
 use bulletproofs::PedersenGens;
 use bulletproofs::RangeProof;
 use curve25519_dalek::scalar::Scalar;
@@ -155,9 +157,9 @@ impl DarkTxProof {
         // })
     }
     ///
-    /// create Dark transaction proof for Prover
-    pub fn create_dark_tx_proof(
-        prover: &mut quisquislib::accounts::Prover,
+    /// create Dark ordered(non shuffle) proof for Private and Quisquis tx
+    pub fn create_dark_ordered_proof(
+       // prover: &mut quisquislib::accounts::Prover,
         value_vector: &[Scalar],
         delta_accounts: &[Account],
         epsilon_accounts: &[Account],
@@ -170,9 +172,7 @@ impl DarkTxProof {
         senders_count: usize,
         receivers_count: usize,
         base_pk: RistrettoPublicKey,
-        update_outputs_statement: Option<(&[Account], Scalar, Scalar)>, //updated_outputs: Option<&[Account]>,
-                                                                        //updated_out_pk_rscalar: Option<Scalar>,
-                                                                        //updated_out_comm_rscalar: Option<Scalar>,
+        update_outputs_statement: Option<(&[Account], Scalar, Scalar)>, //None in case of quisquis tx
     ) -> DarkTxProof {
         //create DLEQ proof for same balance value committed based on Epsilon and delta account
         let delta_dleq = Prover::verify_delta_compact_prover(
@@ -180,7 +180,6 @@ impl DarkTxProof {
             &epsilon_accounts,
             &delta_rscalar,
             &value_vector,
-            prover,
         );
 
         // let updated_delta_accounts_sender_slice = &delta_accounts[..senders_count];
@@ -189,7 +188,6 @@ impl DarkTxProof {
                 &sender_updated_delta_account,
                 sender_updated_balance,
                 sender_sk,
-                prover,
                 base_pk,
             );
         //create rangeproof on senders and receivers
@@ -211,7 +209,7 @@ impl DarkTxProof {
             .collect();
         //Generate range proof over sender/reciever account values. i.,e balance >=0 for all
         let range_proof =
-            prover.verify_non_negative_sender_receiver_prover(&bl_rp_vector, &scalars_bp_vector);
+            Prover::verify_non_negative_sender_receiver_prover(&bl_rp_vector, &scalars_bp_vector);
 
         // check if is is dark or quisquis tx
         match update_outputs_statement {
@@ -222,7 +220,6 @@ impl DarkTxProof {
                     updated_outputs,
                     updated_out_pk_rscalar,
                     updated_out_comm_rscalar,
-                    prover,
                 );
                 DarkTxProof {
                     delta_accounts: delta_accounts.to_vec(),
@@ -250,43 +247,40 @@ impl DarkTxProof {
         }
       
     }
-    /// Dark Tx proof using Multithreading
-    pub fn create_dark_tx_proof_parallel(
-        prover: &mut quisquislib::accounts::Prover,
-        value_vector: &[Scalar],
-        delta_accounts: &[Account],
-        epsilon_accounts: &[Account],
-        delta_rscalar: &[Scalar],
-        sender_updated_delta_account: &[Account],
-        updated_delta_account: &[Account],
+    /// Dark ordered proof creation using Multithreading
+    pub fn create_dark_ordered_proof_parallel(
+        value_vector: Arc<Vec<Scalar>>,
+        delta_accounts: Arc<Vec<Account>>,
+        epsilon_accounts: Arc<Vec<Account>>,
+        delta_rscalar: Arc<Vec<Scalar>>,
+        sender_updated_delta_account: Arc<Vec<Account>>,
+        updated_delta_account: Arc<Vec<Account>>,
         sender_updated_balance: &[u64],
         reciever_value_balance: &[u64],
-        sender_sk: &[RistrettoSecretKey],
+        sender_sk: Arc<Vec<RistrettoSecretKey>>,
         senders_count: usize,
         receivers_count: usize,
         base_pk: RistrettoPublicKey,
-        update_outputs_statement: Option<(&[Account], Scalar, Scalar)>) -> DarkTxProof {
-        
+        update_outputs_statement: Option<(Arc<Vec<Account>>, Scalar, Scalar)>) -> Result<DarkTxProof, &'static str> {
+        // prepare data for passing to threads
+        let delta_accounts_proof = Arc::clone(&delta_accounts);
+        let epsilon_accounts_proof = Arc::clone(&epsilon_accounts);
+        let delta_rscalar_proof = Arc::clone(&delta_rscalar);
+        let value_vector_proof = Arc::clone(&value_vector);
         // Spawn a thread to create DLEQ proof for same balance value committed based on Epsilon and delta account
         let handle_delta_dleq: std::thread::JoinHandle<SigmaProof> = std::thread::spawn(move || {
             Prover::verify_delta_compact_prover(
-                &delta_accounts,
-                &epsilon_accounts,
-                &delta_rscalar,
-                &value_vector,
-                prover,
+                &delta_accounts_proof[..],
+                &epsilon_accounts_proof[..],
+                &delta_rscalar_proof[..],
+                &value_vector_proof[..],
             )
         });    
         
-         //create epsilon accounts for updated sender balance
-         // used for creating rangeproofs to prove that the balance is >=0 for all sender accounts 
-        
-         let mut epsilon_sender_account_vector: Vec<Account> = Vec::with_capacity(senders_count);
- 
-         let mut epsilon_sender_rscalar_vector: Vec<Scalar> = Vec::with_capacity(senders_count);
-        use rand::RngCore;
-
-        // ...
+        //create epsilon accounts for updated sender balance
+        // used for creating rangeproofs to prove that the balance is >=0 for all sender accounts 
+        let mut epsilon_sender_account_vector: Vec<Account> = Vec::with_capacity(senders_count);
+        let mut epsilon_sender_rscalar_vector: Vec<Scalar> = Vec::with_capacity(senders_count);
 
         let mut transcript_rng = rand::thread_rng();
         for i in 0..senders_count {
@@ -298,86 +292,102 @@ impl DarkTxProof {
             epsilon_sender_rscalar_vector.push(rscalar);
         }
 
-        // Spawn a new thread to prove the authenticity of sender account
+        let sender_updated_delta_account_proof = Arc::clone(&sender_updated_delta_account);
+        let sender_sk_proof = Arc::clone(&sender_sk);
+        let sender_updated_balance_verify_account_proof = Arc::new(sender_updated_balance.to_vec());
+        let sender_updated_balance_bullet_proof = Arc::clone(&sender_updated_balance_verify_account_proof);
+        let epsilon_sender_account_vector_proof = Arc::new(epsilon_sender_account_vector);
+        let epsilon_sender_account_vec = Arc::clone(&epsilon_sender_account_vector_proof);
+        let epsilon_sender_rscalar_vector_verify_account_proof = Arc::new(epsilon_sender_rscalar_vector);
+        let epsilon_sender_rscalar_vector_bullet_proof = Arc::clone(&epsilon_sender_rscalar_vector_verify_account_proof);
+
+        // Spawn a new thread to prove the authenticity of sender account 
         let handle_account_sender_proof = std::thread::spawn(move || {
             Prover::verify_account_prover_isolated(
-                &sender_updated_delta_account,
-                sender_updated_balance,
-                sender_sk,
-                &epsilon_sender_account_vector,
-                &epsilon_sender_rscalar_vector,
-                prover,
-                
+                &sender_updated_delta_account_proof[..],
+                &sender_updated_balance_verify_account_proof[..],
+                &sender_sk_proof[..],
+                &epsilon_sender_account_vector_proof[..],
+                &epsilon_sender_rscalar_vector_verify_account_proof[..],
             )
         });
         
+       
+        let reciever_value_balance_proof = Arc::new(reciever_value_balance.to_vec());
+        let delta_rscalar_proof = Arc::clone(&delta_rscalar);
+
         // Spawn a new thread to prove the range proof for sender and reciever
         let handle_range_proof = std::thread::spawn(move || {
             Self::aggregate_sender_reciever_range_proof(
-                prover,
-                sender_updated_balance,
-                reciever_value_balance,
+                &sender_updated_balance_bullet_proof[..],
+                &reciever_value_balance_proof[..],
                 senders_count,
                 receivers_count,
-                delta_rscalar,
-                &epsilon_sender_rscalar_vector,
+                &delta_rscalar_proof[..],
+                &epsilon_sender_rscalar_vector_bullet_proof[..],
             )
         });
-
-        // check if is is dark or quisquis tx
-        match update_outputs_statement {
-            // Dark Tx
+        
+        let handle_updated_output_proof = match update_outputs_statement {
+            // Private Tx
             Some((updated_outputs, updated_out_pk_rscalar, updated_out_comm_rscalar)) => {
+                // prepare data for passing to threads
+                let updated_delta_account_proof = Arc::clone(&updated_delta_account);
+                let updated_outputs_proof = Arc::clone(&updated_outputs);
+
+                
                 //spawn a new thread to prove the updated output proof
-            let handle_updated_output_proof = std::thread::spawn(move || {
+            Some(std::thread::spawn(move || {
                Prover::verify_update_account_dark_tx_prover(
-                    updated_delta_account,
-                    updated_outputs,
+                    &updated_delta_account_proof[..],
+                    &updated_outputs_proof[..],
                     updated_out_pk_rscalar,
                     updated_out_comm_rscalar,
-                    prover,
                 )
-            });
-                    // Wait for all threads to finish and collect their results
-            let delta_dleq = handle_delta_dleq.join().expect("DLEQ Proof Thread failed");
-            let account_proof = handle_account_sender_proof.join().expect("Account Proof Thread failed");
-            let non_negative_proof = handle_range_proof.join().expect("Range Proof Thread  failed");
-            let updated_output_proof = handle_updated_output_proof.join().expect("Updated Output Proof Thread failed");
-                DarkTxProof {
-                    delta_accounts: delta_accounts.to_vec(),
-                    epsilon_accounts: epsilon_accounts.to_vec(),
-                    updated_delta_accounts: updated_delta_account.to_vec(),
-                    delta_dleq,
-                    updated_sender_epsilon_accounts: epsilon_sender_account_vector.to_vec(),
-                    sender_account_dleq: account_proof,
-                    range_proof: non_negative_proof.to_vec(),
-                    updated_output_proof: Some(updated_output_proof),
-                    receivers_count,
-                }
-            } // Quisquis Tx
-            None =>{ 
-                    // Wait for all threads to finish and collect their results
-                    let delta_dleq = handle_delta_dleq.join().expect("DLEQ Proof Thread failed");
-                    let account_proof = handle_account_sender_proof.join().expect("Account Proof Thread failed");
-                    let non_negative_proof = handle_range_proof.join().expect("Range Proof Thread  failed");
-            DarkTxProof {
+            }))
+        }
+            None => None, // Quisquis Tx
+    };
+            
+
+                    let delta_dleq = match handle_delta_dleq.join(){
+                        Ok(result) => result,
+                        Err(_) => return Err("Error in Joining Delta DLEQ Thread"),
+                    };
+                    let account_proof = match handle_account_sender_proof.join(){
+                        Ok(result) => result,
+                        Err(_) => return Err("Error in Joining Account Proof Thread"),
+                    };
+
+                    let non_negative_proof = match handle_range_proof.join(){
+                        Ok(result) => result,
+                        Err(_) => return Err("Error in Joining Range Proof Thread"),
+                    
+                    };
+                     let updated_output_proof = match handle_updated_output_proof {
+                     Some(handle) => { match handle.join(){
+                        Ok(result) => Some(result),
+                        Err(_) => return Err("Error in Joining Updated Output Proof Thread"),
+                     }},
+                        None => None,
+                    };
+            Ok(DarkTxProof {
                 delta_accounts: delta_accounts.to_vec(),
                 epsilon_accounts: epsilon_accounts.to_vec(),
                 updated_delta_accounts: updated_delta_account.to_vec(),
                 delta_dleq,
-                updated_sender_epsilon_accounts: epsilon_sender_account_vector.to_vec(),
+                updated_sender_epsilon_accounts: epsilon_sender_account_vec.to_vec(),
                 sender_account_dleq:account_proof,
                 range_proof: non_negative_proof.to_vec(),
-                updated_output_proof: None,
+                updated_output_proof,
                 receivers_count,
-            }
-        }
-        }
+            })
+        
+        
        
     }
     /// isolated function to aggregate rangeproof for sender and reciever
     fn aggregate_sender_reciever_range_proof(
-        prover: &mut quisquislib::accounts::Prover,
         sender_updated_balance: &[u64],
         reciever_value_balance: &[u64],
         senders_count: usize,
@@ -403,15 +413,14 @@ impl DarkTxProof {
             .chain(rec_rscalars_slice.iter().cloned())
             .collect();
         //Generate range proof over sender/reciever account values. i.,e balance >=0 for all
-        
-            prover.verify_non_negative_sender_receiver_prover(&bl_rp_vector, &scalars_bp_vector)
+        Prover::verify_non_negative_sender_receiver_prover(&bl_rp_vector, &scalars_bp_vector)
     } 
     
     ///
     /// Verify the DarkTx Proof
     pub fn verify(
         &self,
-        verifier: &mut Verifier,
+        //verifier: &mut Verifier,
         updated_input: &[Account], //Updated_input = input in case of Dark Tx. In case of quisquis tx, it is input' from shuffle
         // Used in case of Dark tx. In case of quisquis tx, it is None. Shuffle takes care of the update
         update_output_accounts: Option<&[Account]>,
@@ -431,7 +440,7 @@ impl DarkTxProof {
             &zr1_vector,
             &zr2_vector,
             &x,
-            verifier,
+           // verifier,
         )?;
         #[cfg(feature = "debug_print")]
         {
@@ -470,7 +479,7 @@ impl DarkTxProof {
             &zsk_sender_acc,
             &zr_sender_acc,
             x_sender_acc,
-            verifier,
+          //  verifier,
         )?;
         #[cfg(feature = "debug_print")]
         {
@@ -499,15 +508,13 @@ impl DarkTxProof {
         println!("Range Proof Length {:?}", self.range_proof.len());
         match self.range_proof.len() {
             //batched bulletproof. # of prover values are power of 2
-            1 => verifier
-                .verify_non_negative_sender_receiver_bulletproof_batch_verifier(
+            1 => Verifier::verify_non_negative_sender_receiver_bulletproof_batch_verifier(
                     &bp_epsilon_vec,
                     &self.range_proof[0],
                 )
                 .map_err(|_| "Range Proof Verification Failed")?,
             //vector proof. # of prover values are not power of 2
-            _ => verifier
-                .verify_non_negative_sender_receiver_bulletproof_vector_verifier(
+            _ => Verifier::verify_non_negative_sender_receiver_bulletproof_vector_verifier(
                     &bp_epsilon_vec,
                     &self.range_proof,
                 )
@@ -528,7 +535,7 @@ impl DarkTxProof {
                     updated_outputs,
                     &z_vector,
                     &x,
-                    verifier,
+                    //verifier,
                 )?;
             } /* Quisquis TX*/
             // do nothing. Update and shuffle proof is handled separately
@@ -624,7 +631,7 @@ impl ShuffleTxProof {
             &input_dash_accounts_slice,
             &updated_delta_accounts_slice,
             &rscalars_slice,
-            prover,
+            //prover,
         );
         #[cfg(feature = "debug_print")]
         {
@@ -707,7 +714,7 @@ impl ShuffleTxProof {
             &updated_delta_accounts_slice,
             &z_vector,
             &x,
-            verifier,
+           // verifier,
         )?;
         #[cfg(feature = "debug_print")]
         {
@@ -900,8 +907,8 @@ mod test {
             })
             .collect::<Vec<Account>>();
         // create proof for Dark Tx variant
-        let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
-            &mut prover,
+        let dark_tx_proof = DarkTxProof::create_dark_ordered_proof(
+            //&mut prover,
             &value_vector,
             &delta_accounts,
             &epsilon_accounts,
@@ -921,8 +928,8 @@ mod test {
         //verify the proof
 
         //create DarkTx Prover merlin transcript
-        let mut v_transcript = Transcript::new(b"TxProof");
-        let mut verifier = Verifier::new(b"DarkTx", &mut v_transcript);
+      //  let mut v_transcript = Transcript::new(b"TxProof");
+       // let mut verifier = Verifier::new(b"DarkTx", &mut v_transcript);
 
         //create updated senders delta account slice
         // let updated_senders_delta_account = &dark_tx_proof.delta_accounts[..2];
@@ -936,7 +943,7 @@ mod test {
         // );
         // Veification in case of Dark Tx
 
-        let verify = dark_tx_proof.verify(&mut verifier, &updated_accounts, Some(&outputs));
+        let verify = dark_tx_proof.verify(&updated_accounts, Some(&outputs));
         //let verify = dark_tx_proof.verify(&mut verifier, &updated_accounts, None);
         println!("{:?}", verify);
         assert!(verify.is_ok())
