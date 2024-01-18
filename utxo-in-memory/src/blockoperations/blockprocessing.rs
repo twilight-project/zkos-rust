@@ -34,9 +34,9 @@ use quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
 use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 
 lazy_static! {
-    pub static ref  TOTAL_DARK_SATS_MINTED: Gauge = register_gauge!("Dark Sats minted", "A counter for dark Sats minted").unwrap();
-    pub static ref  TOTAL_TRANSFER_TX: Gauge = register_gauge!("Transfer tx", "A counter for transfer tx").unwrap();
-    pub static ref  TOTAL_SCRIPT_TX: Gauge = register_gauge!("Script tx", "A counter for script tx").unwrap();
+    pub static ref  TOTAL_DARK_SATS_MINTED: Gauge = register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
+    pub static ref  TOTAL_TRANSFER_TX: Gauge = register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
+    pub static ref  TOTAL_SCRIPT_TX: Gauge = register_gauge!("script_tx_count", "A counter for script tx").unwrap();
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

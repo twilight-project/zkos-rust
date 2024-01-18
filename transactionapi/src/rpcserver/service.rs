@@ -20,7 +20,7 @@ use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, registe
 lazy_static! {
     pub static ref THREADPOOL_RPC_QUEUE: Mutex<ThreadPool> =
         Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue")));
-    pub static ref TOTAL_TX_COUNTER: Gauge = register_gauge!("tx counter", "A counter for tx").unwrap();
+    pub static ref TOTAL_TX_COUNTER: Gauge = register_gauge!("tx_counter", "A counter for tx").unwrap();
 }
 pub fn tx_queue(transaction: Transaction, fee: u64) {
     {
