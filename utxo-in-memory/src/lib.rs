@@ -17,9 +17,9 @@ use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, registe
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<LocalStorage::<Output>>> =
         Arc::new(Mutex::new(LocalStorage::<Output>::new(3)));
-    pub static ref  UTXO_MEMO_TELEMETRY_COUNTER: Gauge = register_gauge!("memo utxo", "A counter for memo utxo").unwrap();
-    pub static ref  UTXO_STATE_TELEMETRY_COUNTER: Gauge = register_gauge!("state utxo", "A counter for state utxo").unwrap();
-    pub static ref  UTXO_COIN_TELEMETRY_COUNTER: Gauge = register_gauge!("coin utxo", "A counter for coin utxo").unwrap();
+    pub static ref  UTXO_MEMO_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
+    pub static ref  UTXO_STATE_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_state_count", "A counter for state utxo").unwrap();
+    pub static ref  UTXO_COIN_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_coin_count", "A counter for coin utxo").unwrap();
 }
 use blockoperations::blockprocessing::{total_coin_type_utxos, total_state_type_utxos, total_memo_type_utxos};
 
