@@ -12,6 +12,10 @@ use transaction::reference_tx::{
     create_dark_reference_transaction, create_qq_reference_transaction,
 };
 use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
+use actix_web::{web, App, HttpServer, Responder};
+use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
+use utxo_in_memory::UTXO_COIN_TELEMETRY_COUNTER;
+
 fn main() {
     // let handle = std::thread::Builder::new()
     //     .name(String::from("rpc request"))
@@ -56,7 +60,32 @@ fn main() {
     let handle = thread::spawn(|| {
         zk_oracle_subscriber();
     });
+
+    let handle1 = thread::spawn(|| {
+        telemetry_server();
+    });
     rpcserver();
     handle.join().unwrap();
+    handle1.join().unwrap()
     //  handle.join().unwrap();
+}
+
+async fn telemetry_server() -> Result<(), std::io::Error> {
+    HttpServer::new(|| {
+        App::new()
+            .route("/metrics", web::get().to(telemetry_metrics))
+    })
+    .bind("127.0.0.1:2500")?
+    .run()
+    .await
+}
+
+
+
+async fn telemetry_metrics() -> impl Responder {
+    let encoder = TextEncoder::new();
+    let metric_families = prometheus::gather();
+    let mut buffer = Vec::new();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+    String::from_utf8(buffer).unwrap()
 }

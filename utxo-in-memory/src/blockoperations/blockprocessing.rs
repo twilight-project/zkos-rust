@@ -31,6 +31,13 @@ use zkvm::Hash;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
+use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
+
+lazy_static! {
+    pub static ref  TOTAL_DARK_SATS_MINTED: Gauge = register_gauge!("Dark Sats minted", "A counter for dark Sats minted").unwrap();
+    pub static ref  TOTAL_TRANSFER_TX: Gauge = register_gauge!("Transfer tx", "A counter for transfer tx").unwrap();
+    pub static ref  TOTAL_SCRIPT_TX: Gauge = register_gauge!("Script tx", "A counter for script tx").unwrap();
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BlockResult {
@@ -145,6 +152,9 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         .unwrap();
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
+
+    let transaction_type = transaction_info.tx_type;
+
     let utxo_verified = verify_utxo(transaction_info);
 
     // if transaction_info.tx_type == TransactionType::Script{
@@ -284,6 +294,14 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         drop(treadpool_sql_queue);
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
+        
+        if transaction_type == TransactionType::Script{
+            TOTAL_SCRIPT_TX.inc();
+        }
+        else if transaction_type == TransactionType::Transfer{
+            TOTAL_TRANSFER_TX.inc();
+        }
+
         tx_result.suceess_tx.push(TxID(Hash(tx_id)));
     } else {
         tx_result.failed_tx.push(TxID(Hash(tx_id)));
@@ -339,7 +357,29 @@ pub fn process_trade_mint(
         drop(treadpool_sql_queue);
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
+
+
+        let float_value: f64 = match transaction.btc_value.unwrap().parse() {
+            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Err(e) => {
+                println!("Failed to convert string to f64: {:?}", e);
+                0.0  // Use a default value (like 0.0) in case of an error
+            },
+        };
+
+        TOTAL_DARK_SATS_MINTED.add(float_value);
         println!("UTXO ADDED MINT")
+    }
+    else if transaction.mint_or_burn.unwrap() == false {
+        let float_value: f64 = match transaction.btc_value.unwrap().parse() {
+            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Err(e) => {
+                println!("Failed to convert string to f64: {:?}", e);
+                0.0  // Use a default value (like 0.0) in case of an error
+            },
+        };
+        TOTAL_DARK_SATS_MINTED.sub(float_value);
+        
     }
     // UTXO IS ALREADY REMOVED THROUGH THE ZKOS Burn Message TX that appears as Transfer Tx now
     // Therefore no need to do anything for Tendermint Burn Tx.
@@ -569,6 +609,26 @@ pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static
         Err(_err) => return Err("Utxo not found "),
     };
     return Ok(result);
+}
+pub fn total_memo_type_utxos() -> u64{
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Memo as usize;
+    let result = utxo_storage.get_count_by_type(input_type); 
+    return result;
+}
+
+pub fn total_state_type_utxos() -> u64{
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::State as usize;
+    let result = utxo_storage.get_count_by_type(input_type); 
+    return result;
+}
+
+pub fn total_coin_type_utxos() -> u64{
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Coin as usize;
+    let result = utxo_storage.get_count_by_type(input_type); 
+    return result;
 }
 pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
