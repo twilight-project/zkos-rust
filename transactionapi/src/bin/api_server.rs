@@ -16,7 +16,8 @@ use actix_web::{web, App, HttpServer, Responder};
 use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 use utxo_in_memory::UTXO_COIN_TELEMETRY_COUNTER;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // let handle = std::thread::Builder::new()
     //     .name(String::from("rpc request"))
     //     .spawn(move || {
@@ -62,10 +63,11 @@ fn main() {
     });
 
     let handle1 = thread::spawn(|| {
-        println!("starting telemetry server");
-        telemetry_server();
+        
+        rpcserver();
     });
-    rpcserver();
+    println!("starting telemetry server");
+    telemetry_server().await.expect("telemetry server failed");
     handle.join().unwrap();
     handle1.join().unwrap()
     //  handle.join().unwrap();
