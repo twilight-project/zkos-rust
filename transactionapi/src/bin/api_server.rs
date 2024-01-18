@@ -62,6 +62,7 @@ fn main() {
     });
 
     let handle1 = thread::spawn(|| {
+        println!("starting telemetry server");
         telemetry_server();
     });
     rpcserver();
@@ -75,7 +76,7 @@ async fn telemetry_server() -> Result<(), std::io::Error> {
         App::new()
             .route("/metrics", web::get().to(telemetry_metrics))
     })
-    .bind("127.0.0.1:2500")?
+    .bind("0.0.0.0:2500")?
     .run()
     .await
 }
