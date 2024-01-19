@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use zkvm::Output;
 lazy_static! {
     pub static ref POSTGRESQL_POOL_CONNECTION: r2d2::Pool<PostgresConnectionManager<NoTls>> = {
-        dotenv::from_filename("/Users/ahmadashraf/work/twilight/ZkOS/transactionapi/.env").expect("Failed loading dotenv");
+        dotenv::dotenv().expect("Failed loading dotenv");
         let postgresql_url =
             std::env::var("POSTGRESQL_URL").expect("missing environment variable POSTGRESQL_URL");
         let manager = PostgresConnectionManager::new(postgresql_url.parse().unwrap(), NoTls);
