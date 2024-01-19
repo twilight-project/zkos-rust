@@ -611,6 +611,7 @@ pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static
     return Ok(result);
 }
 pub fn total_memo_type_utxos() -> u64{
+    println!("inside total memo");
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Memo as usize;
     let result = utxo_storage.get_count_by_type(input_type); 
