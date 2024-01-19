@@ -182,14 +182,35 @@ impl DarkProof {
             &value_vector,
         );
 
-        // let updated_delta_accounts_sender_slice = &delta_accounts[..senders_count];
-        let (updated_sender_epsilon_accounts, epsilon_sender_rscalar_vector, sender_account_dleq) =
-            Prover::verify_account_prover(
-                &sender_updated_delta_account,
-                sender_updated_balance,
-                sender_sk,
-                base_pk,
-            );
+        //create epsilon accounts for updated sender balance
+        // used for creating rangeproofs to prove that the balance is >=0 for all sender accounts 
+        let mut epsilon_sender_account_vector: Vec<Account> = Vec::with_capacity(senders_count);
+        let mut epsilon_sender_rscalar_vector: Vec<Scalar> = Vec::with_capacity(senders_count);
+
+        let mut transcript_rng = rand::thread_rng();
+        for i in 0..senders_count {
+            // lets generate commitment on v for epsilon using GP and r
+            let rscalar = Scalar::random(&mut transcript_rng);
+            let account_epsilon =
+                Account::create_epsilon_account(base_pk, rscalar, sender_updated_balance[i] as i64);
+            epsilon_sender_account_vector.push(account_epsilon);
+            epsilon_sender_rscalar_vector.push(rscalar);
+        }
+        let sender_account_dleq = Prover::verify_account_prover_isolated(
+            &sender_updated_delta_account,
+            &sender_updated_balance,
+            &sender_sk,
+            &epsilon_sender_account_vector,
+            &epsilon_sender_rscalar_vector,
+        );
+
+        // let (updated_sender_epsilon_accounts, epsilon_sender_rscalar_vector, sender_account_dleq) =
+        //     Prover::verify_account_prover(
+        //         &sender_updated_delta_account,
+        //         sender_updated_balance,
+        //         sender_sk,
+        //         base_pk,
+        //     );
         //create rangeproof on senders and receivers
         //create sender_final + reciver balance vector
         let bl_rp_vector: Vec<u64> = sender_updated_balance
@@ -231,7 +252,7 @@ impl DarkProof {
                 epsilon_accounts: epsilon_accounts.to_vec(),
                 updated_delta_accounts: updated_delta_account.to_vec(),
                 delta_dleq,
-                updated_sender_epsilon_accounts,
+                updated_sender_epsilon_accounts: epsilon_sender_account_vector,
                 sender_account_dleq,
                 range_proof,
                 updated_output_proof,
