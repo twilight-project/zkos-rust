@@ -26,11 +26,14 @@ use blockoperations::blockprocessing::{total_coin_type_utxos, total_state_type_u
 pub fn init_utxo() {
     println!("starting utxo init");
     init_psql();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    // let _ = utxo_storage.load_from_snapshot();
-    let _ = utxo_storage.load_from_snapshot_from_psql();
+    
+    {
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        // let _ = utxo_storage.load_from_snapshot();
+        let _ = utxo_storage.load_from_snapshot_from_psql();
 
-    println!("finished loading from psql");
+        println!("finished loading from psql");
+    }
 
     UTXO_MEMO_TELEMETRY_COUNTER.set(total_memo_type_utxos() as f64);
     UTXO_STATE_TELEMETRY_COUNTER.set(total_state_type_utxos() as f64);
