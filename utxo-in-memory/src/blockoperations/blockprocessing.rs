@@ -614,6 +614,7 @@ pub fn total_memo_type_utxos() -> u64{
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Memo as usize;
     let result = utxo_storage.get_count_by_type(input_type); 
+    println!(result);
     return result;
 }
 
@@ -621,6 +622,7 @@ pub fn total_state_type_utxos() -> u64{
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::State as usize;
     let result = utxo_storage.get_count_by_type(input_type); 
+    println!(result);
     return result;
 }
 
@@ -628,6 +630,7 @@ pub fn total_coin_type_utxos() -> u64{
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
     let result = utxo_storage.get_count_by_type(input_type); 
+    println!(result);
     return result;
 }
 pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
