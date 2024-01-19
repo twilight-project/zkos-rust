@@ -1,6 +1,7 @@
 use rpcclient::method::Method;
 use rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use rpcserver::*;
+use serde_json::to_string;
 use std::thread;
 use std::time::Duration;
 use transaction::Transaction;
@@ -12,13 +13,65 @@ use transaction::reference_tx::{
     create_dark_reference_transaction, create_qq_reference_transaction,
 };
 use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
-use actix_web::{web, App, HttpServer, Responder};
+#[macro_use] extern crate rocket;
+use rocket::data::{Limits, ToByteUnit};
+use rocket::{State, response::content};
 use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 use utxo_in_memory::UTXO_COIN_TELEMETRY_COUNTER;
 
 #[tokio::main]
 async fn main() {
-    // let handle = std::thread::Builder::new()
+
+    // init_utxo();
+
+
+    let telemetry_server_thread = thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(run_telemetry_server());
+    });
+
+    let zk_subscriber_thread = thread::spawn(|| {
+        zk_oracle_subscriber();
+    });
+
+    rpcserver();
+
+    match telemetry_server_thread.join() {
+        Ok(_) => println!("Telemetry Server thread finished."),
+        Err(e) => eprintln!("Telemetry Server thread panicked: {:?}", e),
+    }
+    zk_subscriber_thread.join().unwrap();
+
+}
+
+async fn run_telemetry_server(){
+    println!("starting telemetry server");
+        
+    let figment = rocket::Config::figment()
+    .merge(("port", 2500))
+    .merge(("limits", Limits::new().limit("json", 2.mebibytes())));
+
+    let rocket = rocket::custom(figment).mount("/", routes![telemetry_metrics]);
+
+    // Await the launch of the server
+    if let Err(e) = rocket.launch().await {
+        println!("Failed to launch server: {}", e);
+    }
+}
+
+#[get("/metrics")]
+fn telemetry_metrics() -> String {
+    let encoder = TextEncoder::new();
+    let metric_families = prometheus::gather();
+    let mut buffer = Vec::new();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+    let result = String::from_utf8(buffer).unwrap();
+    return result
+}
+
+
+// fn main() {
+        // let handle = std::thread::Builder::new()
     //     .name(String::from("rpc request"))
     //     .spawn(move || {
     //         std::thread::sleep(std::time::Duration::from_millis(5000));
@@ -56,44 +109,4 @@ async fn main() {
     //         }
     //     })
     //     .unwrap();
-    init_utxo();
-    telemetry_server().await.expect("server not running");
-
-    // let zk_handle = tokio::spawn(async {
-    //     tokio::task::spawn_blocking(|| {
-    //         zk_oracle_subscriber();
-    //     }).await.expect("Failed to execute zk_oracle_subscriber");
-    // });
-
-    // let tele_handle = tokio::spawn(async {
-    //     tokio::task::spawn_blocking(|| {
-    //         telemetry_server();
-    //     }).await.expect("Failed to execute telemetry server");
-    // });
-    // println!("starting rpc server");
-    // rpcserver();
-
-    // zk_handle.await.unwrap();
-    // tele_handle.await.unwrap();
-    //  handle.join().unwrap();
-}
-
-async fn telemetry_server() -> Result<(), std::io::Error> {
-    HttpServer::new(|| {
-        App::new()
-            .route("/metrics", web::get().to(telemetry_metrics))
-    })
-    .bind("0.0.0.0:2500")?
-    .run()
-    .await
-}
-
-
-
-async fn telemetry_metrics() -> impl Responder {
-    let encoder = TextEncoder::new();
-    let metric_families = prometheus::gather();
-    let mut buffer = Vec::new();
-    encoder.encode(&metric_families, &mut buffer).unwrap();
-    String::from_utf8(buffer).unwrap()
-}
+// }
