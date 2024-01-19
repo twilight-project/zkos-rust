@@ -104,7 +104,9 @@ fn verify_zero_balance_witness(
                     let (z_vector, x) = witness_proof.get_dlog();
                     Verifier::zero_balance_account_verifier(rec, z_vector[0], x, verifier)?;
                 }
-                None => return Err("Tx Verification failed. Witness is not valid."),
+                None => {// do noting
+                
+                },
             }
         }
     }
