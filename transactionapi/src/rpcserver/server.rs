@@ -30,6 +30,8 @@ struct Meta {
 impl Metadata for Meta {}
 
 pub fn rpcserver() {
+
+    println!("Starting rpc server");
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
 
@@ -673,6 +675,6 @@ pub fn rpcserver() {
         })
         .start_http(&"0.0.0.0:3030".parse().unwrap())
         .unwrap();
-    println!("started api server");
+    println!("started rpc api server");
     server.wait();
 }
