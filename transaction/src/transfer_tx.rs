@@ -367,6 +367,7 @@ impl TransferTransaction {
         // carries the witness proofs for zero balance reciever accounts if they exist. otherwise none
         // setting the witness index properly in the input is the resposibility of the client
         witness_comm_scalar: Option<&[Scalar]>,
+        fee: u64,
     ) -> Result<TransferTransaction, &'static str> {
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
@@ -484,7 +485,7 @@ impl TransferTransaction {
                 Ok(TransferTransaction::set_transfer_transaction(
                     0u64,
                     0u64,
-                    0u64, // fee is zero for quisquis tx for NOW
+                    fee, // fee is zero for quisquis tx for NOW
                     9u8,
                     9u8,
                     witnesses.len() as u8,
@@ -508,7 +509,7 @@ impl TransferTransaction {
                 Ok(TransferTransaction::set_transfer_transaction(
                     0u64,
                     0u64,
-                    0u64, // fee is zero for quisquis tx for NOW
+                    fee, // fee is zero for quisquis tx for NOW
                     9u8,
                     9u8,
                     0u8,
