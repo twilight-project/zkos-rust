@@ -104,7 +104,7 @@ fn verify_zero_balance_witness(
                     let (z_vector, x) = witness_proof.get_dlog();
                     Verifier::zero_balance_account_verifier(rec, z_vector[0], x)?;
                 }
-                None => return Err("Tx Verification failed. Witness is not valid."),
+                None => (),// Do nothing if the witness is not present. This is the case for reciever accounts with existing utxo
             }
         }
     }
@@ -141,10 +141,9 @@ impl TransferTransaction {
         }
     }
 
-    /// Option<Scalar> carries the final scalar used in the reciever out    put encryption
-    /// This is required to process burnMessage
+    /// Option<Scalar> carries the final scalar used in the reciever output encryption
+    /// This is required to process burnMessage 
     /// is Some if the reciever is zero balance in input
-    /// WORKS FOR SINGLE RECIEVER YET. SHOULD BE UPDATED TO SUPPORT MULTIPLE RECIEVERS
     pub fn create_private_transaction(
         value_vector: &[i64],
         account_vector: &[Account],
@@ -158,8 +157,8 @@ impl TransferTransaction {
         // setting the witness index properly in the input is the resposibility of the client
         witness_comm_scalar: Option<&[Scalar]>,
         fee: u64,
-    ) -> Result<(TransferTransaction, Option<Scalar>), &'static str> {
-        let mut encrypt_scalar_sum = Scalar::zero();
+    ) -> Result<(TransferTransaction, Option<Vec<Scalar>>), &'static str> {
+        
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
         for v in value_vector.iter() {
@@ -172,10 +171,6 @@ impl TransferTransaction {
         //create base pk for epsilon accounts
         let base_pk = RistrettoPublicKey::generate_base_pk();
 
-        //create DarkTx Prover merlin transcript
-        let mut transcript = Transcript::new(b"TxProof");
-        let mut prover = Prover::new(b"DarkTx", &mut transcript);
-
         //create delta_and_epsilon_accounts
         let (delta_accounts, epsilon_accounts, delta_rscalar) =
             Account::create_delta_and_epsilon_accounts(
@@ -183,8 +178,7 @@ impl TransferTransaction {
                 &value_vector_scalar,
                 base_pk,
             );
-        // add reciever rscalar value to encrypt_scalar_sum
-        encrypt_scalar_sum += delta_rscalar[senders_count];
+        
         //identity check function to verify the construction of epsilon accounts using correct rscalars
         Verifier::verify_delta_identity_check(&epsilon_accounts)?;
 
@@ -209,8 +203,7 @@ impl TransferTransaction {
                 )
             })
             .collect::<Vec<Account>>();
-        // add comm_update_scalar to encrypt_scalar_sum
-        encrypt_scalar_sum += comm_update_scalar;
+        
         // create dark tx proof including the updated output accounts proof
         let dark_tx_proof = DarkProof::create_dark_ordered_proof(
             //&mut prover,
@@ -249,8 +242,12 @@ impl TransferTransaction {
         // get the reciever inputs
         match witness_comm_scalar {
             Some(scalar_vector) => {
-                // add scalar_witness to encrypt_scalar_sum
-                encrypt_scalar_sum += scalar_vector[0];
+               // create Output_account_commitment_scalar for reciever accounts. Returned back to the client. Required for burnMessage/Script Tx(esp. Order/Lend)
+               // create reference for delta_rscalar of recievers
+               let delta_rscalar_receiver = &delta_rscalar[senders_count..senders_count+receivers_count];
+               // output account commitment scalar = input_commitment_scalar + delta_rscalar + comm_update_scalar
+               let encrypt_scalar_sum_vector = delta_rscalar_receiver.iter().zip(scalar_vector.iter()).map(|(x,y)| x+y+comm_update_scalar).collect::<Vec<Scalar>>();
+                 // create proof zero balance commitment for reciever accounts
                 let witnesses = reciever_zero_balance_proof(
                     //&mut prover,
                     &input_vector,
@@ -273,7 +270,7 @@ impl TransferTransaction {
                         None,
                         Some(witnesses.to_vec()),
                     ),
-                    Some(encrypt_scalar_sum),
+                    Some(encrypt_scalar_sum_vector),
                 ))
             }
             None => Ok((
@@ -294,7 +291,6 @@ impl TransferTransaction {
             )),
         }
     }
-    /// WORKS FOR SINGLE RECIEVER YET. SHOULD BE UPDATED TO SUPPORT MULTIPLE RECIEVERS
     /// Uses native threads to achieve parallelism
     pub fn create_private_transaction_parallel(
         value_vector: &[i64],
@@ -309,8 +305,8 @@ impl TransferTransaction {
         // setting the witness index properly in the input is the resposibility of the client
         witness_comm_scalar: Option<&[Scalar]>,
         fee: u64,
-    ) -> Result<(TransferTransaction, Option<Scalar>), &'static str> {
-        let mut encrypt_scalar_sum = Scalar::zero();
+    ) -> Result<(TransferTransaction, Option<Vec<Scalar>>), &'static str> {
+        
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
         for v in value_vector.iter() {
@@ -330,8 +326,9 @@ impl TransferTransaction {
                 &value_vector_scalar,
                 base_pk,
             );
-        // add reciever rscalar value to encrypt_scalar_sum
-        encrypt_scalar_sum += delta_rscalar[senders_count];
+        // create reference for delta_rscalar of recievers to create output_account_commitment_scalar
+        let delta_rscalar_receiver = &delta_rscalar[senders_count..senders_count+receivers_count].to_vec();
+        
         //identity check function to verify the construction of epsilon accounts using correct rscalars
         Verifier::verify_delta_identity_check(&epsilon_accounts)?;
 
@@ -357,8 +354,7 @@ impl TransferTransaction {
                 )
             })
             .collect::<Vec<Account>>();
-        // add comm_update_scalar to encrypt_scalar_sum
-        encrypt_scalar_sum += comm_update_scalar;
+       
         // create dark tx proof including the updated output accounts proof
         // convert vectors into Arc for shared referencing in threads
         let value_vector_scalar = Arc::new(value_vector_scalar);
@@ -406,8 +402,10 @@ impl TransferTransaction {
         // get the reciever inputs
         match witness_comm_scalar {
             Some(scalar_vector) => {
-                // add scalar_witness to encrypt_scalar_sum
-                encrypt_scalar_sum += scalar_vector[0];
+                // create Output_account_commitment_scalar for reciever accounts. Returned back to the client. Required for burnMessage/Script Tx(esp. Order/Lend)
+               // output account commitment scalar = input_commitment_scalar + delta_rscalar + comm_update_scalar
+               let encrypt_scalar_sum_vector = delta_rscalar_receiver.iter().zip(scalar_vector.iter()).map(|(x,y)| x+y+comm_update_scalar).collect::<Vec<Scalar>>();
+                 // create proof zero balance commitment for reciever accounts
                 let witnesses = reciever_zero_balance_proof(
                     //&mut prover,
                     &input_vector,
@@ -430,7 +428,7 @@ impl TransferTransaction {
                         None,
                         Some(witnesses.to_vec()),
                     ),
-                    Some(encrypt_scalar_sum),
+                    Some(encrypt_scalar_sum_vector),
                 ))
             }
             None => Ok((
@@ -458,14 +456,6 @@ impl TransferTransaction {
         // None in case of Quisquis Tx
         output_accounts: Option<&[Account]>,
     ) -> Result<(), &'static str> {
-        //create DarkTx Prover merlin transcript
-      //  let mut transcript = Transcript::new(b"TxProof");
-      //  let mut verifier = Verifier::new(b"DarkTx", &mut transcript);
-
-        //find the number of senders
-        // let senders_count = self.proof.updated_sender_epsilon_accounts.len();
-        //create updated senders delta account slice
-        // let updated_senders_delta_account = &self.proof.delta_accounts[..senders_count];
 
         //verify the dark tx proof
         self.proof
@@ -476,7 +466,7 @@ impl TransferTransaction {
         // get inputs first
         let inputs = self.inputs.clone();
         //verify the zero balance proof for reciever accounts
-        verify_zero_balance_witness(&inputs, &self.witness)?;
+        verify_zero_balance_witness(&inputs, &self.witness)?; // existance check is inside the function
         Ok(())
     }
 
