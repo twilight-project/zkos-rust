@@ -1180,6 +1180,7 @@ fn test_quisquis_transaction_single_sender_reciever() {
         // &anonymity_scalar_vector,
         diff,
         None,
+        0u64,
     );
 
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(

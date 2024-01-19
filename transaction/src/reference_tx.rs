@@ -270,6 +270,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
         // &annonymity_com_scalar_vector,
         diff,
         None,
+        0u64,
     );
 
     Transaction::transaction_transfer(TransactionData::TransactionTransfer(transfer.unwrap()))
