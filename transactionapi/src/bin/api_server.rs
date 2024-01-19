@@ -22,7 +22,7 @@ use utxo_in_memory::UTXO_COIN_TELEMETRY_COUNTER;
 #[tokio::main]
 async fn main() {
 
-    // init_utxo();
+    init_utxo();
 
 
     let telemetry_server_thread = thread::spawn(move || {
