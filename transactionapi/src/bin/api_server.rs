@@ -19,28 +19,37 @@ use rocket::{State, response::content};
 use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 use utxo_in_memory::UTXO_COIN_TELEMETRY_COUNTER;
 
-#[tokio::main]
-async fn main() {
 
-    init_utxo();
-
-
-    let telemetry_server_thread = thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(run_telemetry_server());
-    });
+fn main() {
+    init_utxo(); // Execute synchronously
 
     let zk_subscriber_thread = thread::spawn(|| {
         zk_oracle_subscriber();
     });
 
-    rpcserver();
+    let rpc_server_thread = thread::spawn(|| {
+        rpcserver();
+    });
 
-    match telemetry_server_thread.join() {
-        Ok(_) => println!("Telemetry Server thread finished."),
-        Err(e) => eprintln!("Telemetry Server thread panicked: {:?}", e),
-    }
+
+    // Now start the async part
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async_main());
+
     zk_subscriber_thread.join().unwrap();
+    rpc_server_thread.join().unwrap();
+}
+
+async fn async_main() {
+
+    let telemetry_server_thread = std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            run_telemetry_server().await;
+        })
+    });
+
+    telemetry_server_thread.join();
 
 }
 
