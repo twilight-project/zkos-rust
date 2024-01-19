@@ -48,6 +48,7 @@ async fn run_telemetry_server(){
     println!("starting telemetry server");
         
     let figment = rocket::Config::figment()
+    .merge(("address", "0.0.0.0"))
     .merge(("port", 2500))
     .merge(("limits", Limits::new().limit("json", 2.mebibytes())));
 
