@@ -24,6 +24,7 @@ lazy_static! {
 use blockoperations::blockprocessing::{total_coin_type_utxos, total_state_type_utxos, total_memo_type_utxos};
 
 pub fn init_utxo() {
+    println!("starting utxo init");
     init_psql();
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     // let _ = utxo_storage.load_from_snapshot();
@@ -45,6 +46,9 @@ pub fn init_utxo() {
     //     }
     //     utxo_storage.block_height = 1;
     // }
+
+    println!("finishing utxo init");
+
 }
 //To be done later
 // fn establish_websocket_connection(
@@ -58,6 +62,7 @@ pub fn init_utxo() {
 //     Ok((socket, response))
 // }
 pub fn zk_oracle_subscriber() {
+    println!("started zk subsciber");
     let url_str = "ws://165.232.134.41:7001/latestblock";
     let url = Url::parse(url_str);
     let url: Url = match url {
