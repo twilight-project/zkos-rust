@@ -57,19 +57,24 @@ async fn main() {
     //     })
     //     .unwrap();
     init_utxo();
+    telemetry_server().await.expect("server not running");
 
-    let handle = thread::spawn(|| {
-        zk_oracle_subscriber();
-    });
+    // let zk_handle = tokio::spawn(async {
+    //     tokio::task::spawn_blocking(|| {
+    //         zk_oracle_subscriber();
+    //     }).await.expect("Failed to execute zk_oracle_subscriber");
+    // });
 
-    let handle1 = thread::spawn(|| {
-        
-        rpcserver();
-    });
-    println!("starting telemetry server");
-    telemetry_server().await.expect("telemetry server failed");
-    handle.join().unwrap();
-    handle1.join().unwrap()
+    // let tele_handle = tokio::spawn(async {
+    //     tokio::task::spawn_blocking(|| {
+    //         telemetry_server();
+    //     }).await.expect("Failed to execute telemetry server");
+    // });
+    // println!("starting rpc server");
+    // rpcserver();
+
+    // zk_handle.await.unwrap();
+    // tele_handle.await.unwrap();
     //  handle.join().unwrap();
 }
 
