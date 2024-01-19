@@ -34,6 +34,11 @@ pub fn init_utxo() {
     UTXO_STATE_TELEMETRY_COUNTER.set(total_state_type_utxos() as f64);
     UTXO_COIN_TELEMETRY_COUNTER.set(total_coin_type_utxos() as f64);
 
+    println!("============");
+    println!("UTXO Memo Telemetry Counter Value: {}", UTXO_MEMO_TELEMETRY_COUNTER.get());
+    println!("UTXO coin Telemetry Counter Value: {}", UTXO_COIN_TELEMETRY_COUNTER.get());
+    println!("UTXO state Telemetry Counter Value: {}", UTXO_STATE_TELEMETRY_COUNTER.get());
+
     //load data from intial block from chain
     // if utxo_storage.block_height == 0 {
     //     let recordutxo = crate::blockoperations::load_genesis_sets();
