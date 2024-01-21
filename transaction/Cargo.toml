@@ -27,7 +27,7 @@ bincode = "1.3.3"
 [dependencies.quisquis-rust]
 #path = "../../quisquis-rust"
 git = "ssh://github.com/twilight-project/quisquis-rust.git"
-branch = "parallelproof"
+branch = "parallelshuffleproof"
 
 
 [dependencies.zkschnorr]
