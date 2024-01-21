@@ -609,8 +609,7 @@ impl DarkProof {
 impl ShuffleTxProof {
     ///
     ///create shuffle proof
-    pub fn create_shuffle_proof(
-        prover: &mut quisquislib::accounts::Prover,
+    pub fn create_shuffle_proof_serial(
         // input' anonymity account set
         input_dash_accounts_slice: &[Account],
         // output' anonymity account set
@@ -621,20 +620,14 @@ impl ShuffleTxProof {
         //  input_anonymity_account_slice: Option<&[Account]>,
         //  anonymity_comm_scalar: Option<&[Scalar]>,
         // for input shuffle and update proof
-        input_shuffle: &Shuffle,
+        input_shuffle: Shuffle,
         // for output shuffle and update proof
-        output_shuffle: &Shuffle,
+        output_shuffle: Shuffle,
     ) -> ShuffleTxProof {
         //Step 1. create proof for Input shuffle
 
-        //generate Xcomit generator points of length m+1
-        let xpc_gens = VectorPedersenGens::new(ROWS + 1);
-
-        // Prepare the constraint system
-        let pc_gens = PedersenGens::default();
-
         let (input_shuffle_proof, input_shuffle_statement) =
-            ShuffleProof::create_shuffle_proof(prover, input_shuffle, &pc_gens, &xpc_gens);
+            ShuffleProof::create_shuffle_proof(input_shuffle.clone());
         #[cfg(feature = "debug_print")]
         {
             println!("Input Shuffle Proof created");
@@ -665,7 +658,7 @@ impl ShuffleTxProof {
         //     );
         // }
         let (output_shuffle_proof, output_shuffle_statement) =
-            ShuffleProof::create_shuffle_proof(prover, output_shuffle, &pc_gens, &xpc_gens);
+            ShuffleProof::create_shuffle_proof(output_shuffle.clone());
         #[cfg(feature = "debug_print")]
         {
             println!("Output Shuffle Proof created");
@@ -681,30 +674,85 @@ impl ShuffleTxProof {
             output_shuffle_statement,
         }
     }
+
+    ///create shuffle proof
+    pub fn create_shuffle_proof_parallel(
+        // input' anonymity account set
+        input_dash_accounts_slice: &[Account],
+        // output' anonymity account set
+        updated_delta_accounts_slice: &[Account],
+        // rscalars for delta anonymity accounts
+        rscalars_slice: &[Scalar],
+        // for input shuffle and update proof
+        input_shuffle: Shuffle,
+        // for output shuffle and update proof
+        output_shuffle: Shuffle,
+    ) -> Result<ShuffleTxProof, &'static str> {
+        //Step 1. create proof for Input shuffle
+
+        let (input_shuffle_proof, input_shuffle_statement) =
+            Shuffle::create_shuffle_proof_parallel(input_shuffle.clone())?;
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Input Shuffle Proof created");
+        }
+        // Step 2. generate DLOG proof on Anonymity accounts in Updated Delta accounts
+        // prove that the anonymity delta accounts are Zero balance and created using correct rscalars
+        let updated_delta_dlog = Prover::verify_update_account_prover(
+            &input_dash_accounts_slice,
+            &updated_delta_accounts_slice,
+            &rscalars_slice,
+            //prover,
+        );
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Updated Delta DLOG Proof created");
+        }
+        //if annoymity accounts are created on the fly.
+        //create zero balance proof for all the anonymity accounts
+        /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
+         ** All inputs with no UtxoId will be gathered as new anonymity set and a zero balance proof will have to be provided
+         ** since we are doing compact batch proof we need to collect the anonymity set before we can run the proof*/
+        // Do Not use it. Should be part of Witnesses in the transaction
+        // if input_anonymity_account_slice.is_some(){
+        //     let zero_balance_dlog = Prover::zero_balance_account_vector_prover(
+        //         &input_anonymity_account_slice.unwrap(),
+        //         &anonymity_comm_scalar.unwrap(),
+        //         prover,
+        //     );
+        // }
+        let (output_shuffle_proof, output_shuffle_statement) =
+            Shuffle::create_shuffle_proof_parallel(output_shuffle.clone())?;
+        #[cfg(feature = "debug_print")]
+        {
+            println!("Output Shuffle Proof created");
+        }
+        Ok(ShuffleTxProof {
+            input_dash_accounts: input_shuffle.get_outputs_vector(),
+            input_shuffle_proof,
+            input_shuffle_statement,
+            updated_delta_dlog,
+            //zero_balance_dlog: None,
+            // updated_delta_accounts: output_shuffle.get_inputs_vector(),
+            output_shuffle_proof,
+            output_shuffle_statement,
+        })
+    }
     ///
     /// verify the shuffle proof
     pub fn verify(
         &self,
-        verifier: &mut Verifier,
         input_accounts: &[Account],
         output_accounts: &[Account],
         updated_delta_accounts: &[Account],
         //anonymity_index: usize,
     ) -> Result<(), &'static str> {
-        //Recreate Pedersen Commitment (PC) Genarater and Xtended PC (XPC) Gens
-        //generate Xcomit generator points of length m+1
-        let xpc_gens = VectorPedersenGens::new(ROWS + 1);
-        // Prepare the constraint system
-        let pc_gens = PedersenGens::default();
 
         //verify the input shuffle
         self.input_shuffle_proof.verify(
-            verifier,
             &self.input_shuffle_statement,
             &input_accounts,
             &self.input_dash_accounts,
-            &pc_gens,
-            &xpc_gens,
         )?;
         #[cfg(feature = "debug_print")]
         {
@@ -750,12 +798,10 @@ impl ShuffleTxProof {
          )?;*/
         //verify the output shuffle
         self.output_shuffle_proof.verify(
-            verifier,
+         //   verifier,
             &self.output_shuffle_statement,
             updated_delta_accounts,
             output_accounts,
-            &pc_gens,
-            &xpc_gens,
         )?;
         #[cfg(feature = "debug_print")]
         {
