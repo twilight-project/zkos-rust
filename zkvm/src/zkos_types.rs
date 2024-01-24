@@ -490,6 +490,10 @@ impl Input {
         }
     }
 
+    pub fn as_input_data(&self) -> &InputData {
+        &self.input
+    }
+
     //return owner_address from input
     pub fn as_owner_address(&self) -> Option<&String> {
         match self.input {
