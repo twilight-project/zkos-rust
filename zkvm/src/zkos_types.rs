@@ -490,6 +490,10 @@ impl Input {
         }
     }
 
+    pub fn as_input_data(&self) -> &InputData {
+        &self.input
+    }
+
     //return owner_address from input
     pub fn as_owner_address(&self) -> Option<&String> {
         match self.input {
@@ -1021,6 +1025,27 @@ impl Output {
         Output::coin(OutputData::coin(coin))
     }
 }
+
+//Upcast OutputCoin to Output
+impl From<OutputCoin> for Output {
+    fn from(x: OutputCoin) -> Self {
+        Output::state(OutputData::Coin(x))
+    }
+}
+
+//Upcast OutputMemo to Output
+impl From<OutputMemo> for Output {
+    fn from(x: OutputMemo) -> Self {
+        Output::state(OutputData::Memo(x))
+    }
+}
+//Upcast OutputState to Output
+impl From<OutputState> for Output {
+    fn from(x: OutputState) -> Self {
+        Output::state(OutputData::State(x))
+    }
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Witness {
