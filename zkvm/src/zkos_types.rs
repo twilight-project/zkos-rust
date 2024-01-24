@@ -1025,12 +1025,28 @@ impl Output {
         Output::coin(OutputData::coin(coin))
     }
 }
+
+//Upcast OutputCoin to Output
+impl From<OutputCoin> for Output {
+    fn from(x: OutputCoin) -> Self {
+        Output::state(OutputData::Coin(x))
+    }
+}
+
+//Upcast OutputMemo to Output
+impl From<OutputMemo> for Output {
+    fn from(x: OutputMemo) -> Self {
+        Output::state(OutputData::Memo(x))
+    }
+}
 //Upcast OutputState to Output
 impl From<OutputState> for Output {
     fn from(x: OutputState) -> Self {
         Output::state(OutputData::State(x))
     }
 }
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Witness {
     // ZkSchnorr Signature
