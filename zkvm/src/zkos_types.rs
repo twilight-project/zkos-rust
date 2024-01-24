@@ -1021,7 +1021,12 @@ impl Output {
         Output::coin(OutputData::coin(coin))
     }
 }
-
+//Upcast OutputState to Output
+impl From<OutputState> for Output {
+    fn from(x: OutputState) -> Self {
+        Output::state(OutputData::State(x))
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Witness {
     // ZkSchnorr Signature
