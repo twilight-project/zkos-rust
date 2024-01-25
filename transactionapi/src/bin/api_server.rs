@@ -17,7 +17,6 @@ use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 use rocket::data::{Limits, ToByteUnit};
 use rocket::{State, response::content};
 use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
-use utxo_in_memory::UTXO_COIN_TELEMETRY_COUNTER;
 
 
 fn main() {
