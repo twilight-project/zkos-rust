@@ -13,15 +13,16 @@ use transaction::reference_tx::{
     create_dark_reference_transaction, create_qq_reference_transaction,
 };
 use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
+use utxo_in_memory::blockoperations::blockprocessing::read_telemetry_stats_from_file;
 #[macro_use] extern crate rocket;
 use rocket::data::{Limits, ToByteUnit};
 use rocket::{State, response::content};
 use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
-use utxo_in_memory::UTXO_COIN_TELEMETRY_COUNTER;
 
 
 fn main() {
     init_utxo(); // Execute synchronously
+    read_telemetry_stats_from_file();
 
     let zk_subscriber_thread = thread::spawn(|| {
         zk_oracle_subscriber();
