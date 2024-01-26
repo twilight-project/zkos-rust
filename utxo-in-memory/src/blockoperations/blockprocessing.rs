@@ -16,6 +16,11 @@ use rand::Rng;
 use serde::de::{self, Deserializer, Visitor};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
+use std::fs;
+use serde_ini;
+use std::fs::File;
+use std::io::Write;
+
 use transaction::reference_tx::{
     convert_output_to_input, create_dark_reference_tx_for_utxo_test, RecordUtxo,
 };
@@ -37,6 +42,13 @@ lazy_static! {
     pub static ref  TOTAL_DARK_SATS_MINTED: Gauge = register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
     pub static ref  TOTAL_TRANSFER_TX: Gauge = register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
     pub static ref  TOTAL_SCRIPT_TX: Gauge = register_gauge!("script_tx_count", "A counter for script tx").unwrap();
+}
+
+#[derive(Debug, Deserialize)]
+struct TelemetryStats {
+    total_dark_sats_minted: u64,
+    total_transfer_tx: u64,
+    total_script_tx: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -122,6 +134,27 @@ pub struct TransactionMessage {
 //     #[serde(rename = "/twilightproject.nyks.zkos.MsgTransferTx")]
 //     Transfer(TransactionMessage),
 // }
+
+pub fn read_telemetry_stats_from_file() -> Result<(), Box<dyn std::error::Error>> {
+    let contents = fs::read_to_string("telemetry.ini")?;
+    let config: TelemetryStats = serde_ini::from_str(&contents)?;
+
+    TOTAL_DARK_SATS_MINTED.set(config.total_dark_sats_minted as f64);
+    TOTAL_TRANSFER_TX.set(config.total_transfer_tx as f64);
+    TOTAL_SCRIPT_TX.set(config.total_script_tx as f64);
+
+    Ok(())
+}
+
+fn write_telemetry_stats_to_file() -> Result<(), Box<dyn std::error::Error>> {
+    let mut file = File::create("telemetry.ini")?;
+    write!(file, "total_dark_sats_minted={}\n", TOTAL_DARK_SATS_MINTED.get())?;
+    write!(file, "total_transfer_tx={}\n", TOTAL_TRANSFER_TX.get())?;
+    write!(file, "total_script_tx={}\n", TOTAL_SCRIPT_TX.get())?;
+
+    Ok(())
+}
+
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
@@ -297,9 +330,11 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         
         if transaction_type == TransactionType::Script{
             TOTAL_SCRIPT_TX.inc();
+            write_telemetry_stats_to_file();
         }
         else if transaction_type == TransactionType::Transfer{
             TOTAL_TRANSFER_TX.inc();
+            write_telemetry_stats_to_file();
         }
 
         tx_result.suceess_tx.push(TxID(Hash(tx_id)));
@@ -368,6 +403,7 @@ pub fn process_trade_mint(
         };
 
         TOTAL_DARK_SATS_MINTED.add(float_value);
+        write_telemetry_stats_to_file();
         println!("UTXO ADDED MINT")
     }
     else if transaction.mint_or_burn.unwrap() == false {
@@ -379,6 +415,7 @@ pub fn process_trade_mint(
             },
         };
         TOTAL_DARK_SATS_MINTED.sub(float_value);
+        write_telemetry_stats_to_file();
         
     }
     // UTXO IS ALREADY REMOVED THROUGH THE ZKOS Burn Message TX that appears as Transfer Tx now
