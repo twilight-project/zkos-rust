@@ -799,7 +799,6 @@ fn order_message() {
     //let unsignedtx = build_and_verify_without_signature(correct_program, &input, &output).unwrap();
     // print!("{:?}", unsignedtx);
 }
-
 fn contract_initialize_program() -> Program {
     let order_prog = Program::build(|p| {
         p.push(Commitment::blinded(100u64))
