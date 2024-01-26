@@ -1,6 +1,3 @@
-use crate::UTXO_COIN_TELEMETRY_COUNTER;
-use crate::UTXO_MEMO_TELEMETRY_COUNTER;
-use crate::UTXO_STATE_TELEMETRY_COUNTER;
 // #![allow(dead_code)]
 // #![allow(unused_imports)]
 // #![allow(non_camel_case_types)]
@@ -14,6 +11,8 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 pub type SequenceNumber = usize;
 use std::sync::mpsc;
+use crate::{UTXO_COIN_TELEMETRY_COUNTER, UTXO_MEMO_TELEMETRY_COUNTER, UTXO_STATE_TELEMETRY_COUNTER};
+
 
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_SQL_QUEUE};
 
