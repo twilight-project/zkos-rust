@@ -2,7 +2,8 @@
 #![deny(missing_docs)]
 //! Definition of the proof struct.
 
-use std::sync::Arc;
+use rayon::prelude::*;
+use std::sync::{Arc, Mutex};
 
 use bulletproofs::PedersenGens;
 use bulletproofs::RangeProof;
@@ -280,16 +281,7 @@ impl DarkProof {
         let delta_accounts_proof = Arc::clone(&delta_accounts);
         let epsilon_accounts_proof = Arc::clone(&epsilon_accounts);
         let delta_rscalar_proof = Arc::clone(&delta_rscalar);
-        let value_vector_proof = Arc::clone(&value_vector);
-        // Spawn a thread to create DLEQ proof for same balance value committed based on Epsilon and delta account
-        let handle_delta_dleq: std::thread::JoinHandle<SigmaProof> = std::thread::spawn(move || {
-            Prover::verify_delta_compact_prover(
-                &delta_accounts_proof[..],
-                &epsilon_accounts_proof[..],
-                &delta_rscalar_proof[..],
-                &value_vector_proof[..],
-            )
-        });    
+        let value_vector_proof = Arc::clone(&value_vector);  
         
         //create epsilon accounts for updated sender balance
         // used for creating rangeproofs to prove that the balance is >=0 for all sender accounts 
@@ -314,91 +306,97 @@ impl DarkProof {
         let epsilon_sender_account_vec = Arc::clone(&epsilon_sender_account_vector_proof);
         let epsilon_sender_rscalar_vector_verify_account_proof = Arc::new(epsilon_sender_rscalar_vector);
         let epsilon_sender_rscalar_vector_bullet_proof = Arc::clone(&epsilon_sender_rscalar_vector_verify_account_proof);
-
-        // Spawn a new thread to prove the authenticity of sender account 
-        let handle_account_sender_proof = std::thread::spawn(move || {
-            Prover::verify_account_prover_isolated(
-                &sender_updated_delta_account_proof[..],
-                &sender_updated_balance_verify_account_proof[..],
-                &sender_sk_proof[..],
-                &epsilon_sender_account_vector_proof[..],
-                &epsilon_sender_rscalar_vector_verify_account_proof[..],
-            )
-        });
-        
-       
+               
         let reciever_value_balance_proof = Arc::new(reciever_value_balance.to_vec());
         let delta_rscalar_proof = Arc::clone(&delta_rscalar);
 
-        // Spawn a new thread to prove the range proof for sender and reciever
-        let handle_range_proof = std::thread::spawn(move || {
-            Self::aggregate_sender_reciever_range_proof(
-                &sender_updated_balance_bullet_proof[..],
-                &reciever_value_balance_proof[..],
-                senders_count,
-                receivers_count,
-                &delta_rscalar_proof[..],
-                &epsilon_sender_rscalar_vector_bullet_proof[..],
-            )
-        });
-        
-        let handle_updated_output_proof = match update_outputs_statement {
-            // Private Tx
-            Some((updated_outputs, updated_out_pk_rscalar, updated_out_comm_rscalar)) => {
-                // prepare data for passing to threads
-                let updated_delta_account_proof = Arc::clone(&updated_delta_account);
-                let updated_outputs_proof = Arc::clone(&updated_outputs);
 
-                
-                //spawn a new thread to prove the updated output proof
-            Some(std::thread::spawn(move || {
-               Prover::verify_update_account_dark_tx_prover(
-                    &updated_delta_account_proof[..],
-                    &updated_outputs_proof[..],
-                    updated_out_pk_rscalar,
-                    updated_out_comm_rscalar,
-                )
-            }))
-        }
-            None => None, // Quisquis Tx
-    };
+        let delta_dleq = Arc::new(Mutex::new(None));
+        let sender_account_dleq = Arc::new(Mutex::new(None));
+        let range_proof = Arc::new(Mutex::new(None));
+        let updated_output_proof = Arc::new(Mutex::new(None));
+
+        // Create a scope for the threads
+        rayon::scope(|s| {
+            // Delta DLEQ proof
+            let delta_dleq_clone = Arc::clone(&delta_dleq);
+            let delta_rscalar_proof_clone = Arc::clone(&delta_rscalar_proof);
+            s.spawn(move |_| {
+                let proof = Prover::verify_delta_compact_prover(
+                    &delta_accounts_proof[..],
+                    &epsilon_accounts_proof[..],
+                    &delta_rscalar_proof[..],
+                    &value_vector_proof[..],
+                );
+                *delta_dleq_clone.lock().unwrap() = Some(proof);
+            });
+
+            // Sender account proof
+            let sender_account_dleq_clone = Arc::clone(&sender_account_dleq);
             
+            s.spawn(move |_| {
+                let proof = Prover::verify_account_prover_isolated(
+                    &sender_updated_delta_account_proof[..],
+                    &sender_updated_balance_verify_account_proof[..],
+                    &sender_sk_proof[..],
+                    &epsilon_sender_account_vector_proof[..],
+                    &epsilon_sender_rscalar_vector_verify_account_proof[..],
+                );
+                *sender_account_dleq_clone.lock().unwrap() = Some(proof);
+            });
 
-                    let delta_dleq = match handle_delta_dleq.join(){
-                        Ok(result) => result,
-                        Err(_) => return Err("Error in Joining Delta DLEQ Thread"),
-                    };
-                    let account_proof = match handle_account_sender_proof.join(){
-                        Ok(result) => result,
-                        Err(_) => return Err("Error in Joining Account Proof Thread"),
-                    };
+            // Range proof
+            let range_proof_clone = Arc::clone(&range_proof);
+            s.spawn(move |_| {
+                let proof = Self::aggregate_sender_reciever_range_proof(
+                    &sender_updated_balance_bullet_proof[..],
+                    &reciever_value_balance_proof[..],
+                    senders_count,
+                    receivers_count,
+                    &delta_rscalar_proof_clone[..],
+                    &epsilon_sender_rscalar_vector_bullet_proof[..],
+                );
+                *range_proof_clone.lock().unwrap() = Some(proof);
+            });
 
-                    let non_negative_proof = match handle_range_proof.join(){
-                        Ok(result) => result,
-                        Err(_) => return Err("Error in Joining Range Proof Thread"),
-                    
-                    };
-                     let updated_output_proof = match handle_updated_output_proof {
-                     Some(handle) => { match handle.join(){
-                        Ok(result) => Some(result),
-                        Err(_) => return Err("Error in Joining Updated Output Proof Thread"),
-                     }},
-                        None => None,
-                    };
-            Ok(DarkProof {
-                delta_accounts: delta_accounts.to_vec(),
-                epsilon_accounts: epsilon_accounts.to_vec(),
-                updated_delta_accounts: updated_delta_account.to_vec(),
-                delta_dleq,
-                updated_sender_epsilon_accounts: epsilon_sender_account_vec.to_vec(),
-                sender_account_dleq:account_proof,
-                range_proof: non_negative_proof.to_vec(),
-                updated_output_proof,
-                receivers_count,
-            })
-        
-        
-       
+            let updated_output_proof = match update_outputs_statement {
+                Some((updated_outputs, updated_out_pk_rscalar, updated_out_comm_rscalar)) => {
+                    let updated_delta_account_proof = Arc::clone(&updated_delta_account);
+                    let updated_outputs_proof = Arc::clone(&updated_outputs);
+
+                    let updated_output_proof_clone = Arc::clone(&updated_output_proof);
+                    Some(s.spawn(move |_| {
+                        let proof = Prover::verify_update_account_dark_tx_prover(
+                            &updated_delta_account_proof[..],
+                            &updated_outputs_proof[..],
+                            updated_out_pk_rscalar,
+                            updated_out_comm_rscalar,
+                        );
+                        *updated_output_proof_clone.lock().unwrap() = Some(proof);
+                    }))
+                }
+                None => None, // Quisquis Tx
+            };
+        });
+
+        // Wait for the threads to finish and get their results
+        // Extract results from the shared structures
+        let delta_dleq = delta_dleq.lock().unwrap().take().ok_or("Delta DLEQ proof failed")?;
+        let sender_account_dleq = sender_account_dleq.lock().unwrap().take().ok_or("Sender account DLEQ proof failed")?;
+        let range_proof = range_proof.lock().unwrap().take().ok_or("Range proof failed")?;
+        let updated_output_proof = updated_output_proof.lock().unwrap().take();
+
+        Ok(DarkProof {
+            delta_accounts: delta_accounts.to_vec(),
+            epsilon_accounts: epsilon_accounts.to_vec(),
+            updated_delta_accounts: updated_delta_account.to_vec(),
+            delta_dleq,
+            updated_sender_epsilon_accounts: epsilon_sender_account_vec.to_vec(),
+            sender_account_dleq:sender_account_dleq,
+            range_proof: range_proof.to_vec(),
+            updated_output_proof,
+            receivers_count,
+        })
     }
     /// isolated function to aggregate rangeproof for sender and reciever
     fn aggregate_sender_reciever_range_proof(
