@@ -1234,7 +1234,7 @@ impl ValueWitness {
     pub fn create_value_witness(
         input: Input,
         secret_key: RistrettoSecretKey,
-        output: Output,
+       // output: Output,
         enc_acc: Account,
         pubkey: RistrettoPublicKey,
         pedersen_commitment: CompressedRistretto,
@@ -1244,12 +1244,12 @@ impl ValueWitness {
         //create the Signature over the Input Coin/Memo with the secret key
         let mut input_verifier_view = input.verifier_view();
         input_verifier_view = input_verifier_view.as_input_for_signing();
-        let output_verifier_view = output.to_verifier_view();
+       // let output_verifier_view = output.to_verifier_view();
 
         //create message bytes using input and output verifier view
-        let mut message: Vec<u8>;
-        message = bincode::serialize(&input_verifier_view).unwrap();
-        message.extend(bincode::serialize(&output_verifier_view).unwrap());
+       // let mut message: Vec<u8>;
+       let  message = bincode::serialize(&input_verifier_view).unwrap();
+        //message.extend(bincode::serialize(&output_verifier_view).unwrap());
 
         //create the signature over the input
         let sign = pubkey.sign_msg(&message, &secret_key, ("ValueSign").as_bytes());
@@ -1266,24 +1266,24 @@ impl ValueWitness {
     pub fn verify_value_witness(
         &self,
         input: Input,
-        output: Output,
+        //output: Output,
         pubkey: RistrettoPublicKey,
         enc_acc: Account,
         commitment: CompressedRistretto,
     ) -> Result<bool, &'static str> {
         //create message to verify the Signature over the Input and Output with the public key
-        let mut message: Vec<u8>;
-        message = match bincode::serialize(&input){
+        //let message: Vec<u8>;
+        let message = match bincode::serialize(&input){
             Ok(x) => x,
             Err(_) => return Err("Serialization Error::Failed to serialize the input for signature verification"),
         
         };
-        let output_binary_string = match bincode::serialize(&output){
-            Ok(x) => x,
-            Err(_) => return Err("Serialization Error::Failed to serialize the output for signature verification"),
+        // let output_binary_string = match bincode::serialize(&output){
+        //     Ok(x) => x,
+        //     Err(_) => return Err("Serialization Error::Failed to serialize the output for signature verification"),
         
-        };
-        message.extend(output_binary_string);
+        // };
+       // message.extend(output_binary_string);
         //verify the Signature over the InputData with the public key
 
         pubkey.verify_msg(&message, &self.sign, ("ValueSign").as_bytes())?;
