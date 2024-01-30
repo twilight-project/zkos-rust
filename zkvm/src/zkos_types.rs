@@ -745,6 +745,16 @@ impl OutputMemo {
             data: data_str,
             timebounds: self.timebounds,
         }
+
+    }
+    pub fn set_data(&mut self, data: Vec<ZkvmString>) {
+        self.data = Some(data);
+    }
+    pub fn get_data(&self) -> Option<&Vec<ZkvmString>> {
+        self.data.as_ref()
+    }
+    pub fn to_output(&self) -> Output {
+        Output::memo(OutputData::Memo(self.clone()))
     }
 }
 
@@ -759,6 +769,7 @@ impl Default for OutputMemo {
             timebounds: 0,
         }
     }
+
 }
 
 /// A complete twilight typed State Output valid for a specific network.
