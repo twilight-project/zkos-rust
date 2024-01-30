@@ -247,7 +247,7 @@ impl ScriptTransaction {
                     let coin_witness = zkvm::zkos_types::ValueWitness::create_value_witness(
                         input_coin,
                         sk,
-                        out_memo,
+                       // out_memo,
                         acc,
                         pk,
                         memo_commit,
@@ -454,7 +454,7 @@ impl ScriptTransaction {
                     };
                     let witness_verify = coin_witness.verify_value_witness(
                         inp.clone(),
-                        out_memo.clone(),
+                      //  out_memo.clone(),
                         pk,
                         acc,
                         memo_value.to_point(),
