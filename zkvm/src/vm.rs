@@ -897,7 +897,17 @@ where
         //convert CompressedRistretto to String
         let str: String = String::from(out_memo.commitment.clone());
         self.push_item(str);
-        // no need to push the memo data in this case because the program for initailization does not need it
+        // push the memo data on stack
+        match out_memo.data.clone() {
+            Some(data) => {
+                //load the memo data vector on stack
+                for d in data.iter() {
+                    self.push_item(d.clone());
+                }
+                //self.push_item(data);
+            }
+            None => (),
+        }
         //push the output state on stack
         let out_state = self.outputs_tx[1].as_out_state();
         let out_value = out_state.unwrap().commitment.clone();

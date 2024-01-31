@@ -6,10 +6,13 @@ pub type KeyId = Vec<u8>;
 pub type InputType = usize;
 use crate::ThreadPool;
 use serde_derive::{Deserialize, Serialize};
+use zkvm::IOType;
 use std::collections::HashMap;
 use std::time::SystemTime;
 pub type SequenceNumber = usize;
 use std::sync::mpsc;
+use crate::{UTXO_COIN_TELEMETRY_COUNTER, UTXO_MEMO_TELEMETRY_COUNTER, UTXO_STATE_TELEMETRY_COUNTER};
+
 
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_SQL_QUEUE};
 
@@ -23,6 +26,7 @@ pub trait LocalDBtrait<T> {
     fn load_from_snapshot(&mut self) -> Result<(), std::io::Error>;
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error>;
     fn data_meta_update(&mut self, blockheight: usize) -> bool;
+    fn get_count_by_type(&mut self, input_type: usize) -> u64;
     fn get_utxo_from_db_by_block_height_range1(start_block: i128,limit: i64,pagination: i64,io_type: usize,
     ) -> Result<Vec<UtxokeyidOutput<T>>, std::io::Error> ;
     // bulk add and bulk remove functions needed
@@ -71,12 +75,28 @@ where
             .get_mut(&input_type)
             .unwrap()
             .insert(id.clone(), value.clone());
+
+        match input_type {
+            1 => UTXO_COIN_TELEMETRY_COUNTER.inc(),
+            2 => UTXO_MEMO_TELEMETRY_COUNTER.inc(),
+            3 => UTXO_STATE_TELEMETRY_COUNTER.inc(),
+            _ => {}
+        }
+
         Ok(value)
     }
 
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
         match self.data.get_mut(&input_type).unwrap().remove(&id) {
             Some(value) => {
+
+                match input_type {
+                    1 => UTXO_COIN_TELEMETRY_COUNTER.dec(),
+                    2 => UTXO_MEMO_TELEMETRY_COUNTER.dec(),
+                    3 => UTXO_STATE_TELEMETRY_COUNTER.dec(),
+                    _ => {}
+                }
+
                 return Ok(value.clone());
             }
             None => {
@@ -103,6 +123,15 @@ where
                 ))
             }
         }
+    }
+
+    fn get_count_by_type(&mut self, input_type: usize) -> u64 {
+        let result: u64 = match self.data.get(&input_type) {
+            Some(inner_map) => inner_map.len() as u64,
+            None => 0,
+        };
+
+        return result;
     }
 
     fn take_snapshot(&mut self) -> Result<(), std::io::Error> {

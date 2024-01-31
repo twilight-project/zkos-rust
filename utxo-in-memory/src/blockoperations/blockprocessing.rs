@@ -16,6 +16,11 @@ use rand::Rng;
 use serde::de::{self, Deserializer, Visitor};
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
+use std::fs;
+use serde_ini;
+use std::fs::File;
+use std::io::Write;
+
 use transaction::reference_tx::{
     convert_output_to_input, create_dark_reference_tx_for_utxo_test, RecordUtxo,
 };
@@ -31,6 +36,20 @@ use zkvm::Hash;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
+use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
+
+lazy_static! {
+    pub static ref  TOTAL_DARK_SATS_MINTED: Gauge = register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
+    pub static ref  TOTAL_TRANSFER_TX: Gauge = register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
+    pub static ref  TOTAL_SCRIPT_TX: Gauge = register_gauge!("script_tx_count", "A counter for script tx").unwrap();
+}
+
+#[derive(Debug, Deserialize)]
+struct TelemetryStats {
+    total_dark_sats_minted: u64,
+    total_transfer_tx: u64,
+    total_script_tx: u64,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BlockResult {
@@ -116,6 +135,27 @@ pub struct TransactionMessage {
 //     Transfer(TransactionMessage),
 // }
 
+pub fn read_telemetry_stats_from_file() -> Result<(), Box<dyn std::error::Error>> {
+    let contents = fs::read_to_string("telemetry.ini")?;
+    let config: TelemetryStats = serde_ini::from_str(&contents)?;
+
+    TOTAL_DARK_SATS_MINTED.set(config.total_dark_sats_minted as f64);
+    TOTAL_TRANSFER_TX.set(config.total_transfer_tx as f64);
+    TOTAL_SCRIPT_TX.set(config.total_script_tx as f64);
+
+    Ok(())
+}
+
+fn write_telemetry_stats_to_file() -> Result<(), Box<dyn std::error::Error>> {
+    let mut file = File::create("telemetry.ini")?;
+    write!(file, "total_dark_sats_minted={}\n", TOTAL_DARK_SATS_MINTED.get())?;
+    write!(file, "total_transfer_tx={}\n", TOTAL_TRANSFER_TX.get())?;
+    write!(file, "total_script_tx={}\n", TOTAL_SCRIPT_TX.get())?;
+
+    Ok(())
+}
+
+
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
@@ -145,6 +185,9 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         .unwrap();
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
+
+    let transaction_type = transaction_info.tx_type;
+
     let utxo_verified = verify_utxo(transaction_info);
 
     // if transaction_info.tx_type == TransactionType::Script{
@@ -284,6 +327,16 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         drop(treadpool_sql_queue);
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
+        
+        if transaction_type == TransactionType::Script{
+            TOTAL_SCRIPT_TX.inc();
+            write_telemetry_stats_to_file();
+        }
+        else if transaction_type == TransactionType::Transfer{
+            TOTAL_TRANSFER_TX.inc();
+            write_telemetry_stats_to_file();
+        }
+
         tx_result.suceess_tx.push(TxID(Hash(tx_id)));
     } else {
         tx_result.failed_tx.push(TxID(Hash(tx_id)));
@@ -339,7 +392,31 @@ pub fn process_trade_mint(
         drop(treadpool_sql_queue);
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
+
+
+        let float_value: f64 = match transaction.btc_value.unwrap().parse() {
+            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Err(e) => {
+                println!("Failed to convert string to f64: {:?}", e);
+                0.0  // Use a default value (like 0.0) in case of an error
+            },
+        };
+
+        TOTAL_DARK_SATS_MINTED.add(float_value);
+        write_telemetry_stats_to_file();
         println!("UTXO ADDED MINT")
+    }
+    else if transaction.mint_or_burn.unwrap() == false {
+        let float_value: f64 = match transaction.btc_value.unwrap().parse() {
+            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Err(e) => {
+                println!("Failed to convert string to f64: {:?}", e);
+                0.0  // Use a default value (like 0.0) in case of an error
+            },
+        };
+        TOTAL_DARK_SATS_MINTED.sub(float_value);
+        write_telemetry_stats_to_file();
+        
     }
     // UTXO IS ALREADY REMOVED THROUGH THE ZKOS Burn Message TX that appears as Transfer Tx now
     // Therefore no need to do anything for Tendermint Burn Tx.
@@ -569,6 +646,30 @@ pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static
         Err(_err) => return Err("Utxo not found "),
     };
     return Ok(result);
+}
+pub fn total_memo_type_utxos() -> u64{
+    println!("inside total memo");
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Memo as usize;
+    let result = utxo_storage.get_count_by_type(input_type); 
+    println!("{}", result);
+    return result;
+}
+
+pub fn total_state_type_utxos() -> u64{
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::State as usize;
+    let result = utxo_storage.get_count_by_type(input_type); 
+    println!("{}", result);
+    return result;
+}
+
+pub fn total_coin_type_utxos() -> u64{
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let input_type = IOType::Coin as usize;
+    let result = utxo_storage.get_count_by_type(input_type); 
+    println!("{}", result);
+    return result;
 }
 pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();

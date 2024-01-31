@@ -799,7 +799,6 @@ fn order_message() {
     //let unsignedtx = build_and_verify_without_signature(correct_program, &input, &output).unwrap();
     // print!("{:?}", unsignedtx);
 }
-
 fn contract_initialize_program() -> Program {
     let order_prog = Program::build(|p| {
         p.push(Commitment::blinded(100u64))
@@ -1089,7 +1088,7 @@ fn value_witness_test() {
     let witness = Witness::ValueWitness(ValueWitness::create_value_witness(
         coin_in.clone(),
         sk_in,
-        out_memo.clone(),
+   //     out_memo.clone(),
         enc_acc,
         pk_in.clone(),
         memo_commitment_point.clone(),
@@ -1106,7 +1105,7 @@ fn value_witness_test() {
     let verifier_output = out_memo.to_verifier_view();
     let res = value_wit.verify_value_witness(
         verifier_input.clone(),
-        verifier_output.clone(),
+   //     verifier_output.clone(),
         pk_in.clone(),
         enc_acc,
         memo_commitment_point,
