@@ -91,6 +91,82 @@ pub fn program_roll() -> Program {
     });
     prog4
 }
+pub fn get_trader_order_program() -> Program {
+    let order_prog = Program::build(|p| {
+        p.roll(3) // Get IM to top of stack
+            .commit()
+            .expr()
+            .roll(1) // Get EntryPrice to top of stack
+            .scalar()
+            .mul() // EntryPrice * IM
+            .roll(1) // Get Leverage to top of stack
+            .commit()
+            .expr()
+            .mul() // Leverage * EntryPrice * IM
+            .roll(1)
+            .scalar()
+            .eq()
+            .verify();
+    });
+    return order_prog;
+}
+#[test]
+fn order_message_test_bali() {
+    let correct_program = self::get_trader_order_program();
+
+    //create input and output array
+
+    let mut rng = rand::thread_rng();
+    let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
+    let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
+    let scalar_in = Scalar::random(&mut rng);
+    let commit_in =
+        ElGamalCommitment::generate_commitment(&pk_in, scalar_in.clone(), Scalar::from(7000u64));
+    let add: Address = Address::standard_address(Network::default(), pk_in.clone());
+    let out_coin = OutputCoin {
+        encrypt: commit_in,
+        owner: add.as_hex(),
+    };
+    let in_data: InputData = InputData::coin(
+        Utxo::default(),
+        /*  add.as_hex(), commit_in*/ out_coin,
+        0,
+    );
+    let coin_in: Input = Input::coin(in_data);
+    let input: Vec<Input> = vec![coin_in];
+    // create output memo
+    let script_address =
+        Address::script_address(Network::Mainnet, *Scalar::random(&mut rng).as_bytes());
+    let commitment = Commitment::blinded_with_factor(7000, scalar_in);
+    // create Memo data for trader
+    // Position Size, Leverage, Entry Price
+    let leverage_commitment = Commitment::blinded_with_factor(10, scalar_in);
+    let position_size = String::from(Scalar::from(700000000u64));
+    let price = String::from(Scalar::from(10000u64));
+    let data: Vec<String> = vec![
+        position_size,
+        String::Commitment(Box::new(leverage_commitment)),
+        price,
+    ];
+    // create OutputMemo
+    let output_memo = OutputMemo::new(
+        script_address.as_hex(),
+        add.as_hex(),
+        commitment,
+        Some(data),
+        0u32,
+    );
+
+    let output: Output = Output::memo(OutputData::memo(output_memo));
+    let output: Vec<Output> = vec![output];
+
+    //cretae unsigned Tx with program proof
+    let result = Prover::build_proof(correct_program, &input, &output, false, None);
+    println!("{:?}", result);
+    let (prog_bytes, proof) = result.unwrap();
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
+    println!("{:?}", verify);
+}
 #[test]
 fn order_message_test() {
     let _program = order_message_prog_input_output(16u64, 9u64, 0, 0);
