@@ -13,16 +13,36 @@ use std::sync::{Arc, Mutex};
 use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
 use zkvm::zkos_types::Output;
+use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<LocalStorage::<Output>>> =
         Arc::new(Mutex::new(LocalStorage::<Output>::new(3)));
+    pub static ref  UTXO_MEMO_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
+    pub static ref  UTXO_STATE_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_state_count", "A counter for state utxo").unwrap();
+    pub static ref  UTXO_COIN_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_coin_count", "A counter for coin utxo").unwrap();
 }
+use blockoperations::blockprocessing::{total_coin_type_utxos, total_state_type_utxos, total_memo_type_utxos};
 
 pub fn init_utxo() {
+    println!("starting utxo init");
     init_psql();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-    // let _ = utxo_storage.load_from_snapshot();
-    let _ = utxo_storage.load_from_snapshot_from_psql();
+    
+    {
+        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        // let _ = utxo_storage.load_from_snapshot();
+        let _ = utxo_storage.load_from_snapshot_from_psql();
+
+        println!("finished loading from psql");
+    }
+
+    UTXO_MEMO_TELEMETRY_COUNTER.set(total_memo_type_utxos() as f64);
+    UTXO_STATE_TELEMETRY_COUNTER.set(total_state_type_utxos() as f64);
+    UTXO_COIN_TELEMETRY_COUNTER.set(total_coin_type_utxos() as f64);
+
+    println!("UTXO Memo Telemetry Counter Value: {}", UTXO_MEMO_TELEMETRY_COUNTER.get());
+    println!("UTXO coin Telemetry Counter Value: {}", UTXO_COIN_TELEMETRY_COUNTER.get());
+    println!("UTXO state Telemetry Counter Value: {}", UTXO_STATE_TELEMETRY_COUNTER.get());
+
     //load data from intial block from chain
     // if utxo_storage.block_height == 0 {
     //     let recordutxo = crate::blockoperations::load_genesis_sets();
@@ -35,6 +55,9 @@ pub fn init_utxo() {
     //     }
     //     utxo_storage.block_height = 1;
     // }
+
+    println!("finishing utxo init");
+
 }
 //To be done later
 // fn establish_websocket_connection(
@@ -48,6 +71,7 @@ pub fn init_utxo() {
 //     Ok((socket, response))
 // }
 pub fn zk_oracle_subscriber() {
+    println!("started zk subsciber");
     let url_str = "ws://165.232.134.41:7001/latestblock";
     let url = Url::parse(url_str);
     let url: Url = match url {
