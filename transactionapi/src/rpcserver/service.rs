@@ -14,11 +14,13 @@ use std::sync::Mutex;
 // use std::thread;
 use crate::TransactionStatusId;
 use transaction::Transaction;
+use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 // #[macro_use]
 // extern crate lazy_static;
 lazy_static! {
     pub static ref THREADPOOL_RPC_QUEUE: Mutex<ThreadPool> =
         Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue")));
+    pub static ref TOTAL_TX_COUNTER: Gauge = register_gauge!("tx_counter", "A counter for tx").unwrap();
 }
 pub fn tx_queue(transaction: Transaction, fee: u64) {
     {
@@ -68,6 +70,7 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, Str
         Ok(response_body) => response_body,
         Err(e) => return Err(format!(r#"{{"error": "error in commiting transaction"}}"#)),
     };
+    TOTAL_TX_COUNTER.inc();
     Ok(response_body)
 }
 
