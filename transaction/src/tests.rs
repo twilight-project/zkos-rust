@@ -848,42 +848,38 @@ fn trade_order_settle_tx_lost_program_stack_initialized_test() {
     println!("{:?}", verify);
 }
 
-
-pub fn get_trader_order_program() -> Program {
-    let order_prog = Program::build(|p| {
-        p.drop() // drop the order_side from stack. Not needed in the proof
-            .roll(3) // Get IM to top of stack
-            .commit()
-            .expr()
-            .roll(1) // Get EntryPrice to top of stack
-            .scalar()
-            .mul() // EntryPrice * IM
-            .roll(1) // Get Leverage to top of stack
-            .commit()
-            .expr()
-            .mul() // Leverage * EntryPrice * IM
-            .roll(1)
-            .scalar()
-            .eq() // Leverage * EntryPrice * IM == PositionSize
-            .verify();
-    });
-    return order_prog;
-}
+// pub fn get_trader_order_program() -> Program {
+//     let order_prog = Program::build(|p| {
+//         p.drop() // drop the order_side from stack. Not needed in the proof
+//             .roll(3) // Get IM to top of stack
+//             .commit()
+//             .expr()
+//             .roll(1) // Get EntryPrice to top of stack
+//             .scalar()
+//             .mul() // EntryPrice * IM
+//             .roll(1) // Get Leverage to top of stack
+//             .commit()
+//             .expr()
+//             .mul() // Leverage * EntryPrice * IM
+//             .roll(1)
+//             .scalar()
+//             .eq() // Leverage * EntryPrice * IM == PositionSize
+//             .verify();
+//     });
+//     return order_prog;
+// }
 
 #[test]
 fn test_create_trade_order_program() {
     let correct_program = self::get_trader_order_program();
-    
+
     let mut rng = rand::thread_rng();
     let sk_in: RistrettoSecretKey = SecretKey::random(&mut rng);
     let pk_in = RistrettoPublicKey::from_secret_key(&sk_in, &mut rng);
     let rscalar = Scalar::random(&mut rng);
-    let commit_in = ElGamalCommitment::generate_commitment(
-        &pk_in,
-        rscalar.clone(),
-        Scalar::from(100u64),
-    );
-    let coin_acc  = Account::set_account(pk_in.clone(), commit_in.clone());
+    let commit_in =
+        ElGamalCommitment::generate_commitment(&pk_in, rscalar.clone(), Scalar::from(100u64));
+    let coin_acc = Account::set_account(pk_in.clone(), commit_in.clone());
     let add: Address = Address::standard_address(Network::default(), pk_in.clone());
     let out_coin = OutputCoin {
         encrypt: commit_in.clone(),
@@ -891,7 +887,6 @@ fn test_create_trade_order_program() {
     };
     let in_data: InputData = InputData::coin(Utxo::default(), out_coin, 0);
     let coin_in: Input = Input::coin(in_data);
-   
 
     //*****  OutputMemo  *********/
     //****************************/
@@ -924,19 +919,11 @@ fn test_create_trade_order_program() {
     let input = vec![coin_in];
     let output = vec![memo];
     //cretae unsigned Tx with program proof
-    let result = Prover::build_proof(
-        correct_program,
-        &input,
-        &output,
-        false,
-        None,
-    );
+    let result = Prover::build_proof(correct_program, &input, &output, false, None);
     println!("{:?}", result);
     let (prog_bytes, proof) = result.unwrap();
-    let verify =
-        Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
+    let verify = Verifier::verify_r1cs_proof(&proof, &prog_bytes, &input, &output, false, None);
     println!("{:?}", verify);
-    
 }
 #[test]
 fn test_private_transaction_single_sender_reciever() {
@@ -1037,7 +1024,7 @@ fn test_private_transaction_single_sender_reciever_input() {
         "value_vector: {:?} \n sender_count {:?} \n receiver_count {:?}",
         value_vector, sender_count, receiver_count
     );
-    
+
     //Create sender updated account vector for the verification of sk and bl-v
     let bl_first_sender = 1000 - 500; //bl-v
                                       //let bl_second_sender = 20 - 3; //bl-v
@@ -1252,10 +1239,10 @@ fn test_dark_transaction_odd() {
         sender_count,
         receiver_count,
         None,
-        0u64
+        0u64,
     );
     let (transfer, comm_scalar) = dark_transfer.unwrap();
-    assert_eq!(comm_scalar, None );
+    assert_eq!(comm_scalar, None);
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
         transfer,
     ));
