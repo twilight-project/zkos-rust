@@ -261,6 +261,9 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         }
         //Add all output
         for (output_index, output_set) in tx_output.iter().enumerate() {
+            eprintln!("=============================");
+            eprintln!(" output : {:?}", output_set);
+            eprintln!("=============================");
             let utxo_key =
                 bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
             let utxo_output_type = output_set.out_type as usize;
