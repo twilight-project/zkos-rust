@@ -670,6 +670,21 @@ impl OutputCoin {
         let pub_key: RistrettoPublicKey = add.as_coin_address().public_key;
         Ok(Account::set_account(pub_key.clone(), self.encrypt.clone()))
     }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        // merge the encryption and owner address
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.extend(self.encrypt.to_bytes());
+        bytes.extend(self.owner.as_bytes());
+        bytes
+    }
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.to_bytes())
+    }
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, &'static str> {
+        let encrypt = ElGamalCommitment::from_bytes(&bytes[0..64])?;
+        let owner = String::from_utf8_lossy(&bytes[64..]).to_string();
+        Ok(OutputCoin { encrypt, owner })
+    }
 }
 
 impl Encodable for OutputCoin {
@@ -745,7 +760,6 @@ impl OutputMemo {
             data: data_str,
             timebounds: self.timebounds,
         }
-
     }
     pub fn set_data(&mut self, data: Vec<ZkvmString>) {
         self.data = Some(data);
@@ -769,7 +783,6 @@ impl Default for OutputMemo {
             timebounds: 0,
         }
     }
-
 }
 
 /// A complete twilight typed State Output valid for a specific network.
@@ -1057,7 +1070,6 @@ impl From<OutputState> for Output {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Witness {
     // ZkSchnorr Signature
@@ -1104,61 +1116,58 @@ impl Witness {
         }
     }
     /// used for creating the value witness when the input to the tx is a memo
-    /// returns the Same value proof and Signature 
+    /// returns the Same value proof and Signature
     /// @param enc_acc: Account
     /// @param pedersen_commitment: CompressedRistretto
     /// @param value: u64
     /// @param rscalar: Scalar
     /// @return ValueWitness
     pub fn create_witness_for_memo_input(
-        // signature: Signature, // Signature over the OutputMemo to be used as input in this tx 
-         coin_output: Output, 
-         memo_input: Input, 
-         ) -> Result<Self, &'static str> {
-         // Signature is provided by the owner of the Memo 
-         //let sign = signature;
-         //create account from the coin output
-         let account = coin_output.to_quisquis_account()?;
-         
-         // extract the commitment and value from the memo input
-          // get Pedersen commitment from Memo for same value proof. this value is coming from coin value
-          let memo_commitment = match memo_input.as_input_data().get_coin_value_from_memo(){
-                 Some(memo) => memo.clone(),
-                 None => return Err("Memo commitment does not exist"),
-             };
-          
-          
-          // get commitment value and scalar
-          let (memo_value, memo_scalar) = match memo_commitment.witness(){
-                 Some(x) => x,
-                 None => return Err("Memo commitment witness does not exist"),
-             };
-         
-          let perdersen_commitment = memo_commitment.to_point();
-          let value_signed_int = match memo_value
-              .to_integer(){
-                     Ok(x) => x,
-                     Err(_) => return Err("Memo commitment value is not an integer"),
-              };
-              let value = match value_signed_int.to_u64(){
-                     Some(x) => x,
-                     None => return Err("Memo commitment value is not a u64"),
-              };
-         //create the SigmaProof over the Input Coin/Memo with the secret key
-         let value_proof = quisquislib::accounts::Prover::same_value_compact_prover(
-             account,
-             memo_scalar,
-             Scalar::from(value),
-             perdersen_commitment,
-         );
-         Ok(Witness::from(value_proof))
-     }  // Verify Value Witness for Memo Input/ Coin Output
+        // signature: Signature, // Signature over the OutputMemo to be used as input in this tx
+        coin_output: Output,
+        memo_input: Input,
+    ) -> Result<Self, &'static str> {
+        // Signature is provided by the owner of the Memo
+        //let sign = signature;
+        //create account from the coin output
+        let account = coin_output.to_quisquis_account()?;
+
+        // extract the commitment and value from the memo input
+        // get Pedersen commitment from Memo for same value proof. this value is coming from coin value
+        let memo_commitment = match memo_input.as_input_data().get_coin_value_from_memo() {
+            Some(memo) => memo.clone(),
+            None => return Err("Memo commitment does not exist"),
+        };
+
+        // get commitment value and scalar
+        let (memo_value, memo_scalar) = match memo_commitment.witness() {
+            Some(x) => x,
+            None => return Err("Memo commitment witness does not exist"),
+        };
+
+        let perdersen_commitment = memo_commitment.to_point();
+        let value_signed_int = match memo_value.to_integer() {
+            Ok(x) => x,
+            Err(_) => return Err("Memo commitment value is not an integer"),
+        };
+        let value = match value_signed_int.to_u64() {
+            Some(x) => x,
+            None => return Err("Memo commitment value is not a u64"),
+        };
+        //create the SigmaProof over the Input Coin/Memo with the secret key
+        let value_proof = quisquislib::accounts::Prover::same_value_compact_prover(
+            account,
+            memo_scalar,
+            Scalar::from(value),
+            perdersen_commitment,
+        );
+        Ok(Witness::from(value_proof))
+    } // Verify Value Witness for Memo Input/ Coin Output
     pub fn verify_witness_for_memo_input(
         &self,
-        coin_output: Output,  // coin value account
-       // commitment: CompressedRistretto, // commitment of the coin value as provided in the Memo Input
-        memo: Input,  
-
+        coin_output: Output, // coin value account
+        // commitment: CompressedRistretto, // commitment of the coin value as provided in the Memo Input
+        memo: Input,
     ) -> Result<bool, &'static str> {
         //verify the Signature over the InputData with the public key
         // Signature is provided by the owner of the Memo
@@ -1171,7 +1180,7 @@ impl Witness {
         // let (pk, _) = enc_acc.get_account();
         // // recreate the signature message
         // // create output from OutputMemo
-        // let output = Output::from(output_memo.clone()); 
+        // let output = Output::from(output_memo.clone());
         // //serialize the output for sign verification
         // let message = match bincode::serialize(&output) {
         //     Ok(message) => message,
@@ -1180,12 +1189,12 @@ impl Witness {
         // extract account from Output Coin
         let account = coin_output.to_quisquis_account()?;
         // extract the commitment of value from Input Memo
-        let commitment = match memo.as_input_data().get_coin_value_from_memo(){
+        let commitment = match memo.as_input_data().get_coin_value_from_memo() {
             Some(memo) => memo.clone(),
             None => return Err("Memo commitment does not exist"),
         };
         // pk.verify_msg(&message, &self.sign, ("PublicKeySign").as_bytes())?;
-        let same_value_proof = self.to_sigma_proof().map_err(|_|"Invalid SigmaProof")?;
+        let same_value_proof = self.to_sigma_proof().map_err(|_| "Invalid SigmaProof")?;
         //verify the SigmaProof over the Input Memo/ Output Coin with the public key
         quisquislib::accounts::Verifier::verify_same_value_compact_verifier(
             account,
@@ -1245,7 +1254,7 @@ impl ValueWitness {
     pub fn create_value_witness(
         input: Input,
         secret_key: RistrettoSecretKey,
-       // output: Output,
+        // output: Output,
         enc_acc: Account,
         pubkey: RistrettoPublicKey,
         pedersen_commitment: CompressedRistretto,
@@ -1255,11 +1264,11 @@ impl ValueWitness {
         //create the Signature over the Input Coin/Memo with the secret key
         let mut input_verifier_view = input.verifier_view();
         input_verifier_view = input_verifier_view.as_input_for_signing();
-       // let output_verifier_view = output.to_verifier_view();
+        // let output_verifier_view = output.to_verifier_view();
 
         //create message bytes using input and output verifier view
-       // let mut message: Vec<u8>;
-       let  message = bincode::serialize(&input_verifier_view).unwrap();
+        // let mut message: Vec<u8>;
+        let message = bincode::serialize(&input_verifier_view).unwrap();
         //message.extend(bincode::serialize(&output_verifier_view).unwrap());
 
         //create the signature over the input
@@ -1284,17 +1293,19 @@ impl ValueWitness {
     ) -> Result<bool, &'static str> {
         //create message to verify the Signature over the Input and Output with the public key
         //let message: Vec<u8>;
-        let message = match bincode::serialize(&input){
-            Ok(x) => x,
-            Err(_) => return Err("Serialization Error::Failed to serialize the input for signature verification"),
-        
-        };
+        let message =
+            match bincode::serialize(&input) {
+                Ok(x) => x,
+                Err(_) => return Err(
+                    "Serialization Error::Failed to serialize the input for signature verification",
+                ),
+            };
         // let output_binary_string = match bincode::serialize(&output){
         //     Ok(x) => x,
         //     Err(_) => return Err("Serialization Error::Failed to serialize the output for signature verification"),
-        
+
         // };
-       // message.extend(output_binary_string);
+        // message.extend(output_binary_string);
         //verify the Signature over the InputData with the public key
 
         pubkey.verify_msg(&message, &self.sign, ("ValueSign").as_bytes())?;
@@ -1307,7 +1318,6 @@ impl ValueWitness {
         )?;
         Ok(true)
     }
-  
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
