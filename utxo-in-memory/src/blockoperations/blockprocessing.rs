@@ -284,10 +284,33 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                         1 => {
                             pg_insert_data.insert_memo_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
-                                bincode::serialize(&output_set).unwrap(),
-                                bincode::serialize(output_set.output.get_owner_address().unwrap())
-                                    .unwrap(),
-                                output_set.output.get_script_address().unwrap(),
+                                match bincode::serialize(&output_set) {
+                                    Ok(value) => value,
+                                    Err(err) => {
+                                        eprintln!("Error while serializing output_set: {:?}", err);
+                                        return;
+                                    }
+                                },
+                                match output_set.output.get_owner_address() {
+                                    Some(address) => match bincode::serialize(&address) {
+                                        Ok(value) => value,
+                                        Err(err) => {
+                                            eprintln!("Error while serializing owner address: {:?}", err);
+                                            return;
+                                        }
+                                    },
+                                    None => {
+                                        eprintln!("Error: Owner address is None");
+                                        return;
+                                    }
+                                },
+                                match output_set.output.get_script_address() {
+                                    Some(value) => value,
+                                    None => {
+                                        eprintln!("Error: Script address is None");
+                                        return;
+                                    }
+                                },
                                 output_index,
                             ));
                             println!("UTXO MEMO ADDED DB");
@@ -295,10 +318,35 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                         2 => {
                             pg_insert_data.insert_state_utxo.push(PGSQLDataInsert::new(
                                 utxo_key,
-                                bincode::serialize(&output_set).unwrap(),
-                                bincode::serialize(output_set.output.get_owner_address().unwrap())
-                                    .unwrap(),
-                                output_set.output.get_script_address().unwrap(),
+                                match bincode::serialize(&output_set) {
+                                    Ok(value) => value,
+                                    Err(err) => {
+                                        eprintln!("Error while serializing output_set: {:?}", err);
+                                        return;
+                                    }
+                                },
+                                match bincode::serialize(
+                                    match output_set.output.get_owner_address() {
+                                        Some(address) => address,
+                                        None => {
+                                            eprintln!("Error: Owner address is None");
+                                            return;
+                                        }
+                                    }
+                                )       {
+                                        Ok(value) => value,
+                                        Err(err) => {
+                                            eprintln!("Error while serializing owner address: {:?}", err);
+                                            return;
+                                        }
+                                },
+                                match output_set.output.get_script_address() {
+                                    Some(value) => value,
+                                    None => {
+                                        eprintln!("Error: Script address is None");
+                                        return;
+                                    }
+                                },
                                 output_index,
                             ));
                             println!("UTXO STATE ADDED DB");
