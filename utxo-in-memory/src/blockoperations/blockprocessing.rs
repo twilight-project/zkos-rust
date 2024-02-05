@@ -774,6 +774,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                             {
                                 continue;
                             } else {
+                                println!("Memo not equal");
                                 return false;
                             }
                         }
@@ -786,6 +787,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                             {
                                 continue;
                             } else {
+                                println!("State not equal");
                                 return false;
                             }
                         }
@@ -800,6 +802,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
             }
         }
     } else if transaction.tx_type == TransactionType::Transfer {
+        println!("inside transfer");
         for input in tx_inputs {
             let utxo = input.as_utxo().unwrap();
             let client_output: OutputData = match input.in_type {
@@ -837,6 +840,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
             }
         }
     } else if transaction.tx_type == TransactionType::Message {
+        println!("inside message");
         // check if message is burn
         let message = transaction.tx.to_message().unwrap();
         let input = message.input.clone();
@@ -870,7 +874,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
             }
         }
     }
-
+    println!("returning true");
     return true;
 }
 /// This function will create a block with a set of transactions
