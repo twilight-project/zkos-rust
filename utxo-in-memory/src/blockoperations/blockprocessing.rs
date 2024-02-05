@@ -774,7 +774,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_memo().unwrap())
                             {
-                                println!("Memo equal");
+                                println!("\n Memo equal");
                                 continue;
                             } else {
                                 println!("Memo not equal");
@@ -788,7 +788,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_state().unwrap())
                             {
-                                println!("State equal");
+                                println!("\n State equal");
                                 continue;
                             } else {
                                 println!("State not equal");
