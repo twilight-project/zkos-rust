@@ -30,7 +30,6 @@ struct Meta {
 impl Metadata for Meta {}
 
 pub fn rpcserver() {
-
     println!("Starting rpc server");
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
@@ -114,6 +113,7 @@ pub fn rpcserver() {
 
         // verify the inputs from utxo set for the tx
         let utxo_verified = verify_utxo(tx.clone());
+        println!("UTXO Bool {:?}", utxo_verified);
         if utxo_verified == false {
             let response_body = "Error: failed to verify utxo".to_string();
             let response_body = serde_json::Value::String(response_body);
