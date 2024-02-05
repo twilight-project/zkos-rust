@@ -15,9 +15,9 @@ use quisquislib::elgamal::elgamal::ElGamalCommitment;
 use rand::Rng;
 use serde::de::{self, Deserializer, Visitor};
 use serde_derive::{Deserialize, Serialize};
+use serde_ini;
 use std::fmt;
 use std::fs;
-use serde_ini;
 use std::fs::File;
 use std::io::Write;
 
@@ -35,13 +35,16 @@ use zkvm::Hash;
 
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
+use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
 use quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
-use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 
 lazy_static! {
-    pub static ref  TOTAL_DARK_SATS_MINTED: Gauge = register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
-    pub static ref  TOTAL_TRANSFER_TX: Gauge = register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
-    pub static ref  TOTAL_SCRIPT_TX: Gauge = register_gauge!("script_tx_count", "A counter for script tx").unwrap();
+    pub static ref TOTAL_DARK_SATS_MINTED: Gauge =
+        register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
+    pub static ref TOTAL_TRANSFER_TX: Gauge =
+        register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
+    pub static ref TOTAL_SCRIPT_TX: Gauge =
+        register_gauge!("script_tx_count", "A counter for script tx").unwrap();
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,13 +151,16 @@ pub fn read_telemetry_stats_from_file() -> Result<(), Box<dyn std::error::Error>
 
 fn write_telemetry_stats_to_file() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create("telemetry.ini")?;
-    write!(file, "total_dark_sats_minted={}\n", TOTAL_DARK_SATS_MINTED.get())?;
+    write!(
+        file,
+        "total_dark_sats_minted={}\n",
+        TOTAL_DARK_SATS_MINTED.get()
+    )?;
     write!(file, "total_transfer_tx={}\n", TOTAL_TRANSFER_TX.get())?;
     write!(file, "total_script_tx={}\n", TOTAL_SCRIPT_TX.get())?;
 
     Ok(())
 }
-
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
@@ -298,7 +304,10 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                     Some(address) => match bincode::serialize(&address) {
                                         Ok(value) => value,
                                         Err(err) => {
-                                            eprintln!("Error while serializing owner address: {:?}", err);
+                                            eprintln!(
+                                                "Error while serializing owner address: {:?}",
+                                                err
+                                            );
                                             return;
                                         }
                                     },
@@ -335,13 +344,16 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                                             eprintln!("Error: Owner address is None");
                                             return;
                                         }
+                                    },
+                                ) {
+                                    Ok(value) => value,
+                                    Err(err) => {
+                                        eprintln!(
+                                            "Error while serializing owner address: {:?}",
+                                            err
+                                        );
+                                        return;
                                     }
-                                )       {
-                                        Ok(value) => value,
-                                        Err(err) => {
-                                            eprintln!("Error while serializing owner address: {:?}", err);
-                                            return;
-                                        }
                                 },
                                 match output_set.output.get_script_address() {
                                     Some(value) => value,
@@ -378,12 +390,11 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         drop(treadpool_sql_queue);
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
-        
-        if transaction_type == TransactionType::Script{
+
+        if transaction_type == TransactionType::Script {
             TOTAL_SCRIPT_TX.inc();
             write_telemetry_stats_to_file();
-        }
-        else if transaction_type == TransactionType::Transfer{
+        } else if transaction_type == TransactionType::Transfer {
             TOTAL_TRANSFER_TX.inc();
             write_telemetry_stats_to_file();
         }
@@ -444,30 +455,27 @@ pub fn process_trade_mint(
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
 
-
         let float_value: f64 = match transaction.btc_value.unwrap().parse() {
-            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Ok(value) => value, // If parsing is successful, use the parsed value
             Err(e) => {
                 println!("Failed to convert string to f64: {:?}", e);
-                0.0  // Use a default value (like 0.0) in case of an error
-            },
+                0.0 // Use a default value (like 0.0) in case of an error
+            }
         };
 
         TOTAL_DARK_SATS_MINTED.add(float_value);
         write_telemetry_stats_to_file();
         println!("UTXO ADDED MINT")
-    }
-    else if transaction.mint_or_burn.unwrap() == false {
+    } else if transaction.mint_or_burn.unwrap() == false {
         let float_value: f64 = match transaction.btc_value.unwrap().parse() {
-            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Ok(value) => value, // If parsing is successful, use the parsed value
             Err(e) => {
                 println!("Failed to convert string to f64: {:?}", e);
-                0.0  // Use a default value (like 0.0) in case of an error
-            },
+                0.0 // Use a default value (like 0.0) in case of an error
+            }
         };
         TOTAL_DARK_SATS_MINTED.sub(float_value);
         write_telemetry_stats_to_file();
-        
     }
     // UTXO IS ALREADY REMOVED THROUGH THE ZKOS Burn Message TX that appears as Transfer Tx now
     // Therefore no need to do anything for Tendermint Burn Tx.
@@ -698,27 +706,27 @@ pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static
     };
     return Ok(result);
 }
-pub fn total_memo_type_utxos() -> u64{
+pub fn total_memo_type_utxos() -> u64 {
     println!("inside total memo");
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Memo as usize;
-    let result = utxo_storage.get_count_by_type(input_type); 
+    let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
     return result;
 }
 
-pub fn total_state_type_utxos() -> u64{
+pub fn total_state_type_utxos() -> u64 {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::State as usize;
-    let result = utxo_storage.get_count_by_type(input_type); 
+    let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
     return result;
 }
 
-pub fn total_coin_type_utxos() -> u64{
+pub fn total_coin_type_utxos() -> u64 {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
-    let result = utxo_storage.get_count_by_type(input_type); 
+    let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
     return result;
 }
@@ -728,6 +736,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let tx_inputs = transaction.get_tx_inputs();
     if transaction.tx_type == TransactionType::Script {
         for input in tx_inputs {
+            println!("inside script");
             let utxo = input.as_utxo().unwrap();
             let client_output: OutputData = match input.in_type {
                 IOType::Coin => OutputData::Coin(input.as_out_coin().unwrap().clone()),
@@ -741,7 +750,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
 
                 let utxo_output_from_chain_result =
                     utxo_storage.get_utxo_by_id(utxo_key.clone(), utxo_input_type);
-
+                println!("Output inside verify {:?}", utxo_output_from_chain_result);
                 match utxo_output_from_chain_result {
                     Ok(utxo_output_from_chain) => match input.in_type {
                         IOType::Coin => {
