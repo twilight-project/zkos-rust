@@ -60,6 +60,8 @@ pub fn rpcserver() {
             return Err(err);
         }
 
+        println!("HEX tx extracted");
+
         //let hex_tx = match params.parse::<Vec<String>>() {
         // Ok(vec) => {
         //    if vec.is_empty() {
@@ -109,8 +111,8 @@ pub fn rpcserver() {
             "".to_string()
         };
 
-        println!("{:?}", twilight_address);
-
+        //println!("{:?}", twilight_address);
+        println!("Getting into UTXO verification...");
         // verify the inputs from utxo set for the tx
         let utxo_verified = verify_utxo(tx.clone());
         println!("UTXO Bool {:?}", utxo_verified);
