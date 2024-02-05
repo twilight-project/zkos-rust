@@ -750,7 +750,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
 
                 let utxo_output_from_chain_result =
                     utxo_storage.get_utxo_by_id(utxo_key.clone(), utxo_input_type);
-                println!("Output inside verify {:?}", utxo_output_from_chain_result);
+                //println!("Output inside verify {:?}", utxo_output_from_chain_result);
                 match utxo_output_from_chain_result {
                     Ok(utxo_output_from_chain) => match input.in_type {
                         IOType::Coin => {
@@ -760,10 +760,10 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_coin().unwrap())
                             {
-                                println!("Coin equal");
+                                //println!("Coin equal");
                                 continue;
                             } else {
-                                println!("Coin not equal");
+                                // println!("Coin not equal");
                                 return false;
                             }
                         }
@@ -774,10 +774,10 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_memo().unwrap())
                             {
-                                println!("\n Memo equal");
+                                //  println!("\n Memo equal");
                                 continue;
                             } else {
-                                println!("Memo not equal");
+                                //    println!("Memo not equal");
                                 return false;
                             }
                         }
@@ -788,17 +788,17 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_state().unwrap())
                             {
-                                println!("\n State equal");
+                                //      println!("\n State equal");
                                 continue;
                             } else {
-                                println!("State not equal");
+                                //        println!("State not equal");
                                 return false;
                             }
                         }
                     },
 
                     Err(arg) => {
-                        println!("Error in getting utxo from chain");
+                        //  println!("Error in getting utxo from chain");
                         return false;
                     }
                 }
