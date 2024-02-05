@@ -760,8 +760,10 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_coin().unwrap())
                             {
+                                println!("Coin equal");
                                 continue;
                             } else {
+                                println!("Coin not equal");
                                 return false;
                             }
                         }
@@ -772,6 +774,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_memo().unwrap())
                             {
+                                println!("Memo equal");
                                 continue;
                             } else {
                                 println!("Memo not equal");
@@ -785,6 +788,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                                 .clone()
                                 .eq(client_output.get_output_state().unwrap())
                             {
+                                println!("State equal");
                                 continue;
                             } else {
                                 println!("State not equal");
@@ -794,6 +798,7 @@ pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
                     },
 
                     Err(arg) => {
+                        println!("Error in getting utxo from chain");
                         return false;
                     }
                 }
