@@ -72,7 +72,7 @@ pub fn init_utxo() {
 // }
 pub fn zk_oracle_subscriber() {
     println!("started zk subsciber");
-    let url_str = "ws://165.232.134.41:7001/latestblock";
+    let url_str = "ws://147.182.235.183:7001/latestblock";
     let url = Url::parse(url_str);
     let url: Url = match url {
         Ok(url) => url,
