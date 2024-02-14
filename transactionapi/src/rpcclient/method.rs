@@ -110,7 +110,9 @@ impl GetStateUtxosResponse {
         utxo_vec
     }
 }
-
+// thread 'THREADPOOL_ZKOS-0' panicked at /usr/local/cargo/git/checkouts/zkos-83774292048624fe/13fb0ce/transactionapi/src/rpcclient/method.rs:107:62:
+// called `Result::unwrap()` on an `Err` value: Error("invalid type: string \"{ Error: Utxo not available for provided address}\", expected a sequence", line: 0, column: 0)
+// stack backtrace:
 // allUtxos ,allMemoUtxos, allSateUtxos,  allOutputs
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AllUtxoResponse {
@@ -138,7 +140,13 @@ impl GetCoinOutputResponse {
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> GetCoinOutputResponse {
         let utxo_vec: Option<zkvm::zkos_types::Output> = match resp.result {
-            Ok(response) => Some(serde_json::from_value(response).unwrap()),
+            Ok(response) => {
+                let response_result = match serde_json::from_value(response) {
+                    Ok(response) => Some(response),
+                    Err(_) => None,
+                };
+                response_result
+            }
             Err(arg) => None,
         };
         GetCoinOutputResponse { all_utxo: utxo_vec }
@@ -155,7 +163,13 @@ impl GetMemoOutputResponse {
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> GetMemoOutputResponse {
         let utxo_vec: Option<zkvm::zkos_types::Output> = match resp.result {
-            Ok(response) => Some(serde_json::from_value(response).unwrap()),
+            Ok(response) => {
+                let response_result = match serde_json::from_value(response) {
+                    Ok(response) => Some(response),
+                    Err(_) => None,
+                };
+                response_result
+            }
             Err(arg) => None,
         };
         GetMemoOutputResponse { all_utxo: utxo_vec }
@@ -172,7 +186,13 @@ impl GetStateOutputResponse {
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> GetStateOutputResponse {
         let utxo_vec: Option<zkvm::zkos_types::Output> = match resp.result {
-            Ok(response) => Some(serde_json::from_value(response).unwrap()),
+            Ok(response) => {
+                let response_result = match serde_json::from_value(response) {
+                    Ok(response) => Some(response),
+                    Err(_) => None,
+                };
+                response_result
+            }
             Err(arg) => None,
         };
         GetStateOutputResponse { all_utxo: utxo_vec }
