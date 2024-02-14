@@ -72,7 +72,13 @@ impl GetUtxosResponse {
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> Vec<zkvm::zkos_types::Utxo> {
         let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
-            Ok(response) => serde_json::from_value(response).unwrap(),
+            Ok(response) => {
+                let response_result = match serde_json::from_value(response) {
+                    Ok(response) => response,
+                    Err(_) => Vec::new(),
+                };
+                response_result
+            }
             Err(arg) => Vec::new(),
         };
         utxo_vec
@@ -88,7 +94,13 @@ impl GetMemoUtxosResponse {
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> Vec<zkvm::zkos_types::Utxo> {
         let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
-            Ok(response) => serde_json::from_value(response).unwrap(),
+            Ok(response) => {
+                let response_result = match serde_json::from_value(response) {
+                    Ok(response) => response,
+                    Err(_) => Vec::new(),
+                };
+                response_result
+            }
             Err(arg) => Vec::new(),
         };
         utxo_vec
@@ -104,7 +116,13 @@ impl GetStateUtxosResponse {
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> Vec<zkvm::zkos_types::Utxo> {
         let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
-            Ok(response) => serde_json::from_value(response).unwrap(),
+            Ok(response) => {
+                let response_result = match serde_json::from_value(response) {
+                    Ok(response) => response,
+                    Err(_) => Vec::new(),
+                };
+                response_result
+            }
             Err(arg) => Vec::new(),
         };
         utxo_vec
@@ -123,7 +141,13 @@ impl AllUtxoResponse {
         resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
     ) -> AllUtxoResponse {
         let utxo_vec: Vec<String> = match resp.result {
-            Ok(response) => serde_json::from_value(response).unwrap(),
+            Ok(response) => {
+                let response_result = match serde_json::from_value(response) {
+                    Ok(response) => response,
+                    Err(_) => Vec::new(),
+                };
+                response_result
+            }
             Err(arg) => Vec::new(),
         };
         AllUtxoResponse { all_utxo: utxo_vec }
