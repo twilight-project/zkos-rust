@@ -33,7 +33,7 @@ pub fn tx_queue(transaction: Transaction, fee: u64) {
 
 pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, String> {
     let client = Client::new();
-    let url = "http://147.182.235.183/:7000/transaction";
+    let url = "http://0.0.0.0:7000/transaction";
 
     let serialized: Vec<u8> = bincode::serialize(&transaction).unwrap();
     let tx_hex = hex::encode(serialized.clone());
@@ -81,7 +81,7 @@ pub async fn mint_burn_tx_initiate(
     twilight_address: String,
 ) -> Result<String, Box<dyn Error>> {
     let client = Client::new();
-    let url = "http://147.182.235.183:7000/burnmessage";
+    let url = "http://0.0.0.0:7000/burnmessage";
 
     // convert qq_account into hex string
     let qq_account_hex = account_to_hex_str(qq_account, Network::default());

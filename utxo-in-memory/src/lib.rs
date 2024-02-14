@@ -62,7 +62,7 @@ pub fn init_utxo() {
 //To be done later
 // fn establish_websocket_connection(
 // ) -> Result<(WebSocket<dyn jsonrpc_core::futures_util::Stream>, Response), String> {
-//     let url_str = "ws://165.232.134.41:7001/latestblock";
+//     let url_str = "ws://0.0.0.0:7001/latestblock";
 //     let url = Url::parse(url_str).map_err(|e| format!("Invalid URL: {}", e))?;
 
 //     let (socket, response) =
@@ -72,7 +72,7 @@ pub fn init_utxo() {
 // }
 pub fn zk_oracle_subscriber() {
     println!("started zk subsciber");
-    let url_str = "ws://147.182.235.183:7001/latestblock";
+    let url_str = "ws://0.0.0.0:7001/latestblock";
     let url = Url::parse(url_str);
     let url: Url = match url {
         Ok(url) => url,
