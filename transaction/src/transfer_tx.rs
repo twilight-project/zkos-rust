@@ -17,7 +17,62 @@ use quisquislib::{
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
     shuffle::{Permutation, Shuffle},
 };
-
+pub struct DarkProofWasmData{
+    pub value_vector_scalar: Vec<Scalar>,
+    pub delta_accounts: Vec<Account>,
+    pub epsilon_accounts: Vec<Account>,
+    pub delta_rscalar: Vec<Scalar>,
+    pub sender_updated_delta_account: Vec<Account>,
+    pub updated_delta_accounts: Vec<Account>,
+}
+impl DarkProofWasmData{
+    pub fn new(value_vector_scalar: Vec<Scalar>, delta_accounts: Vec<Account>, epsilon_accounts: Vec<Account>, delta_rscalar: Vec<Scalar>, sender_updated_delta_account: Vec<Account>, updated_delta_accounts: Vec<Account>)-> Self{
+        DarkProofWasmData{
+            value_vector_scalar,
+            delta_accounts,
+            epsilon_accounts,
+            delta_rscalar,
+            sender_updated_delta_account,
+            updated_delta_accounts,
+        }
+    }
+}
+pub struct ShuffleProofWasmData{
+    pub input_dash_accounts_anonymity_slice: Vec<Account>,
+    pub updated_delta_accounts_anonymity_slice: Vec<Account>,
+    pub rscalars_anonymity_slice: Vec<Scalar>,
+    pub input_shuffle: Shuffle,
+    pub output_shuffle: Shuffle,
+}
+impl ShuffleProofWasmData{
+    pub fn new(input_dash_accounts_anonymity_slice: Vec<Account>, updated_delta_accounts_anonymity_slice: Vec<Account>, rscalars_anonymity_slice: Vec<Scalar>, input_shuffle: Shuffle, output_shuffle: Shuffle)-> Self{
+        ShuffleProofWasmData{
+            input_dash_accounts_anonymity_slice,
+            updated_delta_accounts_anonymity_slice,
+            rscalars_anonymity_slice,
+            input_shuffle,
+            output_shuffle,
+        }
+    }
+}
+pub struct TransferTransactionWasmData{
+    pub dark_proof_wasm_data: DarkProofWasmData,
+    pub shuffle_proof_wasm_data: ShuffleProofWasmData,
+    pub shuffled_inputs: Vec<Input>,
+    pub outputs: Vec<Output>,
+    pub witnesses: Vec<Witness>,
+}
+impl TransferTransactionWasmData{
+    pub fn new(dark_proof_wasm_data: DarkProofWasmData, shuffle_proof_wasm_data: ShuffleProofWasmData, shuffled_inputs: Vec<Input>, outputs: Vec<Output>, witnesses: Vec<Witness>)-> Self{
+        TransferTransactionWasmData{
+            dark_proof_wasm_data,
+            shuffle_proof_wasm_data,
+            shuffled_inputs,
+            outputs,
+            witnesses,
+        }
+    }
+}
 ///
 /// Store for TransactionTransfer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -677,6 +732,108 @@ impl TransferTransaction {
                 ))
             }
         }
+    }
+    // Function to create data for parallel proof tx in wasm
+    // assuming only works for reciever address now 
+    pub fn create_quisquis_tx_proof_data_wasm(inputs: &[Input], // input vector as received from the client (may include zero utxo for reciever/s)
+        value_vector: &[i64],
+        account_vector: &[Account],
+        senders_count: usize,
+        receivers_count: usize,
+        anonymity_account_diff: usize,
+        witness_comm_scalar: &[Scalar]) -> Result<TransferTransactionWasmData, &'static str >{
+        //convert the valur vector into scalar type to create the proof
+        let mut value_vector_scalar = Vec::<Scalar>::new();
+        for v in value_vector.iter() {
+            if v >= &0 {
+                value_vector_scalar.push(Scalar::from(*v as u64));
+            } else {
+                value_vector_scalar.push(-Scalar::from((-*v) as u64));
+            }
+        }
+        //create base pk for epsilon accounts
+        let base_pk = RistrettoPublicKey::generate_base_pk();
+
+        //Step 1. update & shuffle input accounts
+        let input_shuffle = Shuffle::input_shuffle(account_vector)?;
+
+        //get vec of Input Accounts arranged randomly
+        let input_account_vector = input_shuffle.get_inputs_vector();
+
+        // get vector of Input' accounts updated and arranged as [sender..reciever..anonymity]
+        let input_dash_accounts = input_shuffle.get_outputs_vector();
+
+         // Step 2. Create delta_and_epsilon_accounts
+        let (delta_accounts, epsilon_accounts, delta_rscalar) =
+            Account::create_delta_and_epsilon_accounts(
+                &input_dash_accounts,
+                &value_vector_scalar,
+                base_pk,
+            );
+        let delta_rscalar_clone= delta_rscalar.clone();
+        //Step 3. identity check function to verify the construction of epsilon accounts using correct rscalars
+        Verifier::verify_delta_identity_check(&epsilon_accounts)?;
+
+        // Step 4. update delta_accounts to reflect the change in balance
+        let updated_delta_accounts =
+            Account::update_delta_accounts(&input_dash_accounts, &delta_accounts)?;
+        let updated_delta_accounts_clone = updated_delta_accounts.clone();
+
+        let sender_updated_delta_account = &updated_delta_accounts[..senders_count];
+         // assuming the number of accounts to be 9
+        let anonymity_index = 9 - anonymity_account_diff;
+        // println!("anonymity index: {}", anonymity_index);
+        // get a list of anonymity accounts in the input' vector
+        let input_dash_accounts_anonymity_slice = &input_dash_accounts[anonymity_index..9];
+        // get a list of anonymity accounts in the updated delta accounts vector
+        let updated_delta_accounts_anonymity_slice = &updated_delta_accounts_clone[anonymity_index..9];
+        // get of list of scalar witnesses for anonymity accounts in delta and epsilon accounts vector
+        let rscalars_anonymity_slice = &delta_rscalar_clone[anonymity_index..9];
+        //for anonymity zero account proof. Not needed anymore
+        //let input_anonymity_account_slice = &account_vector[anonymity_index..9];
+        //Shuffle accounts
+        let output_shuffle = Shuffle::output_shuffle(&updated_delta_accounts_clone)?;
+         let output_final = output_shuffle.get_outputs_vector();
+        // create reciever witness proof        
+        let witnesses = reciever_zero_balance_proof(
+            &inputs,
+            witness_comm_scalar,
+            senders_count,
+            receivers_count,
+        );
+
+        // create vec of shuffled Inputs and Outputs.
+        // This comes after Witnesses are created because the witness index is set in the input for recievers
+        let (shuffled_inputs, outputs) = Self::set_quisquis_input_output_prover(
+            &output_final,
+            &input_account_vector,
+            &inputs,
+            input_shuffle.get_permutation().to_owned(),
+            address::Network::default(),
+        );
+        let dark_proof_data: DarkProofWasmData = DarkProofWasmData{
+            value_vector_scalar,
+            delta_accounts,
+            epsilon_accounts,
+            delta_rscalar,
+            sender_updated_delta_account: sender_updated_delta_account.to_vec(),
+            updated_delta_accounts: updated_delta_accounts.clone(),
+        };
+        let shuffle_proof_data: ShuffleProofWasmData = ShuffleProofWasmData{
+            input_dash_accounts_anonymity_slice: input_dash_accounts_anonymity_slice.to_vec(),
+            updated_delta_accounts_anonymity_slice: updated_delta_accounts_anonymity_slice.to_vec(),
+            rscalars_anonymity_slice: rscalars_anonymity_slice.to_vec(),
+            input_shuffle,
+            output_shuffle,
+        };
+        
+
+    Ok(TransferTransactionWasmData{
+        dark_proof_wasm_data: dark_proof_data,
+        shuffle_proof_wasm_data: shuffle_proof_data,
+        shuffled_inputs: shuffled_inputs,
+        outputs,
+        witnesses,})
     }
 
       /// This is a special case of Transfer Tx where the anonymity set is obtained from utxo set itself
