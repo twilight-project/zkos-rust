@@ -323,7 +323,7 @@ impl ScriptTransaction {
         // verify the call proof for the program to check the authenticity of the program
         // Checking authenticity of the program is not required for contract deploy
 
-        //self.verify_call_proof()?;
+        self.verify_call_proof()?;
 
         // verify the r1cs proof
 
