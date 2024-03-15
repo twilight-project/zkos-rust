@@ -544,7 +544,7 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
-    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos: &mut std::collections::HashMap<Vec<u8>, Output> = utxo_storage.data.get_mut(&input_type).unwrap();
 
     for (key, output_data) in utxos {
         let addr = output_data.output.get_owner_address().unwrap();
