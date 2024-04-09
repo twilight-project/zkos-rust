@@ -124,61 +124,6 @@ impl Verifier {
         })
     }
 
-    /// Verifies the `Tx` object by executing the VM and returns the `VerifiedTx`.
-    /// Returns an error if the program is malformed or any of the proofs are not valid.
-    pub fn verify_tx(
-        verifiable_tx: PrecomputedTx,
-        bp_gens: &BulletproofGens,
-    ) -> Result<VerifiedTx, VMError> {
-        let pc_gens = PedersenGens::default();
-
-        let PrecomputedTx {
-            header,
-            id,
-            log,
-            feerate,
-            signature,
-            proof,
-            mut verifier,
-        } = verifiable_tx;
-        // time this code
-        let now = Instant::now();
-        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
-        verifier.cs.transcript().append_message(b"ZkVM.txid", &id);
-
-        // Verify the R1CS proof
-
-        verifier
-            .cs
-            .verify(&proof, &pc_gens, bp_gens)
-            .map_err(|_| VMError::InvalidR1CSProof)?;
-        let elapsed = now.elapsed();
-        println!("Elapsed Verifier: {:.2?}", elapsed);
-        // Verify the signatures over txid
-        let mut signtx_transcript = Transcript::new(b"ZkVM.signtx");
-        signtx_transcript.append_message(b"txid", &id);
-
-        if verifier.signtx_items.len() != 0 {
-            signature.verify_multi_batched(
-                &mut signtx_transcript,
-                verifier.signtx_items,
-                &mut verifier.batch,
-            );
-        }
-
-        // Verify all deferred crypto operations.
-        verifier
-            .batch
-            .verify()
-            .map_err(|_| VMError::BatchSignatureVerificationFailed)?;
-
-        Ok(VerifiedTx {
-            header,
-            id,
-            log,
-            feerate,
-        })
-    }
 
     /// verify_proof is a simple function that just verifies a R1CS proof instead of a whole ZKVM tx
     pub fn verify_proof(
