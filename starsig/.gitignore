@@ -1,7 +1,0 @@
-**/*.rs.bk
-Cargo.lock
-/target
-
-
-#Ignore .DS_Store
-**/.DS_Store

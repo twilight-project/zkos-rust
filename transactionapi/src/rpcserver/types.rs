@@ -1,4 +1,4 @@
-use quisquislib::elgamal::ElGamalCommitment;
+
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintOrBurnTx {
@@ -11,16 +11,23 @@ pub struct MintOrBurnTx {
     // hex string
     pub twilight_address: String,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum IOType {
+    COIN,
+    MEMO,
+    STATE,
+}
 
-// #[derive(Serialize, Deserialize, Clone, Debug)]
-// pub struct ZkOsAccount {
-//     pub address: String,
-//     pub encrypt: ElGamalCommitment,
-// }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UtxoArgs {
+    pub address: String,
+    pub io_type: IOType,
+}
 
-// impl ZkOsAccount {
-//     pub fn new(address: String, encrypt: ElGamalCommitment) -> Self {
-//         Self { address, encrypt }
-//     }
-
-//}
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputArgs {
+    pub tx_id: String,
+    pub vout: u32,
+    pub io_type: IOType,
+}

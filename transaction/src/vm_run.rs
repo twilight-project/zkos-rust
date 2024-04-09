@@ -99,9 +99,6 @@ impl<'g> Prover<'g> {
         // run the program to create a R1CS circuit
         let run_result = vm.run()?;
         println!("Vm run result {:?}", run_result);
-        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
-        //COMMIT TXID TO THE PROOF TO MAKE IT BOUND TO THE ENTIRE TRANSACTION
-        // prover.cs.transcript().append_message(b"ZkVM.txid", b"ZKOS");
 
         // Generate the R1CS proof
         let proof = prover
@@ -199,12 +196,6 @@ impl Verifier {
         // run the program to create a proof
         let _run_result = vm.run()?;
 
-        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
-        //COMMIT TXID TO THE PROOF TO MAKE IT BOUND TO THE ENTIRE TRANSACTION
-        // verifier
-        //     .cs
-        //     .transcript()
-        //     .append_message(b"ZkVM.txid", b"ZKOS");
 
         // Verify the R1CS proof
         verifier
