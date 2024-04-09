@@ -1,14 +1,6 @@
-# Spacesuit: Interstellar's implementation of cloaked transactions
+# RangeProof 
 
-This library provides a pure-Rust implementation of [Cloak][cloak], a confidential assets
-protocol based on the [Bulletproofs][bp_website] zero-knowledge circuit proof system.
-
-The implementation of the Cloak protocol for [Interstellar][interstellar] is called [Spacesuit][spacesuit_crate].
-It uses [this implementation][bp_repo] of Bulletproofs circuit proofs in Rust.
-
-## Documentation
-
-Specs for the Cloak protocol can be [found here][cloak].
+RangeProof is a gadget for generating R1CS constrainted range proof assets based on the [Bulletproofs](https://crypto.stanford.edu/bulletproofs/) zero-knowledge proof system.
 
 ## WARNING
 
