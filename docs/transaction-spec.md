@@ -1,4 +1,6 @@
-The following document defines the types required for constructing a transaction in ZkOS. 
+# ZkOS Specification
+
+This is a technical specification for construction/validation of a transaction in ZkOS. The main types are defined below. 
 
 ## Constants
 
@@ -11,31 +13,34 @@ The following document defines the types required for constructing a transaction
 | `MAX_SCRIPT_DATA_LENGTH`    | `uint64` | `64`  | Maximum length of script data, in bytes.      |
 | `MAX_WITNESSES`             | `uint64` | `16`  | Maximum number of witnesses.                  |
 
-## ZkOS Types
-
-ZkOS defines the following types
 
 ## Addresses
+ZkOS provides two types of addresses [Standard](#standard) and [Script](#script).  
 
-### Network
-ZkOS supports two types of Networks. The first byte of address represents the intended network.
-    1. Mainnet => reprersented by 12 for Standard and 24 for Script addresses
-    2. Testnet => represented by 44 for Standard and 66 for Script addresses
+### Standard 
+Standard addresses are used to identify the owner of the assets on the blockchain. The address is derived based on the El-Gamal public key encoded as hexadecimal string.
 
-### Standard
-[Standard](#standard) address are used to identify the owner of the assets on the blockchain. The address is derived based on the El-Gamal public key encoded as hexadecimal string.
 The address is derived as follows
-    1. The first byte represents the Network
-    2. 64 byte El-Gamal public key
-    3. 4 bytes of the Hashed address as checksum
-    4. Encode the bytes representation as hexadecimal string
 
-### Script
-[Script](#script) address represents the merkle root of the program merkle tree. It is used to ensure the integrity and authenticity of the deployed programs on the blockchian.
+1. The first byte represents the [Network](#network)
+2. 64 byte El-Gamal public key
+3. 4 bytes of the Hashed address as checksum
+4. Encode the bytes representation as hexadecimal string
+
+### Script 
+Script address represents the merkle root of the program merkle tree. It is used to ensure the integrity and authenticity of the deployed programs on the blockchian.
+
 The script is constructed as follows
-    1. The first byte represents the Network
-    2. 32 byte merkle tree root is hashed using RIPEMD-160 
-    3. The resultant bytes are encoded as hexadecimal string
+
+1. The first byte represents the [Network](#network)
+2. 32 byte merkle tree root is hashed using RIPEMD-160 
+3. The resultant bytes are encoded as hexadecimal string
+
+#### Network 
+ZkOS supports two types of [Networks](#network). The first byte of address represents the intended network.
+
+1. Mainnet: `12` for [Standard](#standard) and `24` for [Script](#script) addresses
+2. Testnet: `44` for [Standard](#standard) and `66` for [Script](#script) addresses
 
 ## Contract 
 A ZkOS [Contract](#contract-type) is expressed as a collection of ZkVM programs stored in a binary merkle tree and associated [state](state-type). Each 
