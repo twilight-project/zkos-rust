@@ -6,7 +6,7 @@ ZkOS (Zero Knowledge OS) is a new utxo-based blockchain architecture under activ
 
 ## Specification
 
-The specifications for ZkOS are defined [here](#./docs/)
+The specifications for ZkOS are defined in [docs](docs/)
 
 The ZkOS project consists of the following components
 
