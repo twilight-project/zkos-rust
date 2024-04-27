@@ -8,9 +8,3 @@
 - Lit to Lit Transfer
 - Dark to Dark Transfer
 - Template based Transaction
-
-## Authors
-
-- []
-- 
-- []
