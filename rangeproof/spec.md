@@ -3,13 +3,7 @@
 _RangeProof_ is a gadget for generating R1CS constrainted range proof assets based on the [Bulletproofs](https://crypto.stanford.edu/bulletproofs/) zero-knowledge proof system.
 
 * [Requirements](#requirements)
-* [Future directions](#future-directions)
 * [Definitions](#definitions)
-    * [Scalar](#scalar)
-    * [Signed integer](#signed-integer)
-    * [Value](#value)
-    * [Quantity](#quantity) 
-    * [Flavor](#flavor)
     * [Range proof](#range-proof)
 * [Converting boolean expressions](#converting-boolean-expressions)
 
@@ -17,39 +11,9 @@ _RangeProof_ is a gadget for generating R1CS constrainted range proof assets bas
 
 ## Definitions
 
-### Scalar
-
-An integer mod `l` where `l` is a Ristretto group order (`l = 2^252 + 27742317777372353535851937790883648493`).
-
-### Signed integer
-
-An integer in range [-2^64+1, 2^64-1].
-
-### Value
-
-The _value_ `v` is the tuple `(q, f)`, consisting of both an untyped [quantity](#quantity) `q` as well as
-type information `f` that we call [flavor](#flavor).
-
-In the rest of this specification, we will always use the word _value_
-to denote the typed quantity `(q, f)` and the word _quantity_ to denote an untyped quantity `q`.
-
-Values are encrypted using Pedersen commitments, one per component.
-
-### Quantity
-
-A [signed integer](#signed-integer) `q` representing a numeric amount of a given [value](#value). 
-
-Note: input values may have a negative quantity, but all outputs of a transaction are proven to be non-negative.
-
-### Flavor
-
-A [scalar](#scalar) `f` representing a unique asset type of a given [value](#value).
-
-[Values](#value) of different flavors cannot be merged. One flavor cannot be transmuted to another.
-
 ### Range proof
 
-Proves that a given [quantity](#quantity) is in a valid range using a binary representation:
+Proves that a given quantity is in a valid range using a binary representation:
 the quantity is a sum of all bits in its bit-representation multiplied by corresponding powers of two, and each bit has either 0 or 1 value.
 
 `n` multipliers `a_i*b_i = c_i` and `1 + 2*n` constraints:
@@ -63,11 +27,11 @@ where:
 * `b_i` is a bit and a left input to the `i`th multiplier.
 * `a_i` is a right input to an `i`th multiplier set to `1 - b_i` .
 * `c_i` is a multiplication result of `a_i` and `b_i`.
-* `q` is a [quantity](#quantity).
+* `q` is a quantity.
 
 Computing the proof:
 
-1. The [quantity](#quantity) is assumed to be known and be in range `[0, 2^64)`.
+1. The quantity is assumed to be known and be in range `[0, 2^64)`.
 2. Create 64 multipliers.
 3. Assign the inputs and outputs of the multipliers to the values specified above.
 
