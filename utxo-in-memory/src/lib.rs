@@ -21,7 +21,7 @@ use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<LocalStorage::<Output>>> =
         Arc::new(Mutex::new(LocalStorage::<Output>::new(3)));
-    pub static ref ADDRESS_TO_UTXO: Arc<Mutex<AddressUtxoIDStorage>>>> =
+    pub static ref ADDRESS_TO_UTXO: Arc<Mutex<AddressUtxoIDStorage>> =
         Arc::new(Mutex::new(AddressUtxoIDStorage::new()));
     pub static ref UTXO_MEMO_TELEMETRY_COUNTER: Gauge =
         register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
