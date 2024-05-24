@@ -28,14 +28,14 @@ impl AddressUtxoIDStorage {
         input_type: IOType,
         address: String,
         utxo_id: String,
-    ) -> Result<T, std::io::Error> {
+    ) -> Option<String> {
         self.data
             .get_mut(&input_type.to_usize())
             .unwrap()
             .insert(address.clone(), utxo_id.clone())
     }
 
-    fn remove(&mut self, input_type: IOType, address: String) -> Result<T, std::io::Error> {
+    fn remove(&mut self, input_type: IOType, address: String) -> Result<String, std::io::Error> {
         match self
             .data
             .get_mut(&input_type.to_usize())
