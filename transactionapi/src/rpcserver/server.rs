@@ -60,26 +60,6 @@ pub fn rpcserver() {
             let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
             return Err(err);
         }
-
-        //let hex_tx = match params.parse::<Vec<String>>() {
-        // Ok(vec) => {
-        //    if vec.is_empty() {
-        //     let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
-        //     return Err(err);
-        //   }
-        //    let hex_tx = vec[0].clone();
-        //  if hex_tx.trim().is_empty() {
-        //    let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
-        //    return Err(err);
-        //  }
-        //  hex_tx
-        // }
-        // Err(args) => {
-        //  let err =
-        //    JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
-        //  return Err(err);
-        // }
-        // };
         // Decode the tx hex string to bytes
         let tx_bytes = match hex::decode(hex_tx) {
             Ok(bytes) => bytes,
@@ -110,12 +90,12 @@ pub fn rpcserver() {
             "".to_string()
         };
 
-        println!("{:?}", twilight_address);
+       // println!("{:?}", twilight_address);
 
         // verify the inputs from utxo set for the tx
         let utxo_verified = verify_utxo(tx.clone());
         if utxo_verified == false {
-            let response_body = "Error: failed to verify utxo".to_string();
+            let response_body = "Error: Failed to verify the Input Utxo".to_string();
             let response_body = serde_json::Value::String(response_body);
             Ok(response_body)
         } else {
@@ -132,7 +112,7 @@ pub fn rpcserver() {
                     // check if transaction is Transfer/BurnMessage
                     match tx.tx_type {
                         TransactionType::Transfer | TransactionType::Script => {
-                            println!("Transfer Tx / Script tx");
+                            println!("Transfer Tx / Script tx submitted to Zkos Oracle");
                             let result = service::tx_commit(tx.clone(), fee).await;
                             let response: String = match result {
                                 Ok(response_body) => response_body,
@@ -249,7 +229,7 @@ pub fn rpcserver() {
             let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
             Ok(response_body)
         } else {
-            let result = format!("{{ Error: Utxo not available for provided address}}");
+            let result = format!("{{ Error: Coin Utxo ID not available for provided address}}");
             let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
             Ok(response_body)
         }
@@ -292,7 +272,7 @@ pub fn rpcserver() {
                     serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
                 Ok(response_body)
             } else {
-                let result = format!("{{ Error: Utxo not available for provided address}}");
+                let result = format!("{{ Error: Memo Utxo ID not available for provided address}}");
                 let response_body =
                     serde_json::to_value(result).expect("Failed to serialize to JSON");
                 Ok(response_body)
@@ -337,7 +317,7 @@ pub fn rpcserver() {
                     serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
                 Ok(response_body)
             } else {
-                let result = format!("{{ Error: Utxo not available for provided address}}");
+                let result = format!("{{ Error: State Utxo ID not available for provided address}}");
                 let response_body =
                     serde_json::to_value(result).expect("Failed to serialize to JSON");
                 Ok(response_body)
@@ -351,7 +331,7 @@ pub fn rpcserver() {
             let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
             Ok(response_body)
         } else {
-            let result = format!("{{ Error: UTXO do not exist for this type}}");
+            let result = format!("{{ Error: UTXO do not exist for Coin type}}");
             let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
             Ok(response_body)
         }
@@ -365,7 +345,7 @@ pub fn rpcserver() {
                     serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
                 Ok(response_body)
             } else {
-                let result = format!("{{ Error: UTXO do not exist for this type}}");
+                let result = format!("{{ Error: UTXO do not exist for Memo type}}");
                 let response_body =
                     serde_json::to_value(result).expect("Failed to serialize to JSON");
                 Ok(response_body)
@@ -381,7 +361,7 @@ pub fn rpcserver() {
                     serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
                 Ok(response_body)
             } else {
-                let result = format!("{{ Error: UTXO do not exist for this type}}");
+                let result = format!("{{ Error: UTXO do not exist for State type}}");
                 let response_body =
                     serde_json::to_value(result).expect("Failed to serialize to JSON");
                 Ok(response_body)
