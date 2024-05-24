@@ -16,26 +16,29 @@ impl AddressUtxoIDStorage {
         &mut self,
         address: String,
         input_type: IOType,
-    ) -> Option<&String> {
-        self.data
+    ) -> Option<String> {
+        match self
+            .data
             .get_mut(&input_type.to_usize())
             .unwrap()
             .get(&address)
-            .clone()
+        {
+            Some(utxo_id) => Some(utxo_id.clone()),
+            None => None,
+        }
     }
-    pub fn add(
-        &mut self,
-        input_type: IOType,
-        address: String,
-        utxo_id: String,
-    ) -> Option<String> {
+    pub fn add(&mut self, input_type: IOType, address: String, utxo_id: String) -> Option<String> {
         self.data
             .get_mut(&input_type.to_usize())
             .unwrap()
             .insert(address.clone(), utxo_id.clone())
     }
 
-    fn remove(&mut self, input_type: IOType, address: String) -> Result<String, std::io::Error> {
+    pub fn remove(
+        &mut self,
+        input_type: IOType,
+        address: String,
+    ) -> Result<String, std::io::Error> {
         match self
             .data
             .get_mut(&input_type.to_usize())
