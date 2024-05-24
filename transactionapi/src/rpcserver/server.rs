@@ -4,7 +4,9 @@ use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
 use jsonrpc_http_server::{hyper, ServerBuilder};
+use zkvm::IOType;
 
+use super::types::UtxoRequest;
 use std::collections::HashMap;
 use transaction::{TransactionData, TransactionType};
 use utxo_in_memory::blockoperations::blockprocessing::{
@@ -14,7 +16,8 @@ use utxo_in_memory::blockoperations::blockprocessing::{
     search_state_type_utxo_by_address, search_state_type_utxo_by_utxo_key, verify_utxo,
 };
 use utxo_in_memory::db::LocalDBtrait;
-use utxo_in_memory::UTXO_STORAGE;
+use utxo_in_memory::{ADDRESS_TO_UTXO, UTXO_STORAGE};
+
 /***************** POstgreSQL Insert Code *********/
 use utxo_in_memory::pgsql::{
     get_utxo_from_db_by_block_height_range, QueryUtxoFromDB, TestCommand, TestCommandString,
@@ -30,7 +33,6 @@ struct Meta {
 impl Metadata for Meta {}
 
 pub fn rpcserver() {
-
     println!("Starting rpc server");
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
@@ -90,7 +92,7 @@ pub fn rpcserver() {
             "".to_string()
         };
 
-       // println!("{:?}", twilight_address);
+        // println!("{:?}", twilight_address);
 
         // verify the inputs from utxo set for the tx
         let utxo_verified = verify_utxo(tx.clone());
@@ -194,6 +196,59 @@ pub fn rpcserver() {
         }
     });
 
+    io.add_method_with_meta(
+        "get_utxos_id",
+        move |params: Params, _meta: Meta| async move {
+            let address: address::Standard;
+
+            let utxo_request: UtxoRequest = match params.parse::<UtxoRequest>() {
+                Ok(utxo_request) => utxo_request,
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+            // address = match address::Standard::from_hex_with_error(&utxo_request.address) {
+            //     Ok(addr) => addr,
+            //     Err(e) => {
+            //         let err = JsonRpcError::invalid_params(e.to_string());
+            //         return Err(err);
+            //     }
+            // };
+            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock.unwrap();
+            let utxo_id_option =
+                address_to_utxo_storage.get_utxo_id_by_address(&utxo_request.input_type);
+
+            // let utxos = search_coin_type_utxo_by_address(address);
+            match utxo_id_option {
+                Some(utxo_id) => {
+                    let response_body =
+                        serde_json::to_value(&utxo_id).expect("Failed to serialize to JSON");
+                    Ok(response_body)
+                }
+                None => {
+                    let result = format!(
+                        "{{ Error: {} Utxo ID not available for provided address}}",
+                        utxo_request.input_type
+                    );
+                    let response_body =
+                        serde_json::to_value(result).expect("Failed to serialize to JSON");
+                    Ok(response_body)
+                }
+            }
+            // if utxos.len() > 0 {
+            //     let response_body =
+            //         serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+            //     Ok(response_body)
+            // } else {
+            //     let result = format!("{{ Error: Coin Utxo ID not available for provided address}}");
+            //     let response_body =
+            //         serde_json::to_value(result).expect("Failed to serialize to JSON");
+            //     Ok(response_body)
+            // }
+        },
+    );
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
         let address: address::Standard;
 
@@ -317,7 +372,8 @@ pub fn rpcserver() {
                     serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
                 Ok(response_body)
             } else {
-                let result = format!("{{ Error: State Utxo ID not available for provided address}}");
+                let result =
+                    format!("{{ Error: State Utxo ID not available for provided address}}");
                 let response_body =
                     serde_json::to_value(result).expect("Failed to serialize to JSON");
                 Ok(response_body)
@@ -325,17 +381,23 @@ pub fn rpcserver() {
         },
     );
 
-    io.add_method_with_meta("allUtxos", move |params: Params, _meta: Meta| async move {
-        let utxos: Vec<String> = all_coin_type_utxo();
-        if utxos.len() > 0 {
-            let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
-            Ok(response_body)
-        } else {
-            let result = format!("{{ Error: UTXO do not exist for Coin type}}");
-            let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
-            Ok(response_body)
-        }
-    });
+    // add pagination for all utxo call
+    io.add_method_with_meta(
+        "allCoinUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let utxos: Vec<String> = all_coin_type_utxo();
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: UTXO do not exist for Coin type}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
     io.add_method_with_meta(
         "allMemoUtxos",
         move |params: Params, _meta: Meta| async move {
@@ -353,7 +415,7 @@ pub fn rpcserver() {
         },
     );
     io.add_method_with_meta(
-        "allSateUtxos",
+        "allStateUtxos",
         move |params: Params, _meta: Meta| async move {
             let utxos = all_state_type_utxo();
             if utxos.len() > 0 {
@@ -368,6 +430,7 @@ pub fn rpcserver() {
             }
         },
     );
+
     io.add_method_with_meta(
         "allOutputs",
         move |params: Params, _meta: Meta| async move {
@@ -633,7 +696,7 @@ pub fn rpcserver() {
 
     eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
     let server = ServerBuilder::new(io)
-        .threads(5)
+        .threads(20)
         .meta_extractor(|req: &hyper::Request<hyper::Body>| {
             let auth = req
                 .headers()

@@ -7,26 +7,37 @@ mod threadpool;
 extern crate lazy_static;
 pub use self::db::SnapShot;
 pub use self::threadpool::ThreadPool;
-use db::{LocalDBtrait, LocalStorage};
+use db::{AddressUtxoIDStorage, LocalDBtrait, LocalStorage};
 pub use pgsql::init_psql;
-use std::{fs, sync::{Arc, Mutex}};
+use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
+use std::{
+    collections::HashMap,
+    fs,
+    sync::{Arc, Mutex},
+};
 use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
-use zkvm::zkos_types::Output;
-use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
+use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<Mutex<LocalStorage::<Output>>> =
         Arc::new(Mutex::new(LocalStorage::<Output>::new(3)));
-    pub static ref  UTXO_MEMO_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
-    pub static ref  UTXO_STATE_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_state_count", "A counter for state utxo").unwrap();
-    pub static ref  UTXO_COIN_TELEMETRY_COUNTER: Gauge = register_gauge!("utxo_coin_count", "A counter for coin utxo").unwrap();
+    pub static ref ADDRESS_TO_UTXO: Arc<Mutex<AddressUtxoIDStorage>>>> =
+        Arc::new(Mutex::new(AddressUtxoIDStorage::new()));
+    pub static ref UTXO_MEMO_TELEMETRY_COUNTER: Gauge =
+        register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
+    pub static ref UTXO_STATE_TELEMETRY_COUNTER: Gauge =
+        register_gauge!("utxo_state_count", "A counter for state utxo").unwrap();
+    pub static ref UTXO_COIN_TELEMETRY_COUNTER: Gauge =
+        register_gauge!("utxo_coin_count", "A counter for coin utxo").unwrap();
 }
-use blockoperations::blockprocessing::{total_coin_type_utxos, total_state_type_utxos, total_memo_type_utxos};
+use blockoperations::blockprocessing::{
+    total_coin_type_utxos, total_memo_type_utxos, total_state_type_utxos,
+};
 
 pub fn init_utxo() {
     println!("starting utxo init");
     init_psql();
-    
+
     {
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
         // let _ = utxo_storage.load_from_snapshot();
@@ -39,9 +50,18 @@ pub fn init_utxo() {
     UTXO_STATE_TELEMETRY_COUNTER.set(total_state_type_utxos() as f64);
     UTXO_COIN_TELEMETRY_COUNTER.set(total_coin_type_utxos() as f64);
 
-    println!("UTXO Memo Telemetry Counter Value: {}", UTXO_MEMO_TELEMETRY_COUNTER.get());
-    println!("UTXO coin Telemetry Counter Value: {}", UTXO_COIN_TELEMETRY_COUNTER.get());
-    println!("UTXO state Telemetry Counter Value: {}", UTXO_STATE_TELEMETRY_COUNTER.get());
+    println!(
+        "UTXO Memo Telemetry Counter Value: {}",
+        UTXO_MEMO_TELEMETRY_COUNTER.get()
+    );
+    println!(
+        "UTXO coin Telemetry Counter Value: {}",
+        UTXO_COIN_TELEMETRY_COUNTER.get()
+    );
+    println!(
+        "UTXO state Telemetry Counter Value: {}",
+        UTXO_STATE_TELEMETRY_COUNTER.get()
+    );
 
     //load data from intial block from chain
     // if utxo_storage.block_height == 0 {
@@ -57,7 +77,6 @@ pub fn init_utxo() {
     // }
 
     println!("finishing utxo init");
-
 }
 //To be done later
 // fn establish_websocket_connection(
@@ -83,7 +102,7 @@ pub fn zk_oracle_subscriber() {
         Err(e) => {
             eprintln!("Failed to read block height: {}", e);
             0
-        },
+        }
     };
     let url_str = format!("ws://0.0.0.0:7001/latestblock?blockHeight={}", block_height);
     let url = Url::parse(&url_str);
@@ -106,7 +125,7 @@ pub fn zk_oracle_subscriber() {
             Message::Text(text) => {
                 let block: blockoperations::blockprocessing::Block =
                     serde_json::from_str(&text).unwrap();
-                let height=block.block_height;
+                let height = block.block_height;
                 let result = blockoperations::blockprocessing::process_block_for_utxo_insert(block);
                 if result.suceess_tx.len() > 0 {
                     save_snapshot();
@@ -126,7 +145,6 @@ pub fn zk_oracle_subscriber() {
     // }
     //}
 }
-
 
 fn save_snapshot() {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
