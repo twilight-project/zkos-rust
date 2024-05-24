@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(missing_docs)]
+#![allow(warnings)]
 //! Block processing to update Utxo set.
 
 use crate::db::*;
@@ -10,17 +11,17 @@ use crate::pgsql::{PGSQLDataInsert, PGSQLTransaction, THREADPOOL_SQL_QUEUE};
 use crate::UTXO_STORAGE;
 use hex;
 
+use crate::ADDRESS_TO_UTXO;
 use address::{Address, Network};
 use quisquislib::elgamal::elgamal::ElGamalCommitment;
 use rand::Rng;
 use serde::de::{self, Deserializer, Visitor};
 use serde_derive::{Deserialize, Serialize};
+use serde_ini;
 use std::fmt;
 use std::fs;
-use serde_ini;
 use std::fs::File;
 use std::io::Write;
-
 use transaction::reference_tx::{
     convert_output_to_input, create_dark_reference_tx_for_utxo_test, RecordUtxo,
 };
@@ -35,13 +36,16 @@ use zkvm::Hash;
 
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
+use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
 use quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
-use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 
 lazy_static! {
-    pub static ref  TOTAL_DARK_SATS_MINTED: Gauge = register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
-    pub static ref  TOTAL_TRANSFER_TX: Gauge = register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
-    pub static ref  TOTAL_SCRIPT_TX: Gauge = register_gauge!("script_tx_count", "A counter for script tx").unwrap();
+    pub static ref TOTAL_DARK_SATS_MINTED: Gauge =
+        register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
+    pub static ref TOTAL_TRANSFER_TX: Gauge =
+        register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
+    pub static ref TOTAL_SCRIPT_TX: Gauge =
+        register_gauge!("script_tx_count", "A counter for script tx").unwrap();
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,13 +152,16 @@ pub fn read_telemetry_stats_from_file() -> Result<(), Box<dyn std::error::Error>
 
 fn write_telemetry_stats_to_file() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create("telemetry.ini")?;
-    write!(file, "total_dark_sats_minted={}\n", TOTAL_DARK_SATS_MINTED.get())?;
+    write!(
+        file,
+        "total_dark_sats_minted={}\n",
+        TOTAL_DARK_SATS_MINTED.get()
+    )?;
     write!(file, "total_transfer_tx={}\n", TOTAL_TRANSFER_TX.get())?;
     write!(file, "total_script_tx={}\n", TOTAL_SCRIPT_TX.get())?;
 
     Ok(())
 }
-
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
@@ -190,42 +197,6 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
 
     let utxo_verified = verify_utxo(transaction_info);
 
-    // if transaction_info.tx_type == TransactionType::Script{
-    //     for input in &tx_input {
-    //         let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
-    //         let utxo_input_type = input.in_type as usize;
-    //         let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
-    //         if bool {
-    //         } else {
-    //             success = false;
-    //         }
-    //     }
-    // }
-
-    // if transaction_info.tx_type == TransactionType::Transfer{
-    //     for input in &tx_input {
-    //         let utxo_key = bincode::serialize(input.as_utxo().unwrap()).unwrap();
-    //         let utxo_input_type = input.in_type as usize;
-    //         let bool = utxo_storage.search_key(&utxo_key, utxo_input_type);
-    //         if bool {
-    //         } else {
-    //             success = false;
-    //         }
-    //     }
-    // }
-
-    // for (output_index, output_set) in tx_output.iter().enumerate() {
-    //     println!("inside outputs");
-    //     let utxo_key =
-    //         bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
-    //     let utxo_output_type = output_set.out_type as usize;
-    //     let bool = utxo_storage.search_key(&utxo_key, utxo_output_type);
-    //     if bool {
-    //         success = false;
-    //     } else {
-    //     }
-    // }
-    //proccess tx
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
 
     if utxo_verified {
@@ -244,6 +215,15 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             let utxo = input.as_utxo().unwrap();
             if utxo.to_owned() != utxo_test {
                 let _result = utxo_storage.remove(utxo_key.clone(), utxo_input_type);
+
+                //addres to utxo id link
+                let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+                address_to_utxo_storage.remove(
+                    input.in_type.clone(),
+                    input.as_owner_address().unwrap().clone(),
+                );
+                drop(address_to_utxo_storage);
+                //
                 match _result {
                     Ok(_) => {
                         /***************** POstgreSQL Insert Code *********/
@@ -265,6 +245,16 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                 bincode::serialize(&Utxo::from_hash(Hash(tx_id), output_index as u8)).unwrap();
             let utxo_output_type = output_set.out_type as usize;
             let _result = utxo_storage.add(utxo_key.clone(), output_set.clone(), utxo_output_type);
+
+            // address to utxo id linking ****
+            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+            address_to_utxo_storage.add(
+                output_set.out_type.clone(),
+                output_set.output.get_owner_address().unwrap().clone(),
+                hex::encode(utxo_key.clone()),
+            );
+            drop(address_to_utxo_storage);
+            //******* */
             match _result {
                 Ok(_) => {
                     /***************** POstgreSQL Insert Code *********/
@@ -327,12 +317,11 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
         drop(treadpool_sql_queue);
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
-        
-        if transaction_type == TransactionType::Script{
+
+        if transaction_type == TransactionType::Script {
             TOTAL_SCRIPT_TX.inc();
             write_telemetry_stats_to_file();
-        }
-        else if transaction_type == TransactionType::Transfer{
+        } else if transaction_type == TransactionType::Transfer {
             TOTAL_TRANSFER_TX.inc();
             write_telemetry_stats_to_file();
         }
@@ -368,7 +357,15 @@ pub fn process_trade_mint(
             owner: address.as_hex(),
         }));
         utxo_storage.add(utxo_key.clone(), output.clone(), output.out_type as usize);
-
+        // address to utxo id linking ****
+        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+        address_to_utxo_storage.add(
+            output.out_type.clone(),
+            address.as_hex(),
+            hex::encode(utxo_key.clone()),
+        );
+        drop(address_to_utxo_storage);
+        //******* */
         let pk = address.as_hex();
         tx_result.suceess_tx.push(tx_id);
 
@@ -393,30 +390,27 @@ pub fn process_trade_mint(
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
 
-
         let float_value: f64 = match transaction.btc_value.unwrap().parse() {
-            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Ok(value) => value, // If parsing is successful, use the parsed value
             Err(e) => {
                 println!("Failed to convert string to f64: {:?}", e);
-                0.0  // Use a default value (like 0.0) in case of an error
-            },
+                0.0 // Use a default value (like 0.0) in case of an error
+            }
         };
 
         TOTAL_DARK_SATS_MINTED.add(float_value);
         write_telemetry_stats_to_file();
         println!("UTXO ADDED MINT")
-    }
-    else if transaction.mint_or_burn.unwrap() == false {
+    } else if transaction.mint_or_burn.unwrap() == false {
         let float_value: f64 = match transaction.btc_value.unwrap().parse() {
-            Ok(value) => value,   // If parsing is successful, use the parsed value
+            Ok(value) => value, // If parsing is successful, use the parsed value
             Err(e) => {
                 println!("Failed to convert string to f64: {:?}", e);
-                0.0  // Use a default value (like 0.0) in case of an error
-            },
+                0.0 // Use a default value (like 0.0) in case of an error
+            }
         };
         TOTAL_DARK_SATS_MINTED.sub(float_value);
         write_telemetry_stats_to_file();
-        
     }
     // UTXO IS ALREADY REMOVED THROUGH THE ZKOS Burn Message TX that appears as Transfer Tx now
     // Therefore no need to do anything for Tendermint Burn Tx.
@@ -544,7 +538,8 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
-    let utxos: &mut std::collections::HashMap<Vec<u8>, Output> = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos: &mut std::collections::HashMap<Vec<u8>, Output> =
+        utxo_storage.data.get_mut(&input_type).unwrap();
 
     for (key, output_data) in utxos {
         let addr = output_data.output.get_owner_address().unwrap();
@@ -629,6 +624,18 @@ pub fn search_utxo_by_utxo_key(utxo: Utxo, input_type: IOType) -> Result<Output,
     };
     return Ok(result);
 }
+pub fn search_utxo_by_utxo_key_bytes(
+    utxo: Vec<u8>,
+    input_type: IOType,
+) -> Result<Output, &'static str> {
+    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+
+    let result = match utxo_storage.get_utxo_by_id(utxo, input_type.to_usize()) {
+        Ok(output) => output,
+        Err(_err) => return Err("Utxo not found "),
+    };
+    return Ok(result);
+}
 pub fn search_memo_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Memo as usize;
@@ -647,27 +654,27 @@ pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static
     };
     return Ok(result);
 }
-pub fn total_memo_type_utxos() -> u64{
+pub fn total_memo_type_utxos() -> u64 {
     println!("inside total memo");
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Memo as usize;
-    let result = utxo_storage.get_count_by_type(input_type); 
+    let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
     return result;
 }
 
-pub fn total_state_type_utxos() -> u64{
+pub fn total_state_type_utxos() -> u64 {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::State as usize;
-    let result = utxo_storage.get_count_by_type(input_type); 
+    let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
     return result;
 }
 
-pub fn total_coin_type_utxos() -> u64{
+pub fn total_coin_type_utxos() -> u64 {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     let input_type = IOType::Coin as usize;
-    let result = utxo_storage.get_count_by_type(input_type); 
+    let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
     return result;
 }

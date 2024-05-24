@@ -1,3 +1,4 @@
+#![allow(warnings)]
 pub mod blockoperations;
 pub mod db;
 pub mod pgsql;
@@ -42,7 +43,22 @@ pub fn init_utxo() {
         let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
         // let _ = utxo_storage.load_from_snapshot();
         let _ = utxo_storage.load_from_snapshot_from_psql();
+        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+        for input_type in 0..3 {
+            let utxos: &mut std::collections::HashMap<Vec<u8>, Output> =
+                utxo_storage.data.get_mut(&input_type).unwrap();
 
+            for (key, output_data) in utxos {
+                let addr = output_data.output.get_owner_address().unwrap().clone();
+
+                address_to_utxo_storage.add(
+                    IOType::from_usize(input_type).unwrap(),
+                    addr,
+                    hex::encode(key.clone()),
+                );
+            }
+        }
+        drop(address_to_utxo_storage);
         println!("finished loading from psql");
     }
 

@@ -41,22 +41,22 @@ impl AllOutputsResponse {
 
         let tx_hash: Vec<zkvm::zkos_types::Output> = match resp.result {
             Ok(response) => match response {
-                serde_json::Value::String(txHexData) => {
-                    match hex::decode(txHexData) {
+                serde_json::Value::String(tx_hex_data) => {
+                    match hex::decode(tx_hex_data) {
                         Ok(u8_bytes) => match bincode::deserialize(&u8_bytes) {
                             Ok(output_vec) => {
                                 result = output_vec;
                                 result
                             }
-                            Err(args) => result,
+                            Err(_args) => result,
                         },
                         // Ok(hex_data) => Ok(hex_data),
-                        Err(args) => result,
+                        Err(_args) => result,
                     }
                 }
                 _ => result,
             },
-            Err(arg) => result,
+            Err(_arg) => result,
         };
         tx_hash
     }
@@ -79,7 +79,7 @@ impl GetUtxosResponse {
                 };
                 response_result
             }
-            Err(arg) => Vec::new(),
+            Err(_arg) => Vec::new(),
         };
         utxo_vec
     }
@@ -101,7 +101,7 @@ impl GetMemoUtxosResponse {
                 };
                 response_result
             }
-            Err(arg) => Vec::new(),
+            Err(_arg) => Vec::new(),
         };
         utxo_vec
     }
@@ -123,7 +123,7 @@ impl GetStateUtxosResponse {
                 };
                 response_result
             }
-            Err(arg) => Vec::new(),
+            Err(_arg) => Vec::new(),
         };
         utxo_vec
     }
@@ -148,7 +148,7 @@ impl AllUtxoResponse {
                 };
                 response_result
             }
-            Err(arg) => Vec::new(),
+            Err(_arg) => Vec::new(),
         };
         AllUtxoResponse { all_utxo: utxo_vec }
     }
@@ -171,7 +171,7 @@ impl GetCoinOutputResponse {
                 };
                 response_result
             }
-            Err(arg) => None,
+            Err(_arg) => None,
         };
         GetCoinOutputResponse { all_utxo: utxo_vec }
     }
@@ -194,7 +194,7 @@ impl GetMemoOutputResponse {
                 };
                 response_result
             }
-            Err(arg) => None,
+            Err(_arg) => None,
         };
         GetMemoOutputResponse { all_utxo: utxo_vec }
     }
@@ -217,7 +217,7 @@ impl GetStateOutputResponse {
                 };
                 response_result
             }
-            Err(arg) => None,
+            Err(_arg) => None,
         };
         GetStateOutputResponse { all_utxo: utxo_vec }
     }
@@ -244,7 +244,7 @@ impl GetUtxosFromDBResponse {
                     None => Vec::new(),
                 }
             }
-            Err(arg) => Vec::new(),
+            Err(_arg) => Vec::new(),
         };
         GetUtxosFromDBResponse { utxo_vec: utxo_vec }
     }

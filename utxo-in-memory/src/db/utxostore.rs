@@ -2,6 +2,7 @@
 // #![allow(unused_imports)]
 // #![allow(non_camel_case_types)]
 use crate::db::*;
+use crate::ADDRESS_TO_UTXO;
 pub type KeyId = Vec<u8>;
 pub type InputType = usize;
 use crate::ThreadPool;
@@ -224,6 +225,7 @@ where
     }
 
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error> {
+        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
         for inputtype in 0..self.partition_size {
             let mut pagination_bool = true;
             let mut pagination_counter = 0;
@@ -244,6 +246,7 @@ where
                                     .get_mut(&inputtype)
                                     .unwrap()
                                     .insert(value.keyid, value.output);
+
                             }
                             pagination_counter += 1;
                         } else {

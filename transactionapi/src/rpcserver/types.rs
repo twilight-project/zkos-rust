@@ -1,5 +1,6 @@
 use quisquislib::elgamal::ElGamalCommitment;
 use serde::{Deserialize, Serialize};
+use zkvm::IOType;
 use zkvm::{Input, Utxo};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintOrBurnTx {
@@ -28,8 +29,6 @@ pub struct MintOrBurnTx {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoRequest {
-    pub address: String,
+    pub address_or_id: String,
     pub input_type: IOType,
 }
-impl UtxoRequest {}
-use zkvm::IOType;
