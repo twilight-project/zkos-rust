@@ -9,7 +9,7 @@ pub use self::db::SnapShot;
 pub use self::threadpool::ThreadPool;
 use db::{LocalDBtrait, LocalStorage};
 pub use pgsql::init_psql;
-use std::sync::{Arc, Mutex};
+use std::{fs, sync::{Arc, Mutex}};
 use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
 use zkvm::zkos_types::Output;
@@ -72,8 +72,21 @@ pub fn init_utxo() {
 // }
 pub fn zk_oracle_subscriber() {
     println!("started zk subsciber");
-    let url_str = "ws://0.0.0.0:7001/latestblock";
-    let url = Url::parse(url_str);
+    let block_height = match fs::read_to_string("height.txt") {
+        Ok(block_height_str) => match block_height_str.trim().parse::<i64>() {
+            Ok(block_height) => block_height,
+            Err(_) => {
+                eprintln!("Failed to parse block height");
+                0
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to read block height: {}", e);
+            0
+        },
+    };
+    let url_str = format!("ws://0.0.0.0:7001/latestblock?blockHeight={}", block_height);
+    let url = Url::parse(&url_str);
     let url: Url = match url {
         Ok(url) => url,
         Err(e) => {
@@ -82,7 +95,7 @@ pub fn zk_oracle_subscriber() {
         }
     };
 
-    let (mut socket, _response) =
+    let (mut socket, response) =
         connect(url).expect("Can't establish a web socket connection to ZKOracle");
 
     //match establish_websocket_connection() {
@@ -93,10 +106,12 @@ pub fn zk_oracle_subscriber() {
             Message::Text(text) => {
                 let block: blockoperations::blockprocessing::Block =
                     serde_json::from_str(&text).unwrap();
+                let height=block.block_height;
                 let result = blockoperations::blockprocessing::process_block_for_utxo_insert(block);
                 if result.suceess_tx.len() > 0 {
                     save_snapshot();
                 }
+                write_block_height(height);
             }
             Message::Close(_) => {
                 println!("Server disconnected");
@@ -112,6 +127,7 @@ pub fn zk_oracle_subscriber() {
     //}
 }
 
+
 fn save_snapshot() {
     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
     println!("get block height:{:#?}", utxo_storage.block_height);
@@ -122,4 +138,11 @@ fn save_snapshot() {
     let res = utxo_storage.take_snapshot();
     // log the result
     println!("get snap:{:#?}", res);
+}
+
+fn write_block_height(block_height: u64) {
+    match fs::write("height.txt", block_height.to_string()) {
+        Ok(_) => println!("Successfully wrote block height to file"),
+        Err(e) => eprintln!("Failed to write block height: {}", e),
+    }
 }

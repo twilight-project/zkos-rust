@@ -51,7 +51,7 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, Str
         Ok(json_data) => json_data,
         Err(e) => {
             return Err(format!(
-                r#"{{"error": "error in transaction Payload (faulty data)"}}"#
+                r#"{{"error": "error in transaction Payload (faulty data) {}"}}"#, e
             ))
         }
     };
@@ -64,12 +64,11 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, Str
         .await
     {
         Ok(response) => response,
-        Err(e) => return Err(format!(r#"{{"error": "error in commiting transaction"}}"#)),
+        Err(e) => return Err(format!(r#"{{"error": "error in committing transaction: {}"}}"#, e)),
     };
     let response_body: String = match response.text().await {
         Ok(response_body) => response_body,
-        Err(e) => return Err(format!(r#"{{"error": "error in commiting transaction"}}"#)),
-    };
+        Err(e) => return Err(format!(r#"{{"error": "error in committing transaction: {}"}}"#, e)),    };
     TOTAL_TX_COUNTER.inc();
     Ok(response_body)
 }
