@@ -37,7 +37,7 @@ bincode = "1"
 
 [dependencies.quisquis-rust]
 #path = "../../quisquis-rust"
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
+git = "https://github.com/twilight-project/quisquis-rust.git"
 branch = "develop"
 
 
