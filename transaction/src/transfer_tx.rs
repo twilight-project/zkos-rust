@@ -186,20 +186,20 @@ impl TransferTransaction {
         let sender_updated_delta_account = &updated_delta_accounts[..senders_count];
 
         // update the delta_updated_accounts to create output for dark tx
-        let pk_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
-        let comm_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
+        // let pk_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
+        // let comm_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
 
-        let output_accounts = updated_delta_accounts
-            .iter()
-            .map(|account| {
-                Account::update_account(
-                    *account,
-                    Scalar::zero(),
-                    pk_update_scalar,
-                    comm_update_scalar,
-                )
-            })
-            .collect::<Vec<Account>>();
+        // let output_accounts = updated_delta_accounts
+        //     .iter()
+        //     .map(|account| {
+        //         Account::update_account(
+        //             *account,
+        //             Scalar::zero(),
+        //             pk_update_scalar,
+        //             comm_update_scalar,
+        //         )
+        //     })
+        //     .collect::<Vec<Account>>();
         
         // create dark tx proof including the updated output accounts proof
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
@@ -216,12 +216,12 @@ impl TransferTransaction {
             senders_count,
             receivers_count,
             base_pk,
-            Some((&output_accounts, pk_update_scalar, comm_update_scalar)),
+            None,//Some((&output_accounts, pk_update_scalar, comm_update_scalar)),
         );
 
         //create vec of Outputs -- Senders + Recievers in this case
         let mut outputs: Vec<Output> = Vec::new();
-        for out in output_accounts.iter() {
+        for out in updated_delta_accounts.iter() {
             outputs.push(Output::from_quisquis_account(
                 out.clone(),
                 address::Network::default(),
@@ -242,8 +242,8 @@ impl TransferTransaction {
                 // create Output_account_commitment_scalar for reciever accounts. Returned back to the client. Required for burnMessage/Script Tx(esp. Order/Lend)
                // create reference for delta_rscalar of recievers
                let delta_rscalar_receiver = &delta_rscalar[senders_count..senders_count+receivers_count];
-               // output account commitment scalar = input_commitment_scalar + delta_rscalar + comm_update_scalar
-               let encrypt_scalar_sum_vector = delta_rscalar_receiver.iter().zip(scalar_vector.iter()).map(|(x,y)| x+y+comm_update_scalar).collect::<Vec<Scalar>>();
+               // output account commitment scalar = input_commitment_scalar + delta_rscalar + comm_update_scalar                              //x+y+comm_update_scalar
+               let encrypt_scalar_sum_vector = delta_rscalar_receiver.iter().zip(scalar_vector.iter()).map(|(x,y)| x + y).collect::<Vec<Scalar>>();
                  // create proof zero balance commitment for reciever accounts
                 let witnesses = reciever_zero_balance_proof(
                     &mut prover,
@@ -585,8 +585,8 @@ impl TransferTransaction {
         }
 
         if self.shuffle_proof.is_none() {
-            //verify Dark transaction
-            self.verify_private_transfer_tx(&input_accounts, Some(&output_accounts))
+            //verify Dark transaction                       Some(&output_accounts)
+            self.verify_private_transfer_tx(&input_accounts, None)
         } else {
             //verify QQ Transaction
             self.verify_quisquis_tx(&input_accounts, &output_accounts)
