@@ -1,7 +1,7 @@
 [package]
 name = "transaction"
 version = "0.1.0"
-authors = [Usman Shahid]
+authors = ["Usman Shahid"]
 edition = "2021"
 license = "Apache-2.0"
 #repository = ""
@@ -27,12 +27,12 @@ bincode = "1.3.3"
 
 [dependencies.quisquis-rust]
 #path = "../../quisquis-rust"
-git = "ssh://github.com/twilight-project/quisquis-rust.git"
+git = "https://github.com/twilight-project/quisquis-rust.git"
 branch = "develop"
 
 
 [dependencies.zkschnorr]
-git = "ssh://github.com/twilight-project/ZkSchnorr.git"
+git = "https://github.com/twilight-project/zk-schnorr.git"
 #path = "../../ZkSchnorr"
 
 
