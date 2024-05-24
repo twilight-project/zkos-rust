@@ -216,9 +216,9 @@ pub fn rpcserver() {
             //         return Err(err);
             //     }
             // };
-            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock.unwrap();
+            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
             let utxo_id_option =
-                address_to_utxo_storage.get_utxo_id_by_address(&utxo_request.input_type);
+                address_to_utxo_storage.get_utxo_id_by_address(utxo_request.address, utxo_request.input_type);
 
             // let utxos = search_coin_type_utxo_by_address(address);
             match utxo_id_option {
@@ -229,7 +229,7 @@ pub fn rpcserver() {
                 }
                 None => {
                     let result = format!(
-                        "{{ Error: {} Utxo ID not available for provided address}}",
+                        "{{ Error: {:?} Utxo ID not available for provided address}}",
                         utxo_request.input_type
                     );
                     let response_body =
