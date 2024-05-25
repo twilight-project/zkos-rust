@@ -8,9 +8,11 @@ pub struct AddressUtxoIDStorage {
 }
 impl AddressUtxoIDStorage {
     pub fn new() -> Self {
-        AddressUtxoIDStorage {
-            data: HashMap::new(),
-        }
+        let mut data: HashMap<usize, HashMap<String, String>> = HashMap::new();
+        data.insert(0, HashMap::new());
+        data.insert(1, HashMap::new());
+        data.insert(2, HashMap::new());
+        AddressUtxoIDStorage { data: data }
     }
     pub fn get_utxo_id_by_address(
         &mut self,
@@ -19,13 +21,15 @@ impl AddressUtxoIDStorage {
     ) -> Option<String> {
         match self
             .data
-            .get_mut(&input_type.to_usize())
-            .unwrap()
-            .get(&address)
-        {
-            Some(utxo_id) => Some(utxo_id.clone()),
-            None => None,
-        }
+            .get_mut(&input_type.to_usize()){
+                Some(utxo_id) => {
+                    match utxo_id.get(&address){
+                        Some(utxo_id) => Some(utxo_id.clone()),
+                        None => None,
+                    }
+                },
+                None => None,
+            }
     }
     pub fn add(&mut self, input_type: IOType, address: String, utxo_id: String) -> Option<String> {
         self.data
