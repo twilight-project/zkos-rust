@@ -434,7 +434,7 @@ pub fn rpcserver() {
     );
 
     io.add_method_with_meta(
-        "getOutputNew",
+        "get_output",
         move |params: Params, _meta: Meta| async move {
             let utxo_request: UtxoRequest = match params.parse::<UtxoRequest>() {
                 Ok(utxo_request) => utxo_request,
