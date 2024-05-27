@@ -197,7 +197,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
 
     let utxo_verified = verify_utxo(transaction_info);
 
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.write().unwrap();
 
     if utxo_verified {
         /***************** POstgreSQL Insert Code *********/
@@ -339,7 +339,7 @@ pub fn process_trade_mint(
 ) {
     println!("In Process trade mint  tx :=:  {:?}", transaction);
 
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.write().unwrap();
     let tx_id = hex::decode(transaction.tx_id.clone()).expect("error decoding tx id");
     let tx_id = TxID(Hash(tx_id.try_into().unwrap()));
     let utxo_key = bincode::serialize(&Utxo::new(tx_id, 0 as u8)).unwrap();
@@ -463,9 +463,9 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
 
 pub fn all_coin_type_utxo() -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Coin as usize;
-    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos = utxo_storage.data.get(&input_type).unwrap();
     for (key, output_data) in utxos {
         match bincode::deserialize(&key) {
             Ok(value) => {
@@ -483,9 +483,9 @@ pub fn all_coin_type_utxo() -> Vec<String> {
 }
 pub fn all_memo_type_utxo() -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Memo as usize;
-    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos = utxo_storage.data.get(&input_type).unwrap();
     for (key, output_data) in utxos {
         match bincode::deserialize(&key) {
             Ok(value) => {
@@ -503,9 +503,9 @@ pub fn all_memo_type_utxo() -> Vec<String> {
 }
 pub fn all_state_type_utxo() -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::State as usize;
-    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos = utxo_storage.data.get(&input_type).unwrap();
     for (key, output_data) in utxos {
         match bincode::deserialize(&key) {
             Ok(value) => {
@@ -524,9 +524,9 @@ pub fn all_state_type_utxo() -> Vec<String> {
 
 pub fn all_coin_type_output() -> String {
     let mut result: Vec<Output> = Vec::new();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Coin as usize;
-    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos = utxo_storage.data.get(&input_type).unwrap();
     for (key, output_data) in utxos {
         result.push(output_data.clone());
     }
@@ -536,10 +536,10 @@ pub fn all_coin_type_output() -> String {
 
 pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Coin as usize;
-    let utxos: &mut std::collections::HashMap<Vec<u8>, Output> =
-        utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos: &std::collections::HashMap<Vec<u8>, Output> =
+        utxo_storage.data.get(&input_type).unwrap();
 
     for (key, output_data) in utxos {
         let addr = output_data.output.get_owner_address().unwrap();
@@ -560,9 +560,9 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
 }
 pub fn search_memo_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Memo as usize;
-    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos = utxo_storage.data.get(&input_type).unwrap();
 
     for (key, output_data) in utxos {
         let addr = output_data.output.get_owner_address().unwrap();
@@ -583,9 +583,9 @@ pub fn search_memo_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
 }
 pub fn search_state_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::State as usize;
-    let utxos = utxo_storage.data.get_mut(&input_type).unwrap();
+    let utxos = utxo_storage.data.get(&input_type).unwrap();
 
     for (key, output_data) in utxos {
         let addr = output_data.output.get_owner_address().unwrap();
@@ -606,7 +606,7 @@ pub fn search_state_type_utxo_by_address(address: address::Standard) -> Vec<Utxo
 }
 
 pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Coin as usize;
     let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
         Ok(output) => output,
@@ -616,7 +616,7 @@ pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static 
 }
 
 pub fn search_utxo_by_utxo_key(utxo: Utxo, input_type: IOType) -> Result<Output, &'static str> {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.read().unwrap();
 
     let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type.to_usize()) {
         Ok(output) => output,
@@ -628,7 +628,7 @@ pub fn search_utxo_by_utxo_key_bytes(
     utxo: Vec<u8>,
     input_type: IOType,
 ) -> Result<Output, &'static str> {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
 
     let result = match utxo_storage.get_utxo_by_id(utxo, input_type.to_usize()) {
         Ok(output) => output,
@@ -637,7 +637,7 @@ pub fn search_utxo_by_utxo_key_bytes(
     return Ok(result);
 }
 pub fn search_memo_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Memo as usize;
     let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
         Ok(output) => output,
@@ -646,7 +646,7 @@ pub fn search_memo_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static 
     return Ok(result);
 }
 pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::State as usize;
     let result = match utxo_storage.get_utxo_by_id(utxo.to_bytes(), input_type) {
         Ok(output) => output,
@@ -656,7 +656,7 @@ pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static
 }
 pub fn total_memo_type_utxos() -> u64 {
     println!("inside total memo");
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Memo as usize;
     let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
@@ -664,7 +664,7 @@ pub fn total_memo_type_utxos() -> u64 {
 }
 
 pub fn total_state_type_utxos() -> u64 {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::State as usize;
     let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
@@ -672,14 +672,14 @@ pub fn total_state_type_utxos() -> u64 {
 }
 
 pub fn total_coin_type_utxos() -> u64 {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Coin as usize;
     let result = utxo_storage.get_count_by_type(input_type);
     println!("{}", result);
     return result;
 }
 pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let utxo_storage = UTXO_STORAGE.read().unwrap();
 
     let tx_inputs = transaction.get_tx_inputs();
     if transaction.tx_type == TransactionType::Script {

@@ -14,14 +14,14 @@ use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, Text
 use std::{
     collections::HashMap,
     fs,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
 };
 use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
 use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
-    pub static ref UTXO_STORAGE: Arc<Mutex<LocalStorage::<Output>>> =
-        Arc::new(Mutex::new(LocalStorage::<Output>::new(3)));
+    pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage::<Output>>> =
+        Arc::new(RwLock::new(LocalStorage::<Output>::new(3)));
     pub static ref ADDRESS_TO_UTXO: Arc<Mutex<AddressUtxoIDStorage>> =
         Arc::new(Mutex::new(AddressUtxoIDStorage::new()));
     pub static ref UTXO_MEMO_TELEMETRY_COUNTER: Gauge =
@@ -40,7 +40,7 @@ pub fn init_utxo() {
     init_psql();
 
     {
-        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
         // let _ = utxo_storage.load_from_snapshot();
         let _ = utxo_storage.load_from_snapshot_from_psql();
         let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
@@ -163,7 +163,7 @@ pub fn zk_oracle_subscriber() {
 }
 
 fn save_snapshot() {
-    let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = UTXO_STORAGE.write().unwrap();
     println!("get block height:{:#?}", utxo_storage.block_height);
     println!("get snap:{:#?}", utxo_storage.snaps);
     for i in 0..utxo_storage.partition_size {

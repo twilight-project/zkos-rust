@@ -712,12 +712,12 @@ pub fn rpcserver() {
             match params.parse::<TestCommand>() {
                 Ok(queryparams) => match queryparams.test_command {
                     TestCommandString::TakeSnapshotintoLevelDB => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let _res = utxo_storage.take_snapshot();
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::LoadBackupFromLevelDB => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let _ = utxo_storage.load_from_snapshot();
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
@@ -726,7 +726,7 @@ pub fn rpcserver() {
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoCoinDbLength => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let mut length_count = Vec::new();
                         for (i, v) in utxo_storage.data.get_mut(&0).unwrap().iter() {
                             length_count.push(v);
@@ -740,7 +740,7 @@ pub fn rpcserver() {
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoMemoDbLength => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let mut length_count = Vec::new();
                         for (i, v) in utxo_storage.data.get_mut(&1).unwrap().iter() {
                             length_count.push(v);
@@ -753,7 +753,7 @@ pub fn rpcserver() {
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoStateDbLength => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let mut length_count = Vec::new();
                         for (i, v) in utxo_storage.data.get_mut(&2).unwrap().iter() {
                             length_count.push(v);
