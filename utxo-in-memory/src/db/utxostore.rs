@@ -22,12 +22,12 @@ pub trait LocalDBtrait<T> {
     fn add(&mut self, id: KeyId, value: T, input_type: usize) -> Result<T, std::io::Error>;
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
     fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool;
-    fn get_utxo_by_id(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
+    fn get_utxo_by_id(&self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
     fn take_snapshot(&mut self) -> Result<(), std::io::Error>;
     fn load_from_snapshot(&mut self) -> Result<(), std::io::Error>;
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error>;
     fn data_meta_update(&mut self, blockheight: usize) -> bool;
-    fn get_count_by_type(&mut self, input_type: usize) -> u64;
+    fn get_count_by_type(&self, input_type: usize) -> u64;
     fn get_utxo_from_db_by_block_height_range1(start_block: i128,limit: i64,pagination: i64,io_type: usize,
     ) -> Result<Vec<UtxokeyidOutput<T>>, std::io::Error> ;
     // bulk add and bulk remove functions needed
@@ -112,8 +112,8 @@ where
     fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool {
         self.data.get_mut(&input_type).unwrap().contains_key(id)
     }
-    fn get_utxo_by_id(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
-        match self.data.get_mut(&input_type).unwrap().get(&id) {
+    fn get_utxo_by_id(&self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
+        match self.data.get(&input_type).unwrap().get(&id) {
             Some(value) => {
                 return Ok(value.clone());
             }
@@ -126,7 +126,7 @@ where
         }
     }
 
-    fn get_count_by_type(&mut self, input_type: usize) -> u64 {
+    fn get_count_by_type(&self, input_type: usize) -> u64 {
         let result: u64 = match self.data.get(&input_type) {
             Some(inner_map) => inner_map.len() as u64,
             None => 0,
@@ -337,7 +337,7 @@ where
 }
 
 pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
-    let mut utxo_storage = crate::UTXO_STORAGE.lock().unwrap();
+    let mut utxo_storage = crate::UTXO_STORAGE.write().unwrap();
 
     let snapshot_path = utxo_storage.snaps.snap_rules.path.clone();
     let snap_path = format!("{}-snapmap", snapshot_path.clone());
