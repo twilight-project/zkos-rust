@@ -49,7 +49,7 @@ pub use self::vm::{VMRun, VMScript};
 pub use merkle::{Hash, Hasher, MerkleItem, MerkleTree};
 
 pub use address::Address;
-pub use mulmsgsig::{Signature as MultiSignature, VerificationKey};
+pub use mulmsgsig::{Signature, VerificationKey};
 
 pub use self::zkos_types::{
     IOType, IOType::Coin, Input, InputData, Output, OutputData, Utxo, Witness,
