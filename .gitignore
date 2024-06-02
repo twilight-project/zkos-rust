@@ -22,4 +22,6 @@ ZkOs.code-workspace
 transactionapi/target/*
 utxo-in-memory/target/*
 .vscode
-
+transactionapi/zkos_snapshot/snapshot_storage/
+transactionapi/height.txt
+transactionapi/telemetry.ini

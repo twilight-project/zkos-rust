@@ -13,7 +13,7 @@ use std::time::SystemTime;
 pub type SequenceNumber = usize;
 use std::sync::mpsc;
 use crate::{UTXO_COIN_TELEMETRY_COUNTER, UTXO_MEMO_TELEMETRY_COUNTER, UTXO_STATE_TELEMETRY_COUNTER};
-
+use crate::pgsql::{insert_bulk_utxo_in_psql_coin,insert_bulk_utxo_in_psql_memo_or_state};
 
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_SQL_QUEUE};
 
@@ -366,7 +366,7 @@ pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
                     script_address = output.output.get_script_address().unwrap();
                 }
                 let utxo_key: zkvm::zkos_types::Utxo = bincode::deserialize(key).unwrap();
-                let mut insert_utxo = Vec::new();
+                // let mut insert_utxo = Vec::new();
                 let utxo_out: crate::pgsql::PGSQLDataInsert = crate::pgsql::PGSQLDataInsert::new(
                     key.clone(),
                     bincode::serialize(output).unwrap(),
@@ -374,15 +374,41 @@ pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
                     script_address,
                     utxo_key.output_index() as usize,
                 );
-                insert_utxo.push(utxo_out);
-                // let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
-                //     Vec::new(),
-                //     insert_utxo,
-                //     hex::encode(utxo_key.tx_id()),
-                //     last_block as u64,
-                //     path,
-                // );
-               // pgql_data.update_utxo_log();
+                // insert_utxo.push(utxo_out);
+            //     let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
+            //         Vec::new(),
+            //         insert_utxo,
+            //         hex::encode(utxo_key.tx_id()),
+            //         last_block as u64,
+            //         path,
+            //     );
+            //    pgql_data.update_utxo_log();
+            match path{
+                0 =>{
+                    insert_bulk_utxo_in_psql_coin(
+                        vec![utxo_out],
+                        hex::encode(utxo_key.tx_id()),
+                        0u64,
+                        "public.utxo_coin_logs",
+                    );
+                    
+                }
+                1 =>{
+                    insert_bulk_utxo_in_psql_memo_or_state(
+                        vec![utxo_out],
+                        hex::encode(utxo_key.tx_id()),
+                        0u64,
+                        "public.utxo_memo_logs",
+                    )
+                }
+                2 =>{insert_bulk_utxo_in_psql_memo_or_state(
+                    vec![utxo_out],
+                    hex::encode(utxo_key.tx_id()),
+                    0u64,
+                    "public.utxo_state_logs",
+                )}
+                _ =>{}
+            }
             }
         });
     }

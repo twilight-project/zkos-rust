@@ -18,6 +18,9 @@ use std::{
 };
 use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
+use zkoracle_rust::pubsub_chain;
+use zkoracle_rust::Block;
+use zkoracle_rust::TransactionMessage;
 use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage::<Output>>> =
@@ -30,6 +33,16 @@ lazy_static! {
         register_gauge!("utxo_state_count", "A counter for state utxo").unwrap();
     pub static ref UTXO_COIN_TELEMETRY_COUNTER: Gauge =
         register_gauge!("utxo_coin_count", "A counter for coin utxo").unwrap();
+    pub static ref ZK_ORACLE_SUBSCRIBER_THREADPOOL: Arc<Mutex<ThreadPool>> =
+        Arc::new(Mutex::new(ThreadPool::new(
+            1,
+            String::from("ZK_ORACLE_SUBSCRIBER_THREADPOOL Threadpool")
+        )));
+    pub static ref ZK_ORACLE_HEIGHT_WRITE_THREADPOOL: Arc<Mutex<ThreadPool>> =
+        Arc::new(Mutex::new(ThreadPool::new(
+            1,
+            String::from("ZK_ORACLE_SUBSCRIBER_THREADPOOL Threadpool")
+        )));
 }
 use blockoperations::blockprocessing::{
     total_coin_type_utxos, total_memo_type_utxos, total_state_type_utxos,
@@ -112,47 +125,59 @@ pub fn zk_oracle_subscriber() {
             Ok(block_height) => block_height,
             Err(_) => {
                 eprintln!("Failed to parse block height");
-                0
+                1
             }
         },
         Err(e) => {
             eprintln!("Failed to read block height: {}", e);
-            0
+            1
         }
     };
-    let url_str = format!("ws://0.0.0.0:7001/latestblock?blockHeight={}", block_height);
-    let url = Url::parse(&url_str);
-    let url: Url = match url {
-        Ok(url) => url,
-        Err(e) => {
-            println!("Invalid URL: {}", e);
-            return;
-        }
-    };
+    // let url_str = format!(
+    //     "ws://147.182.235.183:7001/latestblock?blockHeight={}",
+    //     block_height
+    // );
+    // println!("url : {:?}", url_str);
+    // let url = Url::parse(&url_str);
+    // let url: Url = match url {
+    //     Ok(url) => url,
+    //     Err(e) => {
+    //         println!("Invalid URL: {}", e);
+    //         return;
+    //     }
+    // };
 
-    let (mut socket, response) =
-        connect(url).expect("Can't establish a web socket connection to ZKOracle");
+    // let (mut socket, response) =
+    //     connect(url).expect("Can't establish a web socket connection to ZKOracle");
 
     //match establish_websocket_connection() {
     //  Ok((mut socket, response)) =>
+    let mut oracle_threadpool = ZK_ORACLE_SUBSCRIBER_THREADPOOL.lock().unwrap();
+    let (receiver, handle) = pubsub_chain::subscribe_block(true);
     loop {
-        let msg = socket.read_message().expect("Error reading message");
-        match msg {
-            Message::Text(text) => {
-                let block: blockoperations::blockprocessing::Block =
-                    serde_json::from_str(&text).unwrap();
-                let height = block.block_height;
-                let result = blockoperations::blockprocessing::process_block_for_utxo_insert(block);
-                if result.suceess_tx.len() > 0 {
-                    save_snapshot();
-                }
-                write_block_height(height);
+        match receiver.lock().unwrap().recv() {
+            Ok(block) => {
+                oracle_threadpool.execute(move || {
+                    let height = block.block_height;
+                    let result =
+                        blockoperations::blockprocessing::process_block_for_utxo_insert(block);
+                    if result.suceess_tx.len() > 0 {
+                        save_snapshot();
+                    }
+                    let mut height_write_threadpool =
+                        ZK_ORACLE_HEIGHT_WRITE_THREADPOOL.lock().unwrap();
+
+                    height_write_threadpool.execute(move || {
+                        write_block_height(height);
+                    });
+                    drop(height_write_threadpool);
+                });
             }
-            Message::Close(_) => {
+            Err(arg) => {
+                println!("subscriber crashed : {:?}", arg);
                 println!("Server disconnected");
                 break;
             }
-            _ => (),
         }
     }
     //Err(error) => {
@@ -176,7 +201,7 @@ fn save_snapshot() {
 
 fn write_block_height(block_height: u64) {
     match fs::write("height.txt", block_height.to_string()) {
-        Ok(_) => println!("Successfully wrote block height to file"),
+        Ok(_) => println!("Successfully wrote block height:{} to file", block_height),
         Err(e) => eprintln!("Failed to write block height: {}", e),
     }
 }
