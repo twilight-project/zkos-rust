@@ -161,9 +161,9 @@ pub fn zk_oracle_subscriber() {
                     let height = block.block_height;
                     let result =
                         blockoperations::blockprocessing::process_block_for_utxo_insert(block);
-                    if result.suceess_tx.len() > 0 {
-                        save_snapshot();
-                    }
+                    // if result.suceess_tx.len() > 0 {
+                    //     save_snapshot();
+                    // }
                     let mut height_write_threadpool =
                         ZK_ORACLE_HEIGHT_WRITE_THREADPOOL.lock().unwrap();
 
