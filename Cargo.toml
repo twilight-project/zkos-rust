@@ -1,5 +1,16 @@
 [workspace]
 
-members = [ "address", "merkle", "mulmsgsig",  "rangeproof", "readerwriter", "starsig", "transaction", "transactionapi","utxo-in-memory", "zkvm"]
+members = [
+    "address",
+    "merkle",
+    "mulmsgsig",
+    "rangeproof",
+    "readerwriter",
+    "starsig",
+    "transaction",
+    "transactionapi",
+    "utxo-in-memory",
+    "zkvm",
+    "ether-client",
+]
 exclude = ["elgamalsign"]
-
