@@ -49,7 +49,7 @@ serde_ini = "0.2"
 [dependencies.quisquis-rust]
 #path = "../../quisquis-rust"
 git = "https://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+branch = "cargo-fix"
 
 [dependencies.transaction]
 path = "../transaction"
