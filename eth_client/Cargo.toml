@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+utxo-in-memory = { path = "../utxo-in-memory" }
+r2d2 = "0.8.9"
+r2d2_postgres = "0.18.1"
+lazy_static = "1.4.0"
+tokio-postgres = "0.7.13"
+tokio = { version = "1.45.1", features = ["rt-multi-thread", "macros"] }
+tokio-stream = "0.1.17"
+ethers = { version = "2.0", features = ["ws"] }
+eyre = "0.6"
