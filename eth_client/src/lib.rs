@@ -1,3 +1,3 @@
-pub mod eth_client
-
-init_psql();
+pub mod eth_client;
+pub mod event_db;
+pub use event_db::init_psql;

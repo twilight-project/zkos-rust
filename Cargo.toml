@@ -11,6 +11,6 @@ members = [
     "transactionapi",
     "utxo-in-memory",
     "zkvm",
-    "ether-client", "eth_client",
+    "eth_client",
 ]
 exclude = ["elgamalsign"]
