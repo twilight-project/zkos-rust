@@ -1033,7 +1033,7 @@ mod test {
     #[test]
     fn check_block_test() {
         init_utxo();
-        let utxo_storage = UTXO_STORAGE.lock().unwrap();
+        let utxo_storage = UTXO_STORAGE.read().unwrap();
         let block_height = utxo_storage.block_height as u64;
         drop(utxo_storage);
 
@@ -1042,7 +1042,7 @@ mod test {
 
         let block1 = create_utxo_test_block(&mut recordutxo, block_height, &vec![prv]);
         let result = process_block_for_utxo_insert(block1);
-        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
         println!("result block update:{:?}", result);
         utxo_storage.take_snapshot();
     }
