@@ -28,3 +28,4 @@ transactionapi/telemetry.ini
 transactionapi/src/snapshot_storage
 
 eth_client/.env
+eth_client/.env.test
