@@ -161,8 +161,8 @@ async fn confirmBurn(qq_account: String, encrypt_scalar: String, usdc_value: u64
     let client = Arc::new(SignerMiddleware::new(provider, wallet));
     let contract = zkosContract::new(contract_address, client.clone());
 
-    let tx = contract.burn(false, usdc_value, qq_account, encrypt_scalar, eth_address).send().await?;
-    println!("Transaction sent! Tx hash: {:?}", tx);
+    // let tx = contract.burn(false, usdc_value, qq_account, encrypt_scalar, eth_address).send().await?;
+    // println!("Transaction sent! Tx hash: {:?}", tx);
     Ok(())
 }
 
