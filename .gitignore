@@ -25,3 +25,4 @@ utxo-in-memory/target/*
 transactionapi/zkos_snapshot/snapshot_storage/
 transactionapi/height.txt
 transactionapi/telemetry.ini
+transactionapi/src/snapshot_storage
