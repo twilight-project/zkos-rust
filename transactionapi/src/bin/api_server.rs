@@ -14,7 +14,7 @@ use transaction::reference_tx::{
     create_dark_reference_transaction, create_qq_reference_transaction,
 };
 use utxo_in_memory::blockoperations::blockprocessing::read_telemetry_stats_from_file;
-use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
+use utxo_in_memory::{init_utxo};
 #[macro_use]
 extern crate rocket;
 use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
@@ -25,10 +25,6 @@ fn main() {
     init_utxo(); // Execute synchronously
     read_telemetry_stats_from_file();
 
-    let zk_subscriber_thread = thread::spawn(|| {
-        zk_oracle_subscriber();
-    });
-
     let rpc_server_thread = thread::spawn(|| {
         rpcserver();
     });
@@ -37,7 +33,6 @@ fn main() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async_main());
 
-    zk_subscriber_thread.join().unwrap();
     rpc_server_thread.join().unwrap();
 }
 
