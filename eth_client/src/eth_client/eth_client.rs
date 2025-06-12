@@ -146,7 +146,7 @@ async fn listen_burn_req_events(
         let tx_id = hex::encode(meta.transaction_hash.0);
         let event_block_number = meta.block_number.as_u64() as i64;
         save_burn_request_event(event.mint_or_burn, usdc_value, &qq_account, &encrypt_scalar, &eth_address, event_block_number, &tx_id).await?;
-        // blockprocessing::process_trade_mint(&tx_id, qq_account.clone(), event.mint_or_burn, event.usdc_value , meta.block_number.as_u64());
+        blockprocessing::process_trade_mint(tx_id, qq_account.clone(), event.mint_or_burn, event.usdc_value , meta.block_number.as_u64());
     }
 
     Ok(())
@@ -161,8 +161,9 @@ async fn confirmBurn(qq_account: String, encrypt_scalar: String, usdc_value: u64
     let client = Arc::new(SignerMiddleware::new(provider, wallet));
     let contract = zkosContract::new(contract_address, client.clone());
 
-    // let tx = contract.burn(false, usdc_value, qq_account, encrypt_scalar, eth_address).send().await?;
-    // println!("Transaction sent! Tx hash: {:?}", tx);
+    let call = contract.burn(false, usdc_value, qq_account, encrypt_scalar, eth_address);
+    let tx = call.send().await?;
+    println!("Transaction sent! Tx hash: {:?}", tx);
     Ok(())
 }
 
