@@ -184,28 +184,25 @@ where
     deserializer.deserialize_str(StringVisitor)
 }
 
-pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult) {
-    let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
+pub fn process_transfer(transaction_id: String, transaction: String, block_height: u64) {
+    let tx_bytes = hex::decode(transaction).expect("Decoding failed");
     let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
-    let tx_id: [u8; 32] = hex::decode(transaction.tx_id.clone())
-        .unwrap()
+    let tx_id: [u8; 32] = hex::decode(transaction_id.clone())
+        .expect("error decoding")
         .try_into()
-        .unwrap();
+        .expect("Vec<u8> must have exactly 32 elements");
     let tx_input = transaction_info.get_tx_inputs();
     let tx_output = transaction_info.get_tx_outputs();
-
     let transaction_type = transaction_info.tx_type;
-
     let utxo_verified = verify_utxo(transaction_info);
-
     let mut utxo_storage = UTXO_STORAGE.write().unwrap();
 
     if utxo_verified {
         /***************** POstgreSQL Insert Code *********/
         /************************************************ */
         let mut pg_insert_data = PGSQLTransaction::default();
-        pg_insert_data.txid = transaction.tx_id.clone();
-        pg_insert_data.block_height = height;
+        pg_insert_data.txid = transaction_id.clone();
+        pg_insert_data.block_height = block_height;
 
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
@@ -240,6 +237,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                 }
             }
         }
+
         //Add all output
         for (output_index, output_set) in tx_output.iter().enumerate() {
             let utxo_key =
@@ -326,31 +324,28 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             TOTAL_TRANSFER_TX.inc();
             write_telemetry_stats_to_file();
         }
-
-        tx_result.suceess_tx.push(TxID(Hash(tx_id)));
-    } else {
-        tx_result.failed_tx.push(TxID(Hash(tx_id)));
     }
 }
 
 pub fn process_trade_mint(
-    transaction: TransactionMessage,
+    transaction_id: String,
+    qq_account: String,
+    mint_or_burn: bool,
+    usdc_value: u64,
     height: u64,
-    tx_result: &mut BlockResult,
 ) {
-    println!("In Process trade mint  tx :=:  {:?}", transaction);
+    println!("In Process trade mint  tx :=:  {:?}", transaction_id);
 
     let mut utxo_storage = UTXO_STORAGE.write().unwrap();
-    let tx_id = hex::decode(transaction.tx_id.clone()).expect("error decoding tx id");
+    let tx_id = hex::decode(transaction_id.clone()).expect("error decoding tx id");
     let tx_id = TxID(Hash(tx_id.try_into().unwrap()));
     let utxo_key = bincode::serialize(&Utxo::new(tx_id, 0 as u8)).unwrap();
-    let mut qq_account_bytes =
-        hex::decode(transaction.qq_account.unwrap()).expect("Decoding failed");
+    let mut qq_account_bytes = hex::decode(qq_account).expect("Decoding failed");
     let elgamal = qq_account_bytes.split_off(qq_account_bytes.len() - 64);
     let elgamal = ElGamalCommitment::from_bytes(&elgamal).unwrap();
     let address = address::Standard::from_bytes(&qq_account_bytes[0..69]).unwrap();
 
-    if transaction.mint_or_burn.unwrap() == true {
+    if mint_or_burn == true {
         //Mint UTXOS
         //let output = OutputData::Coin(OutputCoin{encrypt: elgamal, address:address.as_hex()});
         let output = Output::coin(OutputData::Coin(OutputCoin {
@@ -368,12 +363,11 @@ pub fn process_trade_mint(
         drop(address_to_utxo_storage);
         //******* */
         let pk = address.as_hex();
-        tx_result.suceess_tx.push(tx_id);
 
         /***************** POstgreSQL Insert Code *********/
         //*********************************************** */
         let mut pg_insert_data = PGSQLTransaction::default();
-        pg_insert_data.txid = transaction.tx_id.clone();
+        pg_insert_data.txid = transaction_id.clone();
         pg_insert_data.block_height = height;
         //pg_insert_data.io_type = output.out_type as usize;
         pg_insert_data.insert_coin_utxo.push(PGSQLDataInsert::new(
@@ -391,25 +385,13 @@ pub fn process_trade_mint(
         /**************** POstgreSQL Insert Code End **********/
         /**************************************************** */
 
-        let float_value: f64 = match transaction.btc_value.unwrap().parse() {
-            Ok(value) => value, // If parsing is successful, use the parsed value
-            Err(e) => {
-                println!("Failed to convert string to f64: {:?}", e);
-                0.0 // Use a default value (like 0.0) in case of an error
-            }
-        };
+        let float_value: f64 = usdc_value as f64;
 
         TOTAL_DARK_SATS_MINTED.add(float_value);
         write_telemetry_stats_to_file();
         println!("UTXO ADDED MINT")
-    } else if transaction.mint_or_burn.unwrap() == false {
-        let float_value: f64 = match transaction.btc_value.unwrap().parse() {
-            Ok(value) => value, // If parsing is successful, use the parsed value
-            Err(e) => {
-                println!("Failed to convert string to f64: {:?}", e);
-                0.0 // Use a default value (like 0.0) in case of an error
-            }
-        };
+    } else if mint_or_burn == false {
+        let float_value: f64 = usdc_value as f64;
         TOTAL_DARK_SATS_MINTED.sub(float_value);
         write_telemetry_stats_to_file();
     }
@@ -446,21 +428,21 @@ pub fn process_trade_mint(
     }*/
 }
 
-pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
-    let mut tx_result: BlockResult = BlockResult::new();
-    for transaction in block.transactions {
-        match transaction.tx_type.as_str() {
-            "/twilightproject.nyks.zkos.MsgTransferTx" => {
-                process_transfer(transaction, block.block_height, &mut tx_result)
-            }
-            "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc" => {
-                process_trade_mint(transaction, block.block_height, &mut tx_result)
-            }
-            _ => {} // you might want to handle any other cases or just ignore them
-        };
-    }
-    tx_result
-}
+// pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
+//     let mut tx_result: BlockResult = BlockResult::new();
+//     for transaction in block.transactions {
+//         match transaction.tx_type.as_str() {
+//             "/twilightproject.nyks.zkos.MsgTransferTx" => {
+//                 process_transfer(transaction, block.block_height, &mut tx_result)
+//             }
+//             "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc" => {
+//                 process_trade_mint(transaction, block.block_height, &mut tx_result)
+//             }
+//             _ => {} // you might want to handle any other cases or just ignore them
+//         };
+//     }
+//     tx_result
+// }
 
 pub fn all_coin_type_utxo() -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
@@ -1022,7 +1004,7 @@ mod test {
     //write test to fail a tx
 
     use crate::blockoperations::blockprocessing::create_utxo_test_block;
-    use crate::blockoperations::blockprocessing::process_block_for_utxo_insert;
+    // use crate::blockoperations::blockprocessing::process_block_for_utxo_insert;
     use crate::db::*;
     use crate::{init_utxo, UTXO_STORAGE};
     use curve25519_dalek::scalar::Scalar;
@@ -1037,8 +1019,8 @@ mod test {
         let block_height = utxo_storage.block_height as u64;
         drop(utxo_storage);
 
-        let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
-        let mut recordutxo = crate::blockoperations::load_genesis_sets();
+        //     let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
+        //     let mut recordutxo = crate::blockoperations::load_genesis_sets();
 
         let block1 = create_utxo_test_block(&mut recordutxo, block_height, &vec![prv]);
         let result = process_block_for_utxo_insert(block1);
