@@ -118,74 +118,74 @@ pub fn init_utxo() {
 
 //     Ok((socket, response))
 // }
-pub fn zk_oracle_subscriber() {
-    println!("started zk subsciber");
-    let block_height = match fs::read_to_string("height.txt") {
-        Ok(block_height_str) => match block_height_str.trim().parse::<i64>() {
-            Ok(block_height) => block_height,
-            Err(_) => {
-                eprintln!("Failed to parse block height");
-                1
-            }
-        },
-        Err(e) => {
-            eprintln!("Failed to read block height: {}", e);
-            1
-        }
-    };
-    // let url_str = format!(
-    //     "ws://147.182.235.183:7001/latestblock?blockHeight={}",
-    //     block_height
-    // );
-    // println!("url : {:?}", url_str);
-    // let url = Url::parse(&url_str);
-    // let url: Url = match url {
-    //     Ok(url) => url,
-    //     Err(e) => {
-    //         println!("Invalid URL: {}", e);
-    //         return;
-    //     }
-    // };
+// pub fn zk_oracle_subscriber() {
+//     println!("started zk subsciber");
+//     let block_height = match fs::read_to_string("height.txt") {
+//         Ok(block_height_str) => match block_height_str.trim().parse::<i64>() {
+//             Ok(block_height) => block_height,
+//             Err(_) => {
+//                 eprintln!("Failed to parse block height");
+//                 1
+//             }
+//         },
+//         Err(e) => {
+//             eprintln!("Failed to read block height: {}", e);
+//             1
+//         }
+//     };
+//     // let url_str = format!(
+//     //     "ws://147.182.235.183:7001/latestblock?blockHeight={}",
+//     //     block_height
+//     // );
+//     // println!("url : {:?}", url_str);
+//     // let url = Url::parse(&url_str);
+//     // let url: Url = match url {
+//     //     Ok(url) => url,
+//     //     Err(e) => {
+//     //         println!("Invalid URL: {}", e);
+//     //         return;
+//     //     }
+//     // };
 
-    // let (mut socket, response) =
-    //     connect(url).expect("Can't establish a web socket connection to ZKOracle");
+//     // let (mut socket, response) =
+//     //     connect(url).expect("Can't establish a web socket connection to ZKOracle");
 
-    //match establish_websocket_connection() {
-    //  Ok((mut socket, response)) =>
-    let mut oracle_threadpool = ZK_ORACLE_SUBSCRIBER_THREADPOOL.lock().unwrap();
-    let (receiver, handle) = pubsub_chain::subscribe_block(true);
-    loop {
-        match receiver.lock().unwrap().recv() {
-            Ok(block) => {
-                oracle_threadpool.execute(move || {
-                    let height = block.block_height;
-                    let result =
-                        blockoperations::blockprocessing::process_block_for_utxo_insert(block);
-                    // if result.suceess_tx.len() > 0 {
-                    //     save_snapshot();
-                    // }
-                    let mut height_write_threadpool =
-                        ZK_ORACLE_HEIGHT_WRITE_THREADPOOL.lock().unwrap();
+//     //match establish_websocket_connection() {
+//     //  Ok((mut socket, response)) =>
+//     let mut oracle_threadpool = ZK_ORACLE_SUBSCRIBER_THREADPOOL.lock().unwrap();
+//     let (receiver, handle) = pubsub_chain::subscribe_block(true);
+//     loop {
+//         match receiver.lock().unwrap().recv() {
+//             Ok(block) => {
+//                 oracle_threadpool.execute(move || {
+//                     let height = block.block_height;
+//                     let result =
+//                         blockoperations::blockprocessing::process_block_for_utxo_insert(block);
+//                     // if result.suceess_tx.len() > 0 {
+//                     //     save_snapshot();
+//                     // }
+//                     let mut height_write_threadpool =
+//                         ZK_ORACLE_HEIGHT_WRITE_THREADPOOL.lock().unwrap();
 
-                    height_write_threadpool.execute(move || {
-                        write_block_height(height);
-                    });
-                    drop(height_write_threadpool);
-                });
-            }
-            Err(arg) => {
-                println!("subscriber crashed : {:?}", arg);
-                println!("Server disconnected");
-                break;
-            }
-        }
-    }
-    //Err(error) => {
-    // Handle the error in a more controlled manner
-    //   eprintln!("Error: {}", error);
-    // }
-    //}
-}
+//                     height_write_threadpool.execute(move || {
+//                         write_block_height(height);
+//                     });
+//                     drop(height_write_threadpool);
+//                 });
+//             }
+//             Err(arg) => {
+//                 println!("subscriber crashed : {:?}", arg);
+//                 println!("Server disconnected");
+//                 break;
+//             }
+//         }
+//     }
+//     //Err(error) => {
+//     // Handle the error in a more controlled manner
+//     //   eprintln!("Error: {}", error);
+//     // }
+//     //}
+// }
 
 fn save_snapshot() {
     let mut utxo_storage = UTXO_STORAGE.write().unwrap();
