@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use rpcclient::method::Method;
 use rpcclient::txrequest::{Resp, RpcBody, RpcRequest};
 use rpcserver::*;
@@ -12,13 +13,13 @@ extern crate lazy_static;
 use transaction::reference_tx::{
     create_dark_reference_transaction, create_qq_reference_transaction,
 };
-use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
 use utxo_in_memory::blockoperations::blockprocessing::read_telemetry_stats_from_file;
-#[macro_use] extern crate rocket;
+use utxo_in_memory::{init_utxo, zk_oracle_subscriber};
+#[macro_use]
+extern crate rocket;
+use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
 use rocket::data::{Limits, ToByteUnit};
-use rocket::{State, response::content};
-use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
-
+use rocket::{response::content, State};
 
 fn main() {
     init_utxo(); // Execute synchronously
@@ -32,7 +33,6 @@ fn main() {
         rpcserver();
     });
 
-
     // Now start the async part
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async_main());
@@ -42,7 +42,6 @@ fn main() {
 }
 
 async fn async_main() {
-
     let telemetry_server_thread = std::thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
@@ -51,16 +50,15 @@ async fn async_main() {
     });
 
     telemetry_server_thread.join();
-
 }
 
-async fn run_telemetry_server(){
+async fn run_telemetry_server() {
     println!("starting telemetry server");
-        
+
     let figment = rocket::Config::figment()
-    .merge(("address", "0.0.0.0"))
-    .merge(("port", 2500))
-    .merge(("limits", Limits::new().limit("json", 2.mebibytes())));
+        .merge(("address", "0.0.0.0"))
+        .merge(("port", 2500))
+        .merge(("limits", Limits::new().limit("json", 2.mebibytes())));
 
     let rocket = rocket::custom(figment).mount("/", routes![telemetry_metrics]);
 
@@ -77,6 +75,5 @@ fn telemetry_metrics() -> String {
     let mut buffer = Vec::new();
     encoder.encode(&metric_families, &mut buffer).unwrap();
     let result = String::from_utf8(buffer).unwrap();
-    return result
+    return result;
 }
-

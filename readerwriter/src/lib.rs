@@ -1,3 +1,4 @@
+#![allow(warnings)]
 mod codable;
 mod reader;
 mod writer;
