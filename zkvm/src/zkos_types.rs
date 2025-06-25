@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 #![allow(missing_docs)]
-
+#![allow(warnings)]
+#![allow(dead_code)]
 use core::panic;
 
 //use crate::readerwriter::{Encodable, ExactSizeEncodable, Writer, WriteError};
@@ -161,6 +162,15 @@ pub enum IOType {
 
 impl IOType {
     pub fn from_u8(byte: u8) -> Result<IOType, &'static str> {
+        use IOType::*;
+        match byte {
+            0 => Ok(Coin),
+            1 => Ok(Memo),
+            2 => Ok(State),
+            _ => Err("Error::InvalidInputType"),
+        }
+    }
+    pub fn from_usize(byte: usize) -> Result<IOType, &'static str> {
         use IOType::*;
         match byte {
             0 => Ok(Coin),

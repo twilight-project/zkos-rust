@@ -1,5 +1,9 @@
+use std::process::Output;
+
 use quisquislib::elgamal::ElGamalCommitment;
 use serde::{Deserialize, Serialize};
+use zkvm::IOType;
+use zkvm::{Input, Utxo};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MintOrBurnTx {
     // value in satoshi
@@ -24,3 +28,19 @@ pub struct MintOrBurnTx {
 //     }
 
 //}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoRequest {
+    pub address_or_id: String,
+    pub input_type: IOType,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoDetailResponse {
+    pub id: Utxo,
+    pub output: zkvm::Output,
+}
+impl UtxoDetailResponse {
+    pub fn new(id: Utxo, output: zkvm::Output) -> Self {
+        UtxoDetailResponse { id, output }
+    }
+}

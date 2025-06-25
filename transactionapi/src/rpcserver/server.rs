@@ -1,20 +1,27 @@
+#![allow(warnings)]
+use crate::rpcserver::types::UtxoDetailResponse;
+
 use super::service;
 // use crate::rpcserver::types::*;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
 use jsonrpc_http_server::{hyper, ServerBuilder};
+use zkvm::IOType;
 
+use super::types::UtxoRequest;
 use std::collections::HashMap;
 use transaction::{TransactionData, TransactionType};
 use utxo_in_memory::blockoperations::blockprocessing::{
     all_coin_type_output, all_coin_type_utxo, all_memo_type_utxo, all_state_type_utxo,
     search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key,
     search_memo_type_utxo_by_address, search_memo_type_utxo_by_utxo_key,
-    search_state_type_utxo_by_address, search_state_type_utxo_by_utxo_key, verify_utxo,
+    search_state_type_utxo_by_address, search_state_type_utxo_by_utxo_key,
+    search_utxo_by_utxo_key_bytes, verify_utxo,
 };
 use utxo_in_memory::db::LocalDBtrait;
-use utxo_in_memory::UTXO_STORAGE;
+use utxo_in_memory::{ADDRESS_TO_UTXO, UTXO_STORAGE};
+
 /***************** POstgreSQL Insert Code *********/
 use utxo_in_memory::pgsql::{
     get_utxo_from_db_by_block_height_range, QueryUtxoFromDB, TestCommand, TestCommandString,
@@ -30,7 +37,6 @@ struct Meta {
 impl Metadata for Meta {}
 
 pub fn rpcserver() {
-
     println!("Starting rpc server");
     // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
@@ -90,7 +96,7 @@ pub fn rpcserver() {
             "".to_string()
         };
 
-       // println!("{:?}", twilight_address);
+        // println!("{:?}", twilight_address);
 
         // verify the inputs from utxo set for the tx
         let utxo_verified = verify_utxo(tx.clone());
@@ -193,6 +199,110 @@ pub fn rpcserver() {
             }
         }
     });
+
+    io.add_method_with_meta(
+        "get_utxos_id",
+        move |params: Params, _meta: Meta| async move {
+            let utxo_request: UtxoRequest = match params.parse::<UtxoRequest>() {
+                Ok(utxo_request) => utxo_request,
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+
+            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+            let utxo_id_option = address_to_utxo_storage
+                .get_utxo_id_by_address(utxo_request.address_or_id, utxo_request.input_type);
+
+            drop(address_to_utxo_storage);
+
+            match utxo_id_option {
+                Some(utxo_id) => {
+                    let response_body =
+                        serde_json::to_value(&utxo_id).expect("Failed to serialize to JSON");
+                    Ok(response_body)
+                }
+                None => {
+                    let result = format!(
+                        "{{ Error: {:?} Utxo ID not available for provided address}}",
+                        utxo_request.input_type
+                    );
+                    let response_body =
+                        serde_json::to_value(result).expect("Failed to serialize to JSON");
+                    Ok(response_body)
+                }
+            }
+        },
+    );
+    io.add_method_with_meta(
+        "get_utxos_detail",
+        move |params: Params, _meta: Meta| async move {
+            let utxo_request: UtxoRequest = match params.parse::<UtxoRequest>() {
+                Ok(utxo_request) => utxo_request,
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+
+            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+            let utxo_id_option = address_to_utxo_storage
+                .get_utxo_id_by_address(utxo_request.address_or_id, utxo_request.input_type);
+
+            drop(address_to_utxo_storage);
+
+            match utxo_id_option {
+                Some(utxo_id) => {
+                    let utxo_bytes = match hex::decode(utxo_id) {
+                        Ok(bytes) => bytes,
+
+                        Err(args) => {
+                            let err =
+                                JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                            return Err(err);
+                        }
+                    };
+                    // let utxo_id: Utxo = bincode::deserialize(&utxo_bytes).unwrap();
+
+                    let response_body = match bincode::deserialize(&utxo_bytes) {
+                        Ok(utxo_id) => {
+                            match search_utxo_by_utxo_key_bytes(utxo_bytes, utxo_request.input_type)
+                            {
+                                Ok(output) => {
+                                    serde_json::to_value(&UtxoDetailResponse::new(utxo_id, output))
+                                        .expect("Failed to serialize to JSON")
+                                }
+                                Err(err) => {
+                                    serde_json::to_value(&err).expect("Failed to serialize to JSON")
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            let err = JsonRpcError::invalid_params(format!(
+                                "Failed to serialize to JSON {:?}",
+                                err
+                            ));
+                            serde_json::to_value(&err).expect("Failed to serialize to JSON")
+                        }
+                    };
+
+                    Ok(response_body)
+                }
+                None => {
+                    let result = format!(
+                        "{{ Error: {:?} Utxo ID not available for provided address}}",
+                        utxo_request.input_type
+                    );
+                    let response_body =
+                        serde_json::to_value(result).expect("Failed to serialize to JSON");
+                    Ok(response_body)
+                }
+            }
+        },
+    );
 
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
         let address: address::Standard;
@@ -317,7 +427,8 @@ pub fn rpcserver() {
                     serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
                 Ok(response_body)
             } else {
-                let result = format!("{{ Error: State Utxo ID not available for provided address}}");
+                let result =
+                    format!("{{ Error: State Utxo ID not available for provided address}}");
                 let response_body =
                     serde_json::to_value(result).expect("Failed to serialize to JSON");
                 Ok(response_body)
@@ -325,17 +436,23 @@ pub fn rpcserver() {
         },
     );
 
-    io.add_method_with_meta("allUtxos", move |params: Params, _meta: Meta| async move {
-        let utxos: Vec<String> = all_coin_type_utxo();
-        if utxos.len() > 0 {
-            let response_body = serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
-            Ok(response_body)
-        } else {
-            let result = format!("{{ Error: UTXO do not exist for Coin type}}");
-            let response_body = serde_json::to_value(result).expect("Failed to serialize to JSON");
-            Ok(response_body)
-        }
-    });
+    // add pagination for all utxo call
+    io.add_method_with_meta(
+        "allCoinUtxos",
+        move |params: Params, _meta: Meta| async move {
+            let utxos: Vec<String> = all_coin_type_utxo();
+            if utxos.len() > 0 {
+                let response_body =
+                    serde_json::to_value(&utxos).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            } else {
+                let result = format!("{{ Error: UTXO do not exist for Coin type}}");
+                let response_body =
+                    serde_json::to_value(result).expect("Failed to serialize to JSON");
+                Ok(response_body)
+            }
+        },
+    );
     io.add_method_with_meta(
         "allMemoUtxos",
         move |params: Params, _meta: Meta| async move {
@@ -353,7 +470,7 @@ pub fn rpcserver() {
         },
     );
     io.add_method_with_meta(
-        "allSateUtxos",
+        "allStateUtxos",
         move |params: Params, _meta: Meta| async move {
             let utxos = all_state_type_utxo();
             if utxos.len() > 0 {
@@ -368,6 +485,7 @@ pub fn rpcserver() {
             }
         },
     );
+
     io.add_method_with_meta(
         "allOutputs",
         move |params: Params, _meta: Meta| async move {
@@ -382,6 +500,38 @@ pub fn rpcserver() {
                     serde_json::to_value(result).expect("Failed to serialize to JSON");
                 Ok(response_body)
             }
+        },
+    );
+
+    io.add_method_with_meta(
+        "get_output",
+        move |params: Params, _meta: Meta| async move {
+            let utxo_request: UtxoRequest = match params.parse::<UtxoRequest>() {
+                Ok(utxo_request) => utxo_request,
+                Err(args) => {
+                    let err =
+                        JsonRpcError::invalid_params(format!("Expected a hex string, {:?}", args));
+                    return Err(err);
+                }
+            };
+            let utxo_bytes = match hex::decode(utxo_request.address_or_id) {
+                Ok(bytes) => bytes,
+
+                Err(args) => {
+                    let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
+                    return Err(err);
+                }
+            };
+
+            let response_body =
+                match search_utxo_by_utxo_key_bytes(utxo_bytes, utxo_request.input_type) {
+                    Ok(output) => {
+                        serde_json::to_value(&output).expect("Failed to serialize to JSON")
+                    }
+                    Err(err) => serde_json::to_value(&err).expect("Failed to serialize to JSON"),
+                };
+
+            Ok(response_body)
         },
     );
 
@@ -562,12 +712,12 @@ pub fn rpcserver() {
             match params.parse::<TestCommand>() {
                 Ok(queryparams) => match queryparams.test_command {
                     TestCommandString::TakeSnapshotintoLevelDB => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let _res = utxo_storage.take_snapshot();
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::LoadBackupFromLevelDB => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let _ = utxo_storage.load_from_snapshot();
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
@@ -576,7 +726,7 @@ pub fn rpcserver() {
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoCoinDbLength => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let mut length_count = Vec::new();
                         for (i, v) in utxo_storage.data.get_mut(&0).unwrap().iter() {
                             length_count.push(v);
@@ -590,7 +740,7 @@ pub fn rpcserver() {
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoMemoDbLength => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let mut length_count = Vec::new();
                         for (i, v) in utxo_storage.data.get_mut(&1).unwrap().iter() {
                             length_count.push(v);
@@ -603,7 +753,7 @@ pub fn rpcserver() {
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoStateDbLength => {
-                        let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
+                        let mut utxo_storage = UTXO_STORAGE.write().unwrap();
                         let mut length_count = Vec::new();
                         for (i, v) in utxo_storage.data.get_mut(&2).unwrap().iter() {
                             length_count.push(v);
@@ -633,7 +783,7 @@ pub fn rpcserver() {
 
     eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
     let server = ServerBuilder::new(io)
-        .threads(5)
+        .threads(20)
         .meta_extractor(|req: &hyper::Request<hyper::Body>| {
             let auth = req
                 .headers()
