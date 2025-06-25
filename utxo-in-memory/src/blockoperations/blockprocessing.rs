@@ -8,11 +8,10 @@ use crate::db::*;
 use crate::pgsql::{PGSQLDataInsert, PGSQLTransaction, THREADPOOL_SQL_QUEUE};
 /**************** POstgreSQL Insert Code End **********/
 
-use crate::UTXO_STORAGE;
-use hex;
-
 use crate::ADDRESS_TO_UTXO;
+use crate::UTXO_STORAGE;
 use address::{Address, Network};
+use hex;
 use quisquislib::elgamal::elgamal::ElGamalCommitment;
 use rand::Rng;
 use serde::de::{self, Deserializer, Visitor};
@@ -25,6 +24,8 @@ use std::io::Write;
 use transaction::reference_tx::{
     convert_output_to_input, create_dark_reference_tx_for_utxo_test, RecordUtxo,
 };
+use zkoracle_rust::Block;
+use zkoracle_rust::TransactionMessage;
 
 use transaction::{ScriptTransaction, Transaction, TransactionData, TransactionType};
 use zkvm::constraints::Commitment;
@@ -69,15 +70,15 @@ impl BlockResult {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Block {
-    #[serde(rename = "Blockhash")]
-    pub block_hash: String,
-    #[serde(rename = "Blockheight", deserialize_with = "string_to_u64")]
-    pub block_height: u64,
-    #[serde(rename = "Transactions")]
-    pub transactions: Vec<TransactionMessage>,
-}
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct Block {
+//     #[serde(rename = "Blockhash")]
+//     pub block_hash: String,
+//     #[serde(rename = "Blockheight", deserialize_with = "string_to_u64")]
+//     pub block_height: u64,
+//     #[serde(rename = "Transactions")]
+//     pub transactions: Vec<TransactionMessage>,
+// }
 
 // #[derive(Serialize, Deserialize, Debug, Clone)]
 // pub struct TransactionMessageTransfer {
@@ -109,27 +110,27 @@ pub struct Block {
 //     pub tx_id: String,
 // }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransactionMessage {
-    #[serde(rename = "@type")]
-    pub tx_type: String,
-    #[serde(rename = "TxId")]
-    pub tx_id: String,
-    #[serde(rename = "TxByteCode")]
-    pub tx_byte_code: Option<String>,
-    #[serde(rename = "ZkOracleAddress")]
-    pub zk_oracle_address: Option<String>,
-    #[serde(rename = "MintOrBurn")]
-    pub mint_or_burn: Option<bool>, // Optional because it's not present in all types.
-    #[serde(rename = "BtcValue")]
-    pub btc_value: Option<String>,
-    #[serde(rename = "QqAccount")]
-    pub qq_account: Option<String>,
-    #[serde(rename = "EncryptScalar")]
-    pub encrypt_scalar: Option<String>,
-    #[serde(rename = "TwilightAddress")]
-    pub twilight_address: Option<String>,
-}
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct TransactionMessage {
+//     #[serde(rename = "@type")]
+//     pub tx_type: String,
+//     #[serde(rename = "TxId")]
+//     pub tx_id: String,
+//     #[serde(rename = "TxByteCode")]
+//     pub tx_byte_code: Option<String>,
+//     #[serde(rename = "ZkOracleAddress")]
+//     pub zk_oracle_address: Option<String>,
+//     #[serde(rename = "MintOrBurn")]
+//     pub mint_or_burn: Option<bool>, // Optional because it's not present in all types.
+//     #[serde(rename = "BtcValue")]
+//     pub btc_value: Option<String>,
+//     #[serde(rename = "QqAccount")]
+//     pub qq_account: Option<String>,
+//     #[serde(rename = "EncryptScalar")]
+//     pub encrypt_scalar: Option<String>,
+//     #[serde(rename = "TwilightAddress")]
+//     pub twilight_address: Option<String>,
+// }
 
 // #[derive(Serialize, Deserialize, Debug, Clone)]
 // pub enum MessageType {
