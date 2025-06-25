@@ -61,5 +61,5 @@ path = "../zkvm"
 path = "../address"
 
 [dependencies.zkoracle-rust]
-git = "ssh://github.com/twilight-project/zkoracle-rust.git"
+git = "https://github.com/twilight-project/zkoracle-rust.git"
 branch = "develop"
