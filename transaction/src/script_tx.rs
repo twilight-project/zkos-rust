@@ -100,6 +100,9 @@ impl ScriptTransaction {
     pub fn set_data(&mut self, data: Option<zkvm::String>) {
         self.tx_data = data;
     }
+    pub fn set_fee(&mut self, fee: u64) {
+        self.fee = fee;
+    }
 
     ///DUMMY TX FOR UTXO SET VERIFICATION
     /// Done only for verifying the utxo set in block processing module
