@@ -18,9 +18,9 @@ use std::{
 };
 use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
-use zkoracle_rust::pubsub_chain;
-use zkoracle_rust::Block;
-use zkoracle_rust::TransactionMessage;
+use chain_oracle::pubsub_chain;
+use chain_oracle::Block;
+use chain_oracle::TransactionMessage;
 use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage::<Output>>> =

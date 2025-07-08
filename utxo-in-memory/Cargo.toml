@@ -60,6 +60,5 @@ path = "../zkvm"
 [dependencies.address]
 path = "../address"
 
-[dependencies.zkoracle-rust]
-git = "https://github.com/twilight-project/zkoracle-rust.git"
-branch = "develop"
+[dependencies.chain-oracle]
+path = "../chain-oracle"

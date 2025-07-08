@@ -24,8 +24,8 @@ use std::io::Write;
 use transaction::reference_tx::{
     convert_output_to_input, create_dark_reference_tx_for_utxo_test, RecordUtxo,
 };
-use zkoracle_rust::Block;
-use zkoracle_rust::TransactionMessage;
+use chain_oracle::Block;
+use chain_oracle::TransactionMessage;
 
 use transaction::{ScriptTransaction, Transaction, TransactionData, TransactionType};
 use zkvm::constraints::Commitment;
