@@ -74,7 +74,7 @@ impl Message {
         Message {
             msg_type: MessageType::Burn,
             version: 0,
-            fee: 0,
+            fee: 2u64,
             input,
             msg_data: initial_address,
             proof,

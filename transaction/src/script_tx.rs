@@ -91,6 +91,19 @@ impl ScriptTransaction {
             tx_data,
         }
     }
+    pub fn set_outputs(&mut self, outputs: Vec<Output>) {
+        self.outputs = outputs;
+    }
+    pub fn set_inputs(&mut self, inputs: Vec<Input>) {
+        self.inputs = inputs;
+    }
+    pub fn set_data(&mut self, data: Option<zkvm::String>) {
+        self.tx_data = data;
+    }
+    pub fn set_fee(&mut self, fee: u64) {
+        self.fee = fee;
+    }
+
     ///DUMMY TX FOR UTXO SET VERIFICATION
     /// Done only for verifying the utxo set in block processing module
     ///
@@ -532,5 +545,8 @@ impl ScriptTransaction {
     }
     pub fn get_output_values(&self) -> Vec<Output> {
         self.outputs.clone()
+    }
+    pub fn get_tx_data(&self) -> Option<zkvm::String> {
+        self.tx_data.clone()
     }
 }

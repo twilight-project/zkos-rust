@@ -13,20 +13,21 @@ use std::error::Error;
 use std::sync::Mutex;
 // use std::thread;
 use crate::TransactionStatusId;
+use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
 use transaction::Transaction;
-use prometheus::{Encoder, TextEncoder, Counter, Gauge, register_counter, register_gauge};
 // #[macro_use]
 // extern crate lazy_static;
 lazy_static! {
     pub static ref THREADPOOL_RPC_QUEUE: Mutex<ThreadPool> =
         Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue")));
-    pub static ref TOTAL_TX_COUNTER: Gauge = register_gauge!("tx_counter", "A counter for tx").unwrap();
+    pub static ref TOTAL_TX_COUNTER: Gauge =
+        register_gauge!("tx_counter", "A counter for tx").unwrap();
 }
 pub fn tx_queue(transaction: Transaction, fee: u64) {
     {
         let queue = THREADPOOL_RPC_QUEUE.lock().unwrap();
         queue.execute(move || {
-            tx_commit(transaction, fee);
+            let _ = tx_commit(transaction, fee);
         });
     } // Mutex lock is automatically dropped here
 }
@@ -35,7 +36,16 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, Str
     let client = Client::new();
     let url = "http://0.0.0.0:7000/transaction";
 
-    let serialized: Vec<u8> = bincode::serialize(&transaction).unwrap();
+    let serialized: Vec<u8> = bincode::serialize(&transaction).map_err(|e| e.to_string())?;
+    // {
+    //     Ok(bytes) => bytes,
+    //     Err(e) => {
+    //         return Err(format!(
+    //             r#"{{"error": "error in server Payload (faulty data) {}"}}"#,
+    //             e
+    //         ))
+    //     }
+    // };
     let tx_hex = hex::encode(serialized.clone());
     //Creating dummy TxiD of ZKOS Transaction to be used as transaction id
     let mut hasher = Keccak256::new();
@@ -51,7 +61,8 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, Str
         Ok(json_data) => json_data,
         Err(e) => {
             return Err(format!(
-                r#"{{"error": "error in transaction Payload (faulty data)"}}"#
+                r#"{{"error": "error in transaction Payload (faulty data) {}"}}"#,
+                e
             ))
         }
     };
@@ -64,11 +75,21 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, Str
         .await
     {
         Ok(response) => response,
-        Err(e) => return Err(format!(r#"{{"error": "error in commiting transaction"}}"#)),
+        Err(e) => {
+            return Err(format!(
+                r#"{{"error": "error in committing transaction: {}"}}"#,
+                e
+            ))
+        }
     };
     let response_body: String = match response.text().await {
         Ok(response_body) => response_body,
-        Err(e) => return Err(format!(r#"{{"error": "error in commiting transaction"}}"#)),
+        Err(e) => {
+            return Err(format!(
+                r#"{{"error": "error in committing transaction: {}"}}"#,
+                e
+            ))
+        }
     };
     TOTAL_TX_COUNTER.inc();
     Ok(response_body)

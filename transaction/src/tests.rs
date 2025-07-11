@@ -933,8 +933,9 @@ fn test_private_transaction_single_sender_reciever() {
     // lets say bob wants to sent 500 tokens to alice from his account
     let (bob_account_1, bob_sk_account_1) =
         Account::generate_random_account_with_value(1000u64.into());
+    let (bob_pk, _ ) = bob_account_1.get_account();
     //create alice account with 0 balance
-    let alice_pk = RistrettoPublicKey::generate_base_pk();
+    let alice_pk = RistrettoPublicKey::update_public_key(&bob_pk, Scalar::random(&mut rng)); 
     let alice_comm_scalar = Scalar::random(&mut rng);
     let alice_commitment =
         ElGamalCommitment::generate_commitment(&alice_pk, alice_comm_scalar, Scalar::from(0u64));
@@ -985,11 +986,33 @@ fn test_private_transaction_single_sender_reciever() {
         0u64,
     );
     let (transfer, comm_scalar) = dark_transfer.unwrap();
-    println!("Encrypt Scalar : {:?}", comm_scalar.unwrap()[0]);
+    let output = transfer.outputs[1].clone();
+    let out_acc = output.to_quisquis_account().unwrap();
+    let (pk_new, comm_old) = out_acc.get_account();
+    //create new commitment with the new pk
+    let new_scalar = comm_scalar.unwrap()[0];
+    let new_commitment = ElGamalCommitment::generate_commitment(
+        &pk_new,
+        new_scalar.clone(),
+        Scalar::from(500u64),
+    );
+
+    // check commmitment
+   println!("res {:?}", new_commitment.eq(&comm_old));
+   assert_eq!(new_commitment, comm_old);
+   println!("Output : {:?}", output);
+   println!("Encrypt Scalar : {:?}", new_scalar);
+
+  //  lets decrypt the value
+    let decrypt = out_acc.decrypt_account_balance_value(&bob_sk_account_1);
+    let scalar_bytes = decrypt.unwrap().to_bytes();
+   //Convert [u8; 32] into [u8; 8]
+    let array_8: [u8; 8] = scalar_bytes[0..8].try_into().unwrap();
+    println!("Decrypt : {:?}", u64::from_le_bytes(array_8));
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
         transfer.clone(),
     ));
-    println!("Transaction : {:?}", tx.clone());
+   // println!("Transaction : {:?}", tx.clone());
 
     // Verify the transaction
     let verify = tx.verify();
@@ -1069,7 +1092,7 @@ fn test_private_transaction_single_sender_reciever_input() {
     assert!(verify.is_ok());
 }
 #[test]
-fn test_dark_transaction_pow_2() {
+    fn test_dark_transaction_pow_2() {
     let mut rng = rand::thread_rng();
 
     // create mutiple sender and recievers
@@ -1145,9 +1168,9 @@ fn test_dark_transaction_pow_2() {
         0u64,
     );
     let (tranfer, comm_scalar) = dark_transfer.unwrap();
-    println!("Encrypt Scalar : {:?}", comm_scalar.unwrap());
+    println!("Encrypt Scalar : {:?}", comm_scalar.clone().unwrap());
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
-        tranfer,
+        tranfer.clone(),
     ));
     //  println!("Transaction : {:?}", tx);
 
@@ -1155,6 +1178,31 @@ fn test_dark_transaction_pow_2() {
     let verify = tx.verify();
     println!("Verify : {:?}", verify);
     assert!(verify.is_ok());
+
+    //verify the scalars
+    let alice_out = tranfer.outputs[2].clone();
+    let fay_out = tranfer.outputs[3].clone();
+
+    let alice_account = alice_out.to_quisquis_account().unwrap();
+    let fay_account = fay_out.to_quisquis_account().unwrap();
+
+    let (pk_alice, comm_alice) = alice_account.get_account();
+    let (pk_fay, comm_fay) = fay_account.get_account();
+
+    let alice_scalar = comm_scalar.clone().unwrap()[0];
+    let fay_scalar = comm_scalar.unwrap()[1];
+    let alice_commitment = ElGamalCommitment::generate_commitment(
+        &pk_alice,
+        alice_scalar.clone(),
+        Scalar::from(500u64),
+    );
+    let fay_commitment = ElGamalCommitment::generate_commitment(
+        &pk_fay,
+        fay_scalar.clone(),
+        Scalar::from(300u64),
+    );
+    assert_eq!(alice_commitment, comm_alice);
+    assert_eq!(fay_commitment, comm_fay);
 }
 
 #[test]
