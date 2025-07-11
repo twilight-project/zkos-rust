@@ -90,7 +90,7 @@ macro_rules! def_op_inner {
 impl Encodable for Program {
     fn encode(&self, w: &mut impl Writer) -> Result<(), WriteError> {
         for i in self.0.iter() {
-            i.borrow().encode(w)?;
+            i.encode(w)?;
         }
         Ok(())
     }
