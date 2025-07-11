@@ -1,5 +1,6 @@
 pub mod rpcclient;
 pub mod rpcserver;
+pub mod error;
 #[macro_use]
 extern crate lazy_static;
 use serde_derive::{Deserialize, Serialize};
