@@ -1,8 +1,11 @@
+/*! Manage the Utxo ser Db insert and removal */
+use crate::{error::UtxosetError, ThreadPool};
 use crate::db::KeyId;
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUEUE};
-use crate::ThreadPool;
 use r2d2_postgres::postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PGSQLDataInsert {
     pub key: KeyId,
@@ -21,11 +24,11 @@ impl PGSQLDataInsert {
         vout: usize,
     ) -> Self {
         PGSQLDataInsert {
-            key: key,
+            key,
             data: data.clone(),
-            owner_address: owner_address,
+            owner_address,
             script_address: script_address.clone(),
-            vout: vout,
+            vout,
         }
     }
 }
@@ -37,14 +40,21 @@ pub trait PGSQLDBtrait {
 
 impl PGSQLDBtrait for PGSQLDataInsert {
     fn add_into_sqldb(&mut self, input_type: usize) {
-        let sql_queue = THREADPOOL_SQL_QUEUE.lock().unwrap();
-        sql_queue.execute(move || {});
-        drop(sql_queue);
+       sqldb_queue_lock_and_execute();
     }
     fn remove_from_sqldb(&mut self) {
-        let sql_queue = THREADPOOL_SQL_QUEUE.lock().unwrap();
-        sql_queue.execute(move || {});
-        drop(sql_queue);
+        sqldb_queue_lock_and_execute();
+    }
+}
+fn sqldb_queue_lock_and_execute() {
+    match THREADPOOL_SQL_QUEUE.lock() {
+        Ok(sql_queue) => {
+            sql_queue.execute(move || {});
+            drop(sql_queue);
+        }
+        Err(e) => {
+            eprintln!("Failed to lock the THREADPOOL_SQL_QUEUE: {}", e);
+        }
     }
 }
 
@@ -99,81 +109,54 @@ impl PGSQLTransaction {
 
         //remove utxo from psql
         if remove_utxo.len() > 0 {
-            remove_bulk_utxo_in_psql(remove_utxo.clone(), coin_table_name);
-            remove_bulk_utxo_in_psql(remove_utxo.clone(), memo_table_name);
-            remove_bulk_utxo_in_psql(remove_utxo.clone(), state_table_name);
+            match remove_bulk_utxo_in_psql(remove_utxo.clone(), coin_table_name){
+                Ok(_)=>{},
+                Err(e)=> eprintln!("Failed to remove_bulk_utxo_in_coin_psql: {}", e)
+            };
+            match remove_bulk_utxo_in_psql(remove_utxo.clone(), memo_table_name){
+                Ok(_)=>{},
+                Err(e)=> eprintln!("Failed to remove_bulk_utxo_in_memo_psql: {}", e)
+            
+            };
+            match remove_bulk_utxo_in_psql(remove_utxo.clone(), state_table_name){
+                Ok(_)=>{},
+                Err(e )=> eprintln!("Failed to remove_bulk_utxo_in_state_psql: {}", e)
+            };
         }
 
         if insert_coin_utxo.len() > 0 {
-            insert_bulk_utxo_in_psql_coin(
+            match insert_bulk_utxo_in_psql_coin(
                 insert_coin_utxo,
                 self.txid.clone(),
                 self.block_height,
                 coin_table_name,
-            );
+            ){
+                Ok(_)=>{},
+                Err(e)=>eprintln!("Failed to insert_bulk_utxo_in_coin_psql: {}", e)
+            };
         }
         if insert_memo_utxo.len() > 0 {
-            insert_bulk_utxo_in_psql_memo_or_state(
+            match insert_bulk_utxo_in_psql_memo_or_state(
                 insert_memo_utxo,
                 self.txid.clone(),
                 self.block_height,
                 memo_table_name,
-            );
+            ){
+                Ok(_)=>{},
+                Err(e)=> eprintln!("Failed to insert_bulk_utxo_in_memo_psql: {}", e)
+            };
         }
         if insert_state_utxo.len() > 0 {
-            insert_bulk_utxo_in_psql_memo_or_state(
+            match insert_bulk_utxo_in_psql_memo_or_state(
                 insert_state_utxo,
                 self.txid.clone(),
                 self.block_height,
                 state_table_name,
-            );
+            ){
+                Ok(_)=>{},
+                Err(e)=> eprintln!("Failed to insert_bulk_utxo_in_state_psql: {}", e)
+            };
         }
-        // match self.io_type {
-        //     0 => {
-        //         let table_name = "public.utxo_coin_logs";
-        //         if remove_utxo.len() > 0 {
-        //             remove_bulk_utxo_in_psql(remove_utxo, table_name);
-        //         }
-        //         if insert_utxo.len() > 0 {
-        //             insert_bulk_utxo_in_psql_coin(
-        //                 insert_utxo,
-        //                 self.txid.clone(),
-        //                 self.block_height,
-        //                 table_name,
-        //             );
-        //         }
-        //     }
-        //     1 => {
-        //         let table_name = "public.utxo_memo_logs";
-        //         if remove_utxo.len() > 0 {
-        //             remove_bulk_utxo_in_psql(remove_utxo, table_name);
-        //         }
-        //         if insert_utxo.len() > 0 {
-        //             insert_bulk_utxo_in_psql_memo_or_state(
-        //                 insert_utxo,
-        //                 self.txid.clone(),
-        //                 self.block_height,
-        //                 table_name,
-        //             );
-        //         }
-        //     }
-        //     2 => {
-        //         let table_name = "public.utxo_state_logs";
-        //         if remove_utxo.len() > 0 {
-        //             remove_bulk_utxo_in_psql(remove_utxo, table_name);
-        //         }
-        //         if insert_utxo.len() > 0 {
-        //             insert_bulk_utxo_in_psql_memo_or_state(
-        //                 insert_utxo,
-        //                 self.txid.clone(),
-        //                 self.block_height,
-        //                 table_name,
-        //             );
-        //         }
-        //     }
-        //     _ => {}
-        // }
-
         true
     }
 }
@@ -183,7 +166,7 @@ pub fn insert_bulk_utxo_in_psql_coin(
     tx_id: String,
     block_height: u64,
     table_name: &str,
-) {
+) -> Result<(), UtxosetError>{
     let mut bulk_query_insert: String = format!(
         "INSERT INTO {}(utxo, output, owner_address, txid, vout, block_height) VALUES",
         table_name
@@ -211,6 +194,7 @@ pub fn insert_bulk_utxo_in_psql_coin(
         params_vec.push(&raw_utxo.data);
         params_vec.push(&raw_utxo.owner_address);
     }
+
     let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
     match client.execute(&bulk_query_insert, &params_vec) {
         Ok(result) => {}
@@ -226,7 +210,7 @@ pub fn insert_bulk_utxo_in_psql_memo_or_state(
     tx_id: String,
     block_height: u64,
     table_name: &str,
-) {
+) -> Result<(), UtxosetError>{
     let mut bulk_query_insert: String = format!(
         "INSERT INTO {}(utxo, output, owner_address, script_address, txid, vout, block_height) VALUES",
         table_name
@@ -255,6 +239,7 @@ pub fn insert_bulk_utxo_in_psql_memo_or_state(
         params_vec.push(&raw_utxo.data);
         params_vec.push(&raw_utxo.owner_address);
     }
+
     let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
     // client.execute(&bulk_query_insert, &params_vec).unwrap();
     match client.execute(&bulk_query_insert, &params_vec) {
@@ -264,12 +249,14 @@ pub fn insert_bulk_utxo_in_psql_memo_or_state(
             arr, block_height
         ),
     }
+
 }
 
-pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str) {
+pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str)->Result<(), UtxosetError> {
     let mut bulk_query_remove: String = format!("DELETE FROM {} WHERE utxo = any($1);", table_name);
-    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
-    client.execute(&bulk_query_remove, &[&remove_utxo]).unwrap();
+    let mut client = POSTGRESQL_POOL_CONNECTION.get()?;
+    client.execute(&bulk_query_remove, &[&remove_utxo])?;
+    Ok(())
 }
 
 // ------------------------------------------------------------------------
