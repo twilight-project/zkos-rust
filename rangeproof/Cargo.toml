@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-thiserror = "1.0.57"
+thiserror = "1"
 merlin = "2"
 rand = "0.7"
 subtle = "2"

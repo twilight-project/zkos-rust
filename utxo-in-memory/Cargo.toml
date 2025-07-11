@@ -44,7 +44,6 @@ r2d2_postgres = "0.18.1"
 temp-env = "0.3.4"
 prometheus = "0.12"
 serde_ini = "0.2"
-thiserror = "1.0.57"
 
 
 [dependencies.quisquis-rust]

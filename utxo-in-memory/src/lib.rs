@@ -3,7 +3,6 @@ pub mod blockoperations;
 pub mod db;
 pub mod pgsql;
 mod threadpool;
-pub mod error;
 //pub mod types;
 #[macro_use]
 extern crate lazy_static;

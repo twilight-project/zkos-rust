@@ -5,7 +5,6 @@ use crate::db::*;
 use crate::ADDRESS_TO_UTXO;
 pub type KeyId = Vec<u8>;
 pub type InputType = usize;
-use crate::error::UtxosetError;
 use crate::ThreadPool;
 use serde_derive::{Deserialize, Serialize};
 use zkvm::IOType;
@@ -20,18 +19,17 @@ use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_
 
 pub trait LocalDBtrait<T> {
     fn new(partition: usize) -> Self;
-
     fn add(&mut self, id: KeyId, value: T, input_type: usize) -> Result<T, std::io::Error>;
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
     fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool;
     fn get_utxo_by_id(&self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
     fn take_snapshot(&mut self) -> Result<(), std::io::Error>;
     fn load_from_snapshot(&mut self) -> Result<(), std::io::Error>;
-    fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error>
+    fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error>;
     fn data_meta_update(&mut self, blockheight: usize) -> bool;
     fn get_count_by_type(&self, input_type: usize) -> u64;
     fn get_utxo_from_db_by_block_height_range1(start_block: i128,limit: i64,pagination: i64,io_type: usize,
-    ) -> Result<Vec<UtxokeyidOutput<T>>, UtxosetError> ;
+    ) -> Result<Vec<UtxokeyidOutput<T>>, std::io::Error> ;
     // bulk add and bulk remove functions needed
 }
 
@@ -69,16 +67,15 @@ where
             block_height: 0,
             aggrigate_log_sequence: 0,
             snaps: SnapShot::new(partition_size),
-            partition_size,
+            partition_size: partition_size,
         }
     }
 
-    fn add(&mut self, id: KeyId, value: T, input_type: usize) -> Result<T, UtxosetError> {
-        match self.data
-            .get_mut(&input_type){
-                Some(inner_map) => inner_map.insert(id.clone(), value.clone()),
-                None => return Err(UtxosetError::UtxoNotFound),
-            };
+    fn add(&mut self, id: KeyId, value: T, input_type: usize) -> Result<T, std::io::Error> {
+        self.data
+            .get_mut(&input_type)
+            .unwrap()
+            .insert(id.clone(), value.clone());
 
         match input_type {
             1 => UTXO_COIN_TELEMETRY_COUNTER.inc(),
@@ -90,26 +87,27 @@ where
         Ok(value)
     }
 
-    fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, UtxosetError> {
-        let stoarage = self.data.get_mut(&input_type);
-        let value = match stoarage{
-            Some(inner_map) => inner_map.remove(&id),
-            None => return Err(UtxosetError::UtxoNotFound),
-        };
-        match value {
+    fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
+        match self.data.get_mut(&input_type).unwrap().remove(&id) {
             Some(value) => {
+
                 match input_type {
                     1 => UTXO_COIN_TELEMETRY_COUNTER.dec(),
                     2 => UTXO_MEMO_TELEMETRY_COUNTER.dec(),
                     3 => UTXO_STATE_TELEMETRY_COUNTER.dec(),
                     _ => {}
                 }
-                Ok(value.clone())
-            },
-            None => Err(UtxosetError::UtxoNotFound),
+
+                return Ok(value.clone());
+            }
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("utxo:{:?} not found", id),
+                ))
+            }
         }
     }
-
 
     fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool {
         self.data.get_mut(&input_type).unwrap().contains_key(id)
@@ -127,9 +125,6 @@ where
             }
         }
     }
-    fn get_utxo_by_id(&mut self, id: KeyId, input_type: usize) -> Result<T, UtxosetError> {
-         Ok(self.data.get_mut(&input_type).and_then(|f|f.get(&id)).ok_or(UtxosetError::UtxoNotFound)?.clone())
-    }
 
     fn get_count_by_type(&self, input_type: usize) -> u64 {
         let result: u64 = match self.data.get(&input_type) {
@@ -137,10 +132,10 @@ where
             None => 0,
         };
 
-        result
+        return result;
     }
 
-    fn take_snapshot(&mut self) -> Result<(), UtxosetError> {
+    fn take_snapshot(&mut self) -> Result<(), std::io::Error> {
         let snapshot_path = self.snaps.snap_rules.path.clone();
         let snap_path = format!("{}-snapmap", snapshot_path.clone());
         let last_block = self.block_height.clone();
@@ -178,7 +173,8 @@ where
         self.snaps.currentsnapid = new_snapshot_id;
         self.snaps.aggrigate_log_sequence = self.aggrigate_log_sequence;
         self.snaps.lastsnaptimestamp = std::time::SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)?
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
             .as_micros();
         let snap_storage = self.snaps.clone();
         //storing snapshot state with keyname "utxosnapshot"
@@ -198,7 +194,7 @@ where
         Ok(())
     }
 
-    fn load_from_snapshot(&mut self) -> Result<(), UtxosetError> {
+    fn load_from_snapshot(&mut self) -> Result<(), std::io::Error> {
         let last_updated_block = self.snaps.block_height;
         let snapshot_id = self.snaps.currentsnapid;
         let snapshot_path = self.snaps.snap_rules.path.clone();
@@ -227,7 +223,6 @@ where
         // check remaining blocks from chain and update the utxo set properly
         //get current block from the chain and update the remaining data from chain
     }
-
 
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error> {
         let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
@@ -284,7 +279,7 @@ where
         limit: i64,
         pagination: i64,
         io_type: usize,
-    ) -> Result<Vec<UtxokeyidOutput<T>>, UtxosetError> {
+    ) -> Result<Vec<UtxokeyidOutput<T>>, std::io::Error> {
         let public_threadpool = THREADPOOL_SQL_QUERY.lock().unwrap();
         let (sender, receiver) = mpsc::channel();
         public_threadpool.execute(move || {
@@ -341,7 +336,6 @@ where
     
 }
 
-
 pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
     let mut utxo_storage = crate::UTXO_STORAGE.write().unwrap();
 
@@ -369,12 +363,10 @@ pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
             for (key, output) in data.iter() {
                 let mut script_address: &String = &"".to_string();
                 if path != 0 {
-                    script_address = output.output.get_script_address().ok_or(UtxosetError::ScriptAddressNotFound)?;
+                    script_address = output.output.get_script_address().unwrap();
                 }
-
                 let utxo_key: zkvm::zkos_types::Utxo = bincode::deserialize(key).unwrap();
                 // let mut insert_utxo = Vec::new();
-
                 let utxo_out: crate::pgsql::PGSQLDataInsert = crate::pgsql::PGSQLDataInsert::new(
                     key.clone(),
                     bincode::serialize(output).unwrap(),
@@ -382,7 +374,6 @@ pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
                     script_address,
                     utxo_key.output_index() as usize,
                 );
-
                 // insert_utxo.push(utxo_out);
             //     let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
             //         Vec::new(),
@@ -418,9 +409,7 @@ pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
                 )}
                 _ =>{}
             }
-
             }
         });
     }
-    Ok(())
 }

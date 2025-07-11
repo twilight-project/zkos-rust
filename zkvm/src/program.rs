@@ -181,18 +181,18 @@ impl Program {
 
     // def_op!(cloak, Cloak, usize, usize, "cloak:m:n");
     def_op!(fee, Fee, "fee");
-    // def_op!(input, Input, "input");
-    // def_op!(output, Output, usize, "output:k");
-    // def_op!(contract, Contract, usize, "contract:k");
+    def_op!(input, Input, "input");
+    def_op!(output, Output, usize, "output:k");
+    def_op!(contract, Contract, usize, "contract:k");
 
-    // def_op!(log, Log, "log");
-    // def_op!(call, Call, "call");
+    def_op!(log, Log, "log");
+    def_op!(call, Call, "call");
 
-    // def_op!(signtx, Signtx, "signtx");
-    // def_op!(signid, Signid, "signid");
-    // def_op!(signtag, Signtag, "signtag");
-    // def_op!(inputcoin, InputCoin, usize, "inputcoin:k");
-    // def_op!(outputcoin, OutputCoin, usize, "outputcoin:k");
+    def_op!(signtx, Signtx, "signtx");
+    def_op!(signid, Signid, "signid");
+    def_op!(signtag, Signtag, "signtag");
+    def_op!(inputcoin, InputCoin, usize, "inputcoin:k");
+    def_op!(outputcoin, OutputCoin, usize, "outputcoin:k");
 
     /// Takes predicate tree and index of program in Merkle tree to verify
     /// the program's membership in that Merkle tree and call the program.
