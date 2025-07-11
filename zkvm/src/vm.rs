@@ -334,8 +334,8 @@ where
     }
     /// Runs through the entire program and nested programs until completion.
     pub fn run(mut self) -> Result<(), VMError> {
-        println!("stack len : {:?}", self.stack.len());
-        println!("Stack : {:?}", self.stack);
+       // println!("stack len : {:?}", self.stack.len());
+       // println!("Stack : {:?}", self.stack);
         loop {
             if !self.step()? {
                 break;
@@ -362,7 +362,7 @@ where
     /// Returns a flag indicating whether to continue the execution
     fn step(&mut self) -> Result<bool, VMError> {
         if let Some(instr) = self.delegate.next_instruction(&mut self.current_run)? {
-            println!("instr : {:?}", instr);
+            //println!("instr : {:?}", instr);
             // Attempt to read the next instruction and advance the program state
             match instr {
                 Instruction::Push(data) => self.pushdata(data),
@@ -489,7 +489,7 @@ where
     }
 
     fn and(&mut self) -> Result<(), VMError> {
-        println!("Stack : {:?}", self.stack);
+       // println!("Stack : {:?}", self.stack);
         let c2 = self.pop_item()?.to_constraint()?;
         let c1 = self.pop_item()?.to_constraint()?;
         let c3 = Constraint::and(c1, c2);
@@ -515,7 +515,7 @@ where
     fn verify(&mut self) -> Result<(), VMError> {
         let constraint = self.pop_item()?.to_constraint()?;
         constraint.verify(self.delegate.cs())?;
-        println!("Stack : {:?}", self.stack);
+       // println!("Stack : {:?}", self.stack);
         Ok(())
     }
 

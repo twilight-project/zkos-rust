@@ -85,20 +85,25 @@ impl<'g> Prover<'g> {
         // initialize the Stack with inputs and outputs
         match contract_deploy_flag {
             false => {
-                let init_result = vm.initialize_stack()?;
-                println!("\n Default VM initialized result {:?}", init_result);
+                let _init_result = vm.initialize_stack()?;
+               // println!("\n Default VM initialized result {:?}", init_result);
             }
             true => {
-                let init_result = vm.initialize_deploy_contract_stack()?;
-                println!("\n Contract VM initialized result {:?}", init_result);
+                let _init_result = vm.initialize_deploy_contract_stack()?;
+               // println!("\n Contract VM initialized result {:?}", init_result);
             }
         }
         // let init_result = vm.initialize_stack()?;
         // println!("VM initialized result {:?}", init_result);
 
         // run the program to create a R1CS circuit
-        let run_result = vm.run()?;
-        println!("Vm run result {:?}", run_result);
+
+        let _run_result = vm.run()?;
+       // println!("Vm run result {:?}", run_result);
+        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
+        //COMMIT TXID TO THE PROOF TO MAKE IT BOUND TO THE ENTIRE TRANSACTION
+        // prover.cs.transcript().append_message(b"ZkVM.txid", b"ZKOS");
+
 
         // Generate the R1CS proof
         let proof = prover

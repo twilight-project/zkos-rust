@@ -12,16 +12,3 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
-
-#Ignore .DS_Store
-**/.DS_Store
-
-#Ignore Visual Studio Code Workspace
-**/*.code-workspace
-ZkOs.code-workspace
-transactionapi/target/*
-utxo-in-memory/target/*
-.vscode
-transactionapi/zkos_snapshot/snapshot_storage/
-transactionapi/height.txt
-transactionapi/telemetry.ini

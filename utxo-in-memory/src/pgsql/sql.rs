@@ -194,9 +194,15 @@ pub fn insert_bulk_utxo_in_psql_coin(
         params_vec.push(&raw_utxo.data);
         params_vec.push(&raw_utxo.owner_address);
     }
-    let mut client = POSTGRESQL_POOL_CONNECTION.get()?;
-    client.execute(&bulk_query_insert, &params_vec)?;
-    Ok(())
+
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
+    match client.execute(&bulk_query_insert, &params_vec) {
+        Ok(result) => {}
+        Err(arr) => println!(
+            "Error at psql data insert : {:?} for block height:{}",
+            arr, block_height
+        ),
+    }
 }
 
 pub fn insert_bulk_utxo_in_psql_memo_or_state(
@@ -233,9 +239,17 @@ pub fn insert_bulk_utxo_in_psql_memo_or_state(
         params_vec.push(&raw_utxo.data);
         params_vec.push(&raw_utxo.owner_address);
     }
-    let mut client = POSTGRESQL_POOL_CONNECTION.get()?;
-    client.execute(&bulk_query_insert, &params_vec)?;
-    Ok(())
+
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
+    // client.execute(&bulk_query_insert, &params_vec).unwrap();
+    match client.execute(&bulk_query_insert, &params_vec) {
+        Ok(result) => {}
+        Err(arr) => println!(
+            "Error at psql data insert : {:?} for block height:{}",
+            arr, block_height
+        ),
+    }
+
 }
 
 pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str)->Result<(), UtxosetError> {
