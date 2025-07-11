@@ -1,7 +1,5 @@
-use std::borrow::Borrow;
 
-use address::{Address, Network};
-use merlin::Transcript;
+use address::Address;
 use quisquislib::{
     accounts::Account,
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
@@ -9,7 +7,7 @@ use quisquislib::{
 //use quisquislib::{keys::PublicKey, ristretto::RistrettoSecretKey};
 use serde::{Deserialize, Serialize};
 use zkvm::{
-    zkos_types::{Input, Output, OutputCoin, OutputMemo, StateWitness, ValueWitness, Witness}, // OutputCoin, Utxo},
+    zkos_types::{Input, Output, StateWitness, Witness}, // OutputCoin, Utxo},
     Commitment,
     IOType,
     Program,
@@ -17,12 +15,9 @@ use zkvm::{
 
 use bulletproofs::r1cs::R1CSProof;
 // use bulletproofs::BulletproofGens;
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::scalar::Scalar;
 
 // use bincode;
 // use std::fmt;
-use zkschnorr::{Signature, VerificationKey};
 use zkvm::merkle::CallProof; //, Hash, MerkleItem, MerkleTree};
 
 ///
