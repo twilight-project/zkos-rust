@@ -1,15 +1,13 @@
 use super::id::Id;
 use super::method::Method;
 // use curve25519_dalek::digest::Output;
-use jsonrpc_core::response::{Failure, Output, Success};
-use jsonrpc_core::Response as JsonRPCResponse;
+use jsonrpc_core::response::Output;
 use jsonrpc_core::Version;
 use serde_derive::{Deserialize, Serialize};
 use utxo_in_memory::pgsql::QueryUtxoFromDB;
 // use super::method::Method;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, USER_AGENT};
-use serde_json::Error;
 use transaction::Transaction;
 // pub type TransactionStatusId = String;
 use crate::TransactionStatusId;

@@ -1,6 +1,5 @@
 //! JSON-RPC IDs
 
-use core::fmt;
 
 use serde::{Deserialize, Serialize};
 

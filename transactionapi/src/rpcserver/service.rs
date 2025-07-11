@@ -1,5 +1,4 @@
 use super::threadpool::ThreadPool;
-use super::MintOrBurnTx;
 use address::{Address, Network};
 use curve25519_dalek::scalar::Scalar;
 use hex;
@@ -13,7 +12,7 @@ use std::error::Error;
 use std::sync::Mutex;
 // use std::thread;
 use crate::TransactionStatusId;
-use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
+use prometheus::{register_gauge, Gauge};
 use transaction::Transaction;
 // #[macro_use]
 // extern crate lazy_static;
