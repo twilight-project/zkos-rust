@@ -23,8 +23,8 @@ impl BlockRaw {
     pub fn get_txid(&mut self) -> Vec<String> {
         let mut txid_vec: Vec<String> = Vec::new();
         let txs = self.block.data.txs.clone();
-        for i in 0..txs.len() {
-            let tx_decode = BASE64_STANDARD.decode(txs[i].clone()).unwrap();
+        for tx in &txs {
+            let tx_decode = BASE64_STANDARD.decode(tx).unwrap();
             let mut sha256 = Sha256::new();
             sha256.update(tx_decode.clone());
             let result = sha256.finalize();
@@ -55,7 +55,7 @@ impl BlockRaw {
         self.block_id.hash.clone()
     }
     pub fn get_block_height(&mut self) -> u64 {
-        self.block.header.height.clone()
+        self.block.header.height
     }
     pub fn get_latest_block_height() -> Result<u64, String> {
         let url = format!(
@@ -68,7 +68,7 @@ impl BlockRaw {
                 let mut block = BlockRaw::decode(block_data).unwrap();
                 Ok(block.get_block_height())
             }
-            Err(arg) => return Err(arg.to_string()),
+            Err(arg) => Err(arg.to_string()),
         }
     }
     pub fn get_block_data_from_height(block_height: u64) -> Result<BlockRaw, String> {
@@ -79,9 +79,9 @@ impl BlockRaw {
         match request_url(&url) {
             Ok(block_data) => match BlockRaw::decode(block_data) {
                 Ok(block) => Ok(block),
-                Err(arg) => return Err(arg.to_string()),
+                Err(arg) => Err(arg.to_string()),
             },
-            Err(arg) => return Err(arg.to_string()),
+            Err(arg) => Err(arg.to_string()),
         }
     }
     pub fn convert_to_zkos_block(&mut self) {}

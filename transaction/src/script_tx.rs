@@ -260,7 +260,7 @@ impl ScriptTransaction {
                     let coin_witness = zkvm::zkos_types::ValueWitness::create_value_witness(
                         input_coin,
                         sk,
-                       // out_memo,
+                        // out_memo,
                         acc,
                         pk,
                         memo_commit,
@@ -271,30 +271,30 @@ impl ScriptTransaction {
                 }
                 IOType::Memo => {
                     //let in_memo: &OutputMemo = inp
-                      //  .as_out_memo()
-                        //.expect("OutputMemo can not be extracted from Input Memo");
+                    //  .as_out_memo()
+                    //.expect("OutputMemo can not be extracted from Input Memo");
                     // get corresponding OutputCoin
                     let out_coin: Output = outputs[i].clone();
                     //let acc: Account = out_coin
-                      //  .to_quisquis_account()
-                      //  .expect("Output is not a quisquis account");
+                    //  .to_quisquis_account()
+                    //  .expect("Output is not a quisquis account");
                     // get the public key from account
                     //let (pk, _) = acc.get_account();
-                    
-                   
+
                     //let sk = sk_list[i].clone();
-                    // create memo input signature 
+                    // create memo input signature
                     // convert OutputMemo to Output
-                   // let previous_output_memo = Output::from(in_memo.clone());
+                    // let previous_output_memo = Output::from(in_memo.clone());
                     // sign the input memo
-                   // let previous_output_memo_verifier_view = previous_output_memo.to_verifier_view();
+                    // let previous_output_memo_verifier_view = previous_output_memo.to_verifier_view();
                     //let message = bincode::serialize(&previous_output_memo_verifier_view).unwrap();
                     //let signature: Signature = quisquislib::keys::PublicKey::sign_msg(&pk, &message, &sk, ("PublicKeySign").as_bytes());
-                    
+
                     let memo_witness = zkvm::zkos_types::Witness::create_witness_for_memo_input(
                         out_coin,
-                       inp.clone(),
-                    ).expect("Memo Witness can not be created");
+                        inp.clone(),
+                    )
+                    .expect("Memo Witness can not be created");
                     witness.push(memo_witness);
                 }
                 IOType::State => {
@@ -467,7 +467,7 @@ impl ScriptTransaction {
                     };
                     let witness_verify = coin_witness.verify_value_witness(
                         inp.clone(),
-                      //  out_memo.clone(),
+                        //  out_memo.clone(),
                         pk,
                         acc,
                         memo_value.to_point(),
@@ -491,21 +491,18 @@ impl ScriptTransaction {
 
                     // verify the witness
                     // get account from output
-                   // let acc: Account = out_coin.to_quisquis_account()?;
+                    // let acc: Account = out_coin.to_quisquis_account()?;
                     // get public key from input
-                   // let (pk, _) = acc.get_account();
+                    // let (pk, _) = acc.get_account();
                     // get pedersen commitment value from input
-                   // let memo_value = inp.as_input_data().get_coin_value_from_memo().clone();
-                   // let memo_value = match memo_value {
-                     //   Some(memo) => memo,
-                      //  None => {
-                        //    return Err("VerificationError::MemoComitment does not exist");
-                      //  }
-                   // };
-                    if !memo_witness.verify_witness_for_memo_input(
-                        out_coin.clone(),
-                        inp.clone(),
-                    )? {
+                    // let memo_value = inp.as_input_data().get_coin_value_from_memo().clone();
+                    // let memo_value = match memo_value {
+                    //   Some(memo) => memo,
+                    //  None => {
+                    //    return Err("VerificationError::MemoComitment does not exist");
+                    //  }
+                    // };
+                    if !memo_witness.verify_witness_for_memo_input(out_coin.clone(), inp.clone())? {
                         return Err("Value Witness Verification Failed");
                     }
                 }

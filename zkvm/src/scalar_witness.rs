@@ -1,8 +1,8 @@
 //! Arithmetic and conversion API for ScalarWitness.
 
 use curve25519_dalek::scalar::Scalar;
-use serde::{Deserialize, Serialize};
 use rangeproof::SignedInteger;
+use serde::{Deserialize, Serialize};
 
 use crate::encoding::*;
 use crate::errors::VMError;

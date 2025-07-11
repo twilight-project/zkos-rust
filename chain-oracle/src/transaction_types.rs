@@ -42,9 +42,9 @@ impl TxRaw {
         match request_url(&url) {
             Ok(block_data) => match TxRaw::decode(block_data) {
                 Ok(tx) => Ok(tx),
-                Err(arg) => return Err(arg.to_string()),
+                Err(arg) => Err(arg.to_string()),
             },
-            Err(arg) => return Err(arg.to_string()),
+            Err(arg) => Err(arg.to_string()),
         }
     }
 }

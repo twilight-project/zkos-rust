@@ -86,11 +86,11 @@ impl<'g> Prover<'g> {
         match contract_deploy_flag {
             false => {
                 let _init_result = vm.initialize_stack()?;
-               // println!("\n Default VM initialized result {:?}", init_result);
+                // println!("\n Default VM initialized result {:?}", init_result);
             }
             true => {
                 let _init_result = vm.initialize_deploy_contract_stack()?;
-               // println!("\n Contract VM initialized result {:?}", init_result);
+                // println!("\n Contract VM initialized result {:?}", init_result);
             }
         }
         // let init_result = vm.initialize_stack()?;
@@ -98,7 +98,7 @@ impl<'g> Prover<'g> {
 
         // run the program to create a R1CS circuit
         let _run_result = vm.run()?;
-       // println!("Vm run result {:?}", run_result);
+        // println!("Vm run result {:?}", run_result);
         // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
         //COMMIT TXID TO THE PROOF TO MAKE IT BOUND TO THE ENTIRE TRANSACTION
         // prover.cs.transcript().append_message(b"ZkVM.txid", b"ZKOS");

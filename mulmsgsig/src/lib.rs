@@ -3,8 +3,8 @@
 //! Mulmsgsig implementation
 
 mod context;
-mod multisignature;
 mod errors;
+mod multisignature;
 mod transcript;
 
 #[cfg(test)]

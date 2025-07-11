@@ -27,7 +27,6 @@ pub struct Multimessage<M: AsRef<[u8]>> {
     pairs: Vec<(VerificationKey, M)>,
 }
 
-
 impl<M: AsRef<[u8]>> Multimessage<M> {
     /// Constructs a new multimessage context
     pub fn new(pairs: Vec<(VerificationKey, M)>) -> Self {

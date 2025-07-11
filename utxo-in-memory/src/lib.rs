@@ -8,6 +8,9 @@ mod threadpool;
 extern crate lazy_static;
 pub use self::db::SnapShot;
 pub use self::threadpool::ThreadPool;
+use chain_oracle::pubsub_chain;
+use chain_oracle::Block;
+use chain_oracle::TransactionMessage;
 use db::{AddressUtxoIDStorage, LocalDBtrait, LocalStorage};
 pub use pgsql::init_psql;
 use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
@@ -18,9 +21,6 @@ use std::{
 };
 use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
-use chain_oracle::pubsub_chain;
-use chain_oracle::Block;
-use chain_oracle::TransactionMessage;
 use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage::<Output>>> =

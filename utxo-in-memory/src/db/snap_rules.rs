@@ -1,6 +1,6 @@
 use crate::db::SequenceNumber;
-use std::path::Path;
 use serde_derive::{Deserialize, Serialize};
+use std::path::Path;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SnapRules {
     pub path: String,

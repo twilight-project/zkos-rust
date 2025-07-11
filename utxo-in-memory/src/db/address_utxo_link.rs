@@ -19,17 +19,13 @@ impl AddressUtxoIDStorage {
         address: String,
         input_type: IOType,
     ) -> Option<String> {
-        match self
-            .data
-            .get_mut(&input_type.to_usize()){
-                Some(utxo_id) => {
-                    match utxo_id.get(&address){
-                        Some(utxo_id) => Some(utxo_id.clone()),
-                        None => None,
-                    }
-                },
+        match self.data.get_mut(&input_type.to_usize()) {
+            Some(utxo_id) => match utxo_id.get(&address) {
+                Some(utxo_id) => Some(utxo_id.clone()),
                 None => None,
-            }
+            },
+            None => None,
+        }
     }
     pub fn add(&mut self, input_type: IOType, address: String, utxo_id: String) -> Option<String> {
         self.data

@@ -107,7 +107,7 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::TxQueue => {
                 let client = reqwest::blocking::Client::new();
@@ -118,7 +118,7 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::TxStatus => {
                 let client = reqwest::blocking::Client::new();
@@ -129,7 +129,7 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
 
             // Method::allOutputs => {
@@ -241,7 +241,7 @@ impl RpcRequest<Transaction> for RpcBody<Transaction> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
         }
     }
@@ -313,7 +313,7 @@ pub fn rpc_response(
                     result: Err(f.error),
                 },
             };
-            return Ok(rpc_response);
+            Ok(rpc_response)
 
             // } else { };
         }
@@ -369,7 +369,7 @@ impl RpcRequest<TransactionStatusId> for RpcBody<TransactionStatusId> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::TxQueue => {
                 let client = reqwest::blocking::Client::new();
@@ -380,7 +380,7 @@ impl RpcRequest<TransactionStatusId> for RpcBody<TransactionStatusId> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::TxStatus => {
                 let client = reqwest::blocking::Client::new();
@@ -391,7 +391,7 @@ impl RpcRequest<TransactionStatusId> for RpcBody<TransactionStatusId> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             } // _ => {}
             // Method::allOutputs => {
             //     let client = reqwest::blocking::Client::new();
@@ -501,7 +501,7 @@ impl RpcRequest<TransactionStatusId> for RpcBody<TransactionStatusId> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
         }
 
@@ -567,7 +567,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::TxQueue => {
                 let client = reqwest::blocking::Client::new();
@@ -578,7 +578,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::TxStatus => {
                 let client = reqwest::blocking::Client::new();
@@ -589,7 +589,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::allOutputs => {
                 let client = reqwest::blocking::Client::new();
@@ -600,7 +600,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::getUtxos => {
                 let client = reqwest::blocking::Client::new();
@@ -611,7 +611,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::getStateUtxos => {
                 let client = reqwest::blocking::Client::new();
@@ -622,7 +622,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::getMemoUtxos => {
                 let client = reqwest::blocking::Client::new();
@@ -633,7 +633,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::allUtxos => {
                 let client = reqwest::blocking::Client::new();
@@ -644,7 +644,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::allMemoUtxos => {
                 let client = reqwest::blocking::Client::new();
@@ -655,7 +655,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::allSateUtxos => {
                 let client = reqwest::blocking::Client::new();
@@ -666,7 +666,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::getOutput => {
                 let client = reqwest::blocking::Client::new();
@@ -677,7 +677,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::getMemoOutput => {
                 let client = reqwest::blocking::Client::new();
@@ -688,7 +688,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::getStateOutput => {
                 let client = reqwest::blocking::Client::new();
@@ -699,7 +699,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             Method::getUtxosFromDB => {
                 let client = reqwest::blocking::Client::new();
@@ -710,7 +710,7 @@ impl RpcRequest<Vec<String>> for RpcBody<Vec<String>> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
         }
     }
@@ -763,7 +763,7 @@ impl RpcRequest<QueryUtxoFromDB> for RpcBody<QueryUtxoFromDB> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
             _ => {
                 let client = reqwest::blocking::Client::new();
@@ -774,7 +774,7 @@ impl RpcRequest<QueryUtxoFromDB> for RpcBody<QueryUtxoFromDB> {
                     .body(self.into_json())
                     .send();
 
-                return rpc_response(res);
+                rpc_response(res)
             }
         }
     }

@@ -4,12 +4,12 @@ use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY};
 use crate::ThreadPool;
 use r2d2_postgres::postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
-use zkvm::Output;
 use std::sync::mpsc;
 use zkvm::zkos_types::IOType;
+use zkvm::Output;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoOutputRaw {
-    pub utxo_key:Vec<u8>,
+    pub utxo_key: Vec<u8>,
     pub output: Vec<u8>,
     pub height: i64,
 }
@@ -51,22 +51,21 @@ pub struct QueryUtxoFromDB {
     pub io_type: IOType,
 }
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Deserialize, Serialize)]
-pub enum TestCommandString{
-UtxoCoinDbLength,
-UtxoMemoDbLength,
-UtxoStateDbLength,
-TakeSnapshotintoLevelDB,
-TakeSnapshotintoPostgreSQL,
-TakeBackupFromLevelDB,
-TakeBackupFromPostgreSQL,
-TransferDataFromLevelDBtoPostgreSQL,
-LoadBackupFromLevelDB
+pub enum TestCommandString {
+    UtxoCoinDbLength,
+    UtxoMemoDbLength,
+    UtxoStateDbLength,
+    TakeSnapshotintoLevelDB,
+    TakeSnapshotintoPostgreSQL,
+    TakeBackupFromLevelDB,
+    TakeBackupFromPostgreSQL,
+    TransferDataFromLevelDBtoPostgreSQL,
+    LoadBackupFromLevelDB,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestCommand {
     pub test_command: TestCommandString,
-
 }
 
 pub fn get_utxo_from_db_by_block_height_range(
@@ -82,13 +81,11 @@ pub fn get_utxo_from_db_by_block_height_range(
         let mut query:String="".to_string();
 
         match io_type{
-            IOType::Coin=>{   
+            IOType::Coin=>{
                 if end_block < 0 {
                 query = format!("SELECT utxo, output, block_height FROM public.utxo_coin_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
-                
                  println!("{}",query);
            }
-   
            else {
                 query = format!("SELECT utxo, output, block_height FROM public.utxo_coin_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
                println!("{}",query);
@@ -98,7 +95,6 @@ pub fn get_utxo_from_db_by_block_height_range(
                 query = format!("SELECT utxo, output, block_height FROM public.utxo_memo_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
                println!("{}",query);
            }
-   
            else {
                 query = format!("SELECT utxo, output, block_height FROM public.utxo_memo_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
                println!("{}",query);
@@ -108,15 +104,12 @@ pub fn get_utxo_from_db_by_block_height_range(
                 query = format!("SELECT utxo, output, block_height FROM public.utxo_state_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
                println!("{}",query);
            }
-   
            else {
                 query = format!("SELECT utxo, output, block_height FROM public.utxo_state_logs where block_height between {} and {} order by block_height asc OFFSET {} limit {};",start_block,end_block,pagination*limit,limit);
                println!("{}",query);
            }
    }
         }
-    
-
         let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
         let mut result: Vec<UtxoOutputRaw> = Vec::new();
         match client.query(&query, &[]) {
@@ -149,8 +142,6 @@ pub fn get_utxo_from_db_by_block_height_range(
     };
 }
 
-
-
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------
@@ -171,6 +162,6 @@ mod test {
     }
     #[test]
     fn create_set_genesis_sets_test() {
-       crate::blockoperations::set_genesis_sets();
+        crate::blockoperations::set_genesis_sets();
     }
 }

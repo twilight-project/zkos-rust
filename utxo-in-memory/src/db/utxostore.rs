@@ -7,13 +7,15 @@ pub type KeyId = Vec<u8>;
 pub type InputType = usize;
 use crate::ThreadPool;
 use serde_derive::{Deserialize, Serialize};
-use zkvm::IOType;
 use std::collections::HashMap;
 use std::time::SystemTime;
+use zkvm::IOType;
 pub type SequenceNumber = usize;
+use crate::pgsql::{insert_bulk_utxo_in_psql_coin, insert_bulk_utxo_in_psql_memo_or_state};
+use crate::{
+    UTXO_COIN_TELEMETRY_COUNTER, UTXO_MEMO_TELEMETRY_COUNTER, UTXO_STATE_TELEMETRY_COUNTER,
+};
 use std::sync::mpsc;
-use crate::{UTXO_COIN_TELEMETRY_COUNTER, UTXO_MEMO_TELEMETRY_COUNTER, UTXO_STATE_TELEMETRY_COUNTER};
-use crate::pgsql::{insert_bulk_utxo_in_psql_coin,insert_bulk_utxo_in_psql_memo_or_state};
 
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_SQL_QUEUE};
 
@@ -28,8 +30,12 @@ pub trait LocalDBtrait<T> {
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error>;
     fn data_meta_update(&mut self, blockheight: usize) -> bool;
     fn get_count_by_type(&self, input_type: usize) -> u64;
-    fn get_utxo_from_db_by_block_height_range1(start_block: i128,limit: i64,pagination: i64,io_type: usize,
-    ) -> Result<Vec<UtxokeyidOutput<T>>, std::io::Error> ;
+    fn get_utxo_from_db_by_block_height_range1(
+        start_block: i128,
+        limit: i64,
+        pagination: i64,
+        io_type: usize,
+    ) -> Result<Vec<UtxokeyidOutput<T>>, std::io::Error>;
     // bulk add and bulk remove functions needed
 }
 
@@ -90,7 +96,6 @@ where
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
         match self.data.get_mut(&input_type).unwrap().remove(&id) {
             Some(value) => {
-
                 match input_type {
                     1 => UTXO_COIN_TELEMETRY_COUNTER.dec(),
                     2 => UTXO_MEMO_TELEMETRY_COUNTER.dec(),
@@ -164,7 +169,8 @@ where
                     path,
                     &bincode::serialize(&new_snapshot_id).unwrap(),
                     &bincode::serialize(&data).unwrap(),
-                ).expect("error in leveldb_custom_put");
+                )
+                .expect("error in leveldb_custom_put");
             });
         }
 
@@ -240,18 +246,17 @@ where
                 match data {
                     Ok(utxo_data) => {
                         if utxo_data.len() > 0 {
-                            println!("utxo_data.len():{}",utxo_data.len());
+                            println!("utxo_data.len():{}", utxo_data.len());
                             for value in utxo_data {
                                 self.data
                                     .get_mut(&inputtype)
                                     .unwrap()
                                     .insert(value.keyid, value.output);
-
                             }
                             pagination_counter += 1;
                         } else {
                             pagination_bool = false;
-                            println!("done for iotype:{}",inputtype);
+                            println!("done for iotype:{}", inputtype);
                         }
                     }
                     Err(arg) => {
@@ -274,7 +279,7 @@ where
         true
     }
 
-     fn get_utxo_from_db_by_block_height_range1(
+    fn get_utxo_from_db_by_block_height_range1(
         start_block: i128,
         limit: i64,
         pagination: i64,
@@ -284,25 +289,21 @@ where
         let (sender, receiver) = mpsc::channel();
         public_threadpool.execute(move || {
             let mut query:String="".to_string();
-    
             match io_type{
-                0=>{   
-                    query = format!("SELECT utxo, output FROM public.utxo_coin_logs where block_height>= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
-                     println!("{}",query);
+                0=>{
+                        query = format!("SELECT utxo, output FROM public.utxo_coin_logs where block_height>= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+                        println!("{}",query);
                    },
-                1=>{ 
-                    query = format!("SELECT utxo, output FROM public.utxo_memo_logs where block_height>= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
-                   println!("{}",query);
-              
+                1=>{
+                        query = format!("SELECT utxo, output FROM public.utxo_memo_logs where block_height>= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+                        println!("{}",query);
                    },
-                2=>{   
-                    query = format!("SELECT utxo, output FROM public.utxo_state_logs where block_height>= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
-                   println!("{}",query);
-               
+                2=>{
+                        query = format!("SELECT utxo, output FROM public.utxo_state_logs where block_height>= {} order by block_height asc OFFSET {} limit {};",start_block,pagination*limit,limit);
+                        println!("{}",query);
                    },
                 _=>{}
             }
-    
             let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
             let mut result: Vec<UtxokeyidOutput<T>> = Vec::new();
             match client.query(&query, &[]) {
@@ -319,11 +320,8 @@ where
                     .send(Err(std::io::Error::new(std::io::ErrorKind::Other, arg)))
                     .unwrap(),
             }
-    
         });
-    
         drop(public_threadpool);
-    
         match receiver.recv().unwrap() {
             Ok(value) => {
                 return Ok(value);
@@ -333,7 +331,6 @@ where
             }
         };
     }
-    
 }
 
 pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
@@ -375,40 +372,37 @@ pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
                     utxo_key.output_index() as usize,
                 );
                 // insert_utxo.push(utxo_out);
-            //     let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
-            //         Vec::new(),
-            //         insert_utxo,
-            //         hex::encode(utxo_key.tx_id()),
-            //         last_block as u64,
-            //         path,
-            //     );
-            //    pgql_data.update_utxo_log();
-            match path{
-                0 =>{
-                    insert_bulk_utxo_in_psql_coin(
-                        vec![utxo_out],
-                        hex::encode(utxo_key.tx_id()),
-                        0u64,
-                        "public.utxo_coin_logs",
-                    );
-                    
-                }
-                1 =>{
-                    insert_bulk_utxo_in_psql_memo_or_state(
+                //     let mut pgql_data = crate::pgsql::PGSQLTransaction::new(
+                //         Vec::new(),
+                //         insert_utxo,
+                //         hex::encode(utxo_key.tx_id()),
+                //         last_block as u64,
+                //         path,
+                //     );
+                //    pgql_data.update_utxo_log();
+                match path {
+                    0 => {
+                        insert_bulk_utxo_in_psql_coin(
+                            vec![utxo_out],
+                            hex::encode(utxo_key.tx_id()),
+                            0u64,
+                            "public.utxo_coin_logs",
+                        );
+                    }
+                    1 => insert_bulk_utxo_in_psql_memo_or_state(
                         vec![utxo_out],
                         hex::encode(utxo_key.tx_id()),
                         0u64,
                         "public.utxo_memo_logs",
-                    )
+                    ),
+                    2 => insert_bulk_utxo_in_psql_memo_or_state(
+                        vec![utxo_out],
+                        hex::encode(utxo_key.tx_id()),
+                        0u64,
+                        "public.utxo_state_logs",
+                    ),
+                    _ => {}
                 }
-                2 =>{insert_bulk_utxo_in_psql_memo_or_state(
-                    vec![utxo_out],
-                    hex::encode(utxo_key.tx_id()),
-                    0u64,
-                    "public.utxo_state_logs",
-                )}
-                _ =>{}
-            }
             }
         });
     }

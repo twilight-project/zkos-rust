@@ -95,10 +95,10 @@ fn verify_zero_balance_witness(
                     let (z_vector, x) = witness_proof.get_dlog();
                     Verifier::zero_balance_account_verifier(rec, z_vector[0], x, verifier)?;
                 }
-                None => {// do noting
-                // Receiver accounts already exist in the UTXO set. So no witness proof is required
-                // No zero balance proof is provided in this case
-                },
+                None => { // do noting
+                     // Receiver accounts already exist in the UTXO set. So no witness proof is required
+                     // No zero balance proof is provided in this case
+                }
             }
         }
     }
@@ -151,7 +151,6 @@ impl TransferTransaction {
         witness_comm_scalar: Option<&[Scalar]>,
         fee: u64,
     ) -> Result<(TransferTransaction, Option<Vec<Scalar>>), &'static str> {
-       
         //convert the valur vector into scalar type to create the proof
         let mut value_vector_scalar = Vec::<Scalar>::new();
         for v in value_vector.iter() {
@@ -175,7 +174,7 @@ impl TransferTransaction {
                 &value_vector_scalar,
                 base_pk,
             );
-        
+
         //identity check function to verify the construction of epsilon accounts using correct rscalars
         Verifier::verify_delta_identity_check(&epsilon_accounts)?;
 
@@ -200,7 +199,7 @@ impl TransferTransaction {
         //         )
         //     })
         //     .collect::<Vec<Account>>();
-        
+
         // create dark tx proof including the updated output accounts proof
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
@@ -216,7 +215,7 @@ impl TransferTransaction {
             senders_count,
             receivers_count,
             base_pk,
-            None,//Some((&output_accounts, pk_update_scalar, comm_update_scalar)),
+            None, //Some((&output_accounts, pk_update_scalar, comm_update_scalar)),
         );
 
         //create vec of Outputs -- Senders + Recievers in this case
@@ -240,11 +239,16 @@ impl TransferTransaction {
         let witness_proof_encrypt_scalar = match witness_comm_scalar {
             Some(scalar_vector) => {
                 // create Output_account_commitment_scalar for reciever accounts. Returned back to the client. Required for burnMessage/Script Tx(esp. Order/Lend)
-               // create reference for delta_rscalar of recievers
-               let delta_rscalar_receiver = &delta_rscalar[senders_count..senders_count+receivers_count];
-               // output account commitment scalar = input_commitment_scalar + delta_rscalar + comm_update_scalar                              //x+y+comm_update_scalar
-               let encrypt_scalar_sum_vector = delta_rscalar_receiver.iter().zip(scalar_vector.iter()).map(|(x,y)| x + y).collect::<Vec<Scalar>>();
-                 // create proof zero balance commitment for reciever accounts
+                // create reference for delta_rscalar of recievers
+                let delta_rscalar_receiver =
+                    &delta_rscalar[senders_count..senders_count + receivers_count];
+                // output account commitment scalar = input_commitment_scalar + delta_rscalar + comm_update_scalar                              //x+y+comm_update_scalar
+                let encrypt_scalar_sum_vector = delta_rscalar_receiver
+                    .iter()
+                    .zip(scalar_vector.iter())
+                    .map(|(x, y)| x + y)
+                    .collect::<Vec<Scalar>>();
+                // create proof zero balance commitment for reciever accounts
                 let witnesses = reciever_zero_balance_proof(
                     &mut prover,
                     &input_vector,
@@ -253,13 +257,12 @@ impl TransferTransaction {
                     receivers_count,
                 );
                 (Some(witnesses), Some(encrypt_scalar_sum_vector))
-                
             }
-            None => {(None, None)}
+            None => (None, None),
         };
-        let (witness_count, witness, ) = match witness_proof_encrypt_scalar.0 {
+        let (witness_count, witness) = match witness_proof_encrypt_scalar.0 {
             Some(witnesses) => (witnesses.len() as u8, Some(witnesses)),
-            None => ( 0u8,None),
+            None => (0u8, None),
         };
         // return TransferTransaction
         Ok((
@@ -277,10 +280,9 @@ impl TransferTransaction {
                 witness,
             ),
             witness_proof_encrypt_scalar.1,
-        ))        
-        
+        ))
     }
-    
+
     pub fn verify_private_transfer_tx(
         &self,
         input_accounts: &[Account],
