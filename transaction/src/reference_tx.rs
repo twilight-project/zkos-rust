@@ -222,7 +222,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
     let (
         value_vector,
         account_vector,
-        annonymity_com_scalar_vector,
+        _annonymity_com_scalar_vector,
         diff,
         sender_count,
         receiver_count,
@@ -267,7 +267,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
         &sk_sender,
         sender_count,
         receiver_count,
-        // &annonymity_com_scalar_vector,
+        // &_annonymity_com_scalar_vector,
         diff,
         None,
         0u64,

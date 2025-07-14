@@ -10,9 +10,7 @@ pub struct SnapRules {
 
 impl SnapRules {
     pub fn env() -> SnapRules {
-        dotenv::from_path(Path::new("/testnet/zkos-rust/utxo-in-memory/.env")).ok();
-        // dotenv::dotenv().expect("Failed loading dotenv");
-
+        dotenv::dotenv().ok();
         let snapshot_file_location: String = std::env::var("SNAPSHOT_FILE_LOCATION")
             .expect("missing environment variable SNAPSHOT_FILE_LOCATION");
         let snapshot_blockheight_threshold: SequenceNumber =

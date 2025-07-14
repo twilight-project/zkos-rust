@@ -1,8 +1,9 @@
-
+#![allow(non_snake_case)]
 use serde::{Deserialize, Serialize};
 
 /// Serialized as the "method" field of JSON-RPC/HTTP requests.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+#[allow(non_camel_case_types)]
 pub enum Method {
     /// Sends a transaction and immediately returns transaction hash.
     TxQueue,
