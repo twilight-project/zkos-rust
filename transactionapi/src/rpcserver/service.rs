@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use super::threadpool::ThreadPool;
 use address::{Address, Network};
 use curve25519_dalek::scalar::Scalar;
@@ -21,6 +22,8 @@ lazy_static! {
         Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue")));
     pub static ref TOTAL_TX_COUNTER: Gauge =
         register_gauge!("tx_counter", "A counter for tx").unwrap();
+    pub static ref ZKORACLE_TX_SUBMIT_URL: String = std::env::var("ZKORACLE_TX_SUBMIT_URL")
+        .unwrap_or("https://tx-submit.twilight.rest".to_string());
 }
 pub fn tx_queue(transaction: Transaction, fee: u64) {
     {
@@ -33,7 +36,7 @@ pub fn tx_queue(transaction: Transaction, fee: u64) {
 
 pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, String> {
     let client = Client::new();
-    let url = "http://0.0.0.0:7000/transaction";
+    let url = format!("{}/transaction", ZKORACLE_TX_SUBMIT_URL.as_str());
 
     let serialized: Vec<u8> = bincode::serialize(&transaction).map_err(|e| e.to_string())?;
     // {
@@ -101,7 +104,7 @@ pub async fn mint_burn_tx_initiate(
     twilight_address: String,
 ) -> Result<String, Box<dyn Error>> {
     let client = Client::new();
-    let url = "http://0.0.0.0:7000/burnmessage";
+    let url = format!("{}/burnmessage", ZKORACLE_TX_SUBMIT_URL.as_str());
 
     // convert qq_account into hex string
     let qq_account_hex = account_to_hex_str(qq_account, Network::default());
