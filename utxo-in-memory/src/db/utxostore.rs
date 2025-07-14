@@ -231,7 +231,7 @@ where
     }
 
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error> {
-        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.write().unwrap();
         for inputtype in 0..self.partition_size {
             let mut pagination_bool = true;
             let mut pagination_counter = 0;

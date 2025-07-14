@@ -25,8 +25,8 @@ use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
     pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage::<Output>>> =
         Arc::new(RwLock::new(LocalStorage::<Output>::new(3)));
-    pub static ref ADDRESS_TO_UTXO: Arc<Mutex<AddressUtxoIDStorage>> =
-        Arc::new(Mutex::new(AddressUtxoIDStorage::new()));
+    pub static ref ADDRESS_TO_UTXO: Arc<RwLock<AddressUtxoIDStorage>> =
+        Arc::new(RwLock::new(AddressUtxoIDStorage::new()));
     pub static ref UTXO_MEMO_TELEMETRY_COUNTER: Gauge =
         register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
     pub static ref UTXO_STATE_TELEMETRY_COUNTER: Gauge =
@@ -56,7 +56,7 @@ pub fn init_utxo() {
         let mut utxo_storage = UTXO_STORAGE.write().unwrap();
         // let _ = utxo_storage.load_from_snapshot();
         let _ = utxo_storage.load_from_snapshot_from_psql();
-        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.write().unwrap();
         for input_type in 0..3 {
             let utxos: &mut std::collections::HashMap<Vec<u8>, Output> =
                 utxo_storage.data.get_mut(&input_type).unwrap();
@@ -133,37 +133,26 @@ pub fn zk_oracle_subscriber() {
             1
         }
     };
-    // let url_str = format!(
-    //     "ws://147.182.235.183:7001/latestblock?blockHeight={}",
-    //     block_height
-    // );
-    // println!("url : {:?}", url_str);
-    // let url = Url::parse(&url_str);
-    // let url: Url = match url {
-    //     Ok(url) => url,
-    //     Err(e) => {
-    //         println!("Invalid URL: {}", e);
-    //         return;
-    //     }
-    // };
-
-    // let (mut socket, response) =
-    //     connect(url).expect("Can't establish a web socket connection to ZKOracle");
 
     //match establish_websocket_connection() {
     //  Ok((mut socket, response)) =>
     let mut oracle_threadpool = ZK_ORACLE_SUBSCRIBER_THREADPOOL.lock().unwrap();
     let (receiver, handle) = pubsub_chain::subscribe_block(true);
+    let receiver_clone = Arc::clone(&receiver);
     loop {
-        match receiver.lock().unwrap().recv() {
+        let receiver_clone_unwrapped = match receiver_clone.lock() {
+            Ok(receiver) => receiver,
+            Err(e) => {
+                println!("receiver lock failed: {:?}", e);
+                continue;
+            }
+        };
+        match receiver_clone_unwrapped.recv() {
             Ok(block) => {
                 oracle_threadpool.execute(move || {
                     let height = block.block_height;
                     let result =
                         blockoperations::blockprocessing::process_block_for_utxo_insert(block);
-                    // if result.suceess_tx.len() > 0 {
-                    //     save_snapshot();
-                    // }
                     let mut height_write_threadpool =
                         ZK_ORACLE_HEIGHT_WRITE_THREADPOOL.lock().unwrap();
 

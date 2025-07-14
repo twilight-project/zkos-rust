@@ -212,7 +212,7 @@ pub fn rpcserver() {
                 }
             };
 
-            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+            let address_to_utxo_storage = ADDRESS_TO_UTXO.read().unwrap();
             let utxo_id_option = address_to_utxo_storage
                 .get_utxo_id_by_address(utxo_request.address_or_id, utxo_request.input_type);
 
@@ -248,7 +248,7 @@ pub fn rpcserver() {
                 }
             };
 
-            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+            let address_to_utxo_storage = ADDRESS_TO_UTXO.read().unwrap();
             let utxo_id_option = address_to_utxo_storage
                 .get_utxo_id_by_address(utxo_request.address_or_id, utxo_request.input_type);
 
