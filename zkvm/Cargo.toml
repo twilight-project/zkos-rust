@@ -44,7 +44,7 @@ path = "../address"
 
 [dependencies.zkschnorr]
 git = "https://github.com/twilight-project/zk-schnorr.git"
-tag = "v0.1.0"
+tag = "Testnet-v1.0.0"
 
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
@@ -53,7 +53,7 @@ features = ["yoloproofs"]
 
 [dependencies.quisquis-rust]
 git = "https://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+tag = "Testnet-v1.0.0"
 
 [features]
 default = []

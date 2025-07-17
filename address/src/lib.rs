@@ -1,8 +1,6 @@
 //#![deny(missing_docs)]
 #![allow(non_snake_case)]
 
-//! ZkOS Transaction Address implementation.
-pub extern crate quisquislib;
 
 use bs58;
 use curve25519_dalek::ristretto::CompressedRistretto;

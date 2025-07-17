@@ -48,7 +48,7 @@ serde_ini = "0.2"
 
 [dependencies.quisquis-rust]
 git = "https://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+tag = "Testnet-v1.0.0"
 
 [dependencies.transaction]
 path = "../transaction"
