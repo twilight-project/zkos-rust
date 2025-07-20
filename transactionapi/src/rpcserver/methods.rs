@@ -1,3 +1,12 @@
+//! RPC method implementations for ZkOS Transaction API.
+//! 
+//! This module contains the concrete implementations of the JSON-RPC methods
+//! defined in the `method` module. It handles the parsing of parameters,
+//! validation, and the generation of responses for each method.
+//! 
+//! ## Methods
+//! 
+//! - `get_utxo_id`: Get UTXO IDs by address
 use super::*;
 use jsonrpsee::{core::error::Error, server::logger::Params};
 

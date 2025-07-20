@@ -213,3 +213,19 @@ Licensed under [`Apache-2.0`](../../LICENSE).
 - [QuisQuis Protocol](https://github.com/twilight-project/quisquis-rust)
 - [Ristretto255](https://ristretto.group/)
 - [ZkVM](https://github.com/twilight-project/zkos-rust/tree/main/zkvm)
+
+
+### 🔮 Future Roadmap
+
+- **Performance Improvements**: Further optimization of proof generation
+- **Additional Transaction Types**: Support for more specialized operations
+- **Enhanced Privacy**: Advanced privacy-preserving features
+- **Developer Tools**: Improved debugging and development utilities
+- **Cross-Platform Support**: Additional platform compatibility
+
+### 🛠️ Acknowledgments
+
+- **Stellar Development Foundation**: Original research and implementation inspiration
+- **Dalek Cryptography**: Bulletproofs implementation
+- **Rust Community**: Excellent tooling and ecosystem
+- **ZkOS Contributors**: Development and testing support
