@@ -1,3 +1,12 @@
+//! Thread pool management for ZkOS Transaction API.
+//!
+//! This module provides the thread pool implementation for handling
+//! concurrent JSON-RPC requests. It includes the main thread pool struct
+//! and worker management.
+//!
+//! ## Thread Pool
+//!
+//! - `ThreadPool`: Main thread pool implementation
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -38,7 +47,11 @@ impl ThreadPool {
 
         ThreadPool { workers, sender }
     }
-
+    /// Execute a job in the thread pool.
+    ///
+    /// # Arguments
+    /// * `f` - A function to execute
+    ///
     pub fn execute<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,
@@ -47,7 +60,8 @@ impl ThreadPool {
 
         self.sender.send(Message::NewJob(job)).unwrap();
     }
-
+    /// Shutdown the thread pool.
+    ///
     pub fn shutdown(&mut self) {
         println!("Sending terminate message to all workers.");
 
@@ -68,6 +82,7 @@ impl ThreadPool {
 }
 
 impl Drop for ThreadPool {
+    /// Drop the thread pool.
     fn drop(&mut self) {
         println!("Sending terminate message to all workers.");
 
@@ -93,6 +108,13 @@ struct Worker {
 }
 
 impl Worker {
+    /// Create a new worker.
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the worker
+    /// * `t_name` - The name of the thread
+    /// * `receiver` - The receiver of the messages
+    ///
     fn new(id: usize, t_name: String, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
         let thread = thread::Builder::new()
             .name(format!("{}-{}", t_name, id))

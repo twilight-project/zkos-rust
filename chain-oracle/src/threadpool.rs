@@ -1,8 +1,28 @@
+//! Simple thread pool implementation for parallel job execution.
+//!
+//! This module provides a basic thread pool for running jobs concurrently across a fixed number of worker threads.
+//!
+//! # Features
+//! - Fixed-size thread pool
+//! - Graceful shutdown on drop
+//! - Named worker threads for easier debugging
+//!
+//! # Example
+//! ```
+//! use chain_oracle::ThreadPool;
+//! let pool = ThreadPool::new(4, "my_pool".to_string());
+//! pool.execute(|| println!("Hello from the thread pool!"));
+//! ```
+
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
+/// A simple thread pool for parallel processing.
+///
+/// The thread pool manages a fixed number of worker threads, each capable of executing jobs submitted to the pool.
+/// Jobs are executed in the order they are received.
 pub struct ThreadPool {
     workers: Vec<Worker>,
     sender: mpsc::Sender<Message>,
@@ -16,13 +36,14 @@ enum Message {
 }
 
 impl ThreadPool {
-    /// Create a new ThreadPool.
+    /// Creates a new `ThreadPool`.
     ///
-    /// The size is the number of threads in the pool.
+    /// # Arguments
+    /// * `size` - The number of worker threads in the pool. Must be greater than zero.
+    /// * `t_name` - A name prefix for the worker threads (useful for debugging).
     ///
     /// # Panics
-    ///
-    /// The `new` function will panic if the size is zero.
+    /// Panics if `size` is zero.
     pub fn new(size: usize, t_name: String) -> ThreadPool {
         assert!(size > 0);
 
@@ -39,6 +60,10 @@ impl ThreadPool {
         ThreadPool { workers, sender }
     }
 
+    /// Executes a job in the thread pool.
+    ///
+    /// # Arguments
+    /// * `f` - A closure or function to execute. Must be `Send` and `'static`.
     pub fn execute<F>(&self, f: F)
     where
         F: FnOnce() + Send + 'static,
@@ -48,6 +73,9 @@ impl ThreadPool {
         self.sender.send(Message::NewJob(job)).unwrap();
     }
 
+    /// Gracefully shuts down the thread pool, waiting for all workers to finish.
+    ///
+    /// This method sends a terminate message to each worker and joins their threads.
     pub fn shutdown(&mut self) {
         println!("Sending terminate message to all workers.");
 
@@ -68,6 +96,7 @@ impl ThreadPool {
 }
 
 impl Drop for ThreadPool {
+    /// Drops the thread pool, ensuring all workers are terminated.
     fn drop(&mut self) {
         println!("Sending terminate message to all workers.");
 
@@ -87,12 +116,21 @@ impl Drop for ThreadPool {
     }
 }
 
+/// A worker in the thread pool.
+///
+/// Each worker runs in its own thread and executes jobs sent to it via a channel.
 struct Worker {
     id: usize,
     thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Worker {
+    /// Creates a new worker with the given ID and thread name prefix.
+    ///
+    /// # Arguments
+    /// * `id` - The worker's unique identifier.
+    /// * `t_name` - The name prefix for the thread.
+    /// * `receiver` - The shared receiver for job messages.
     fn new(id: usize, t_name: String, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
         let thread = thread::Builder::new()
             .name(format!("{}-{}", t_name, id))
@@ -102,12 +140,10 @@ impl Worker {
                 match message {
                     Message::NewJob(job) => {
                         // println!("Worker {} got a job; executing.", id);
-
                         job();
                     }
                     Message::Terminate => {
                         // println!("Worker {} was told to terminate.", id);
-
                         break;
                     }
                 }

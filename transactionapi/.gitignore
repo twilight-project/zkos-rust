@@ -17,3 +17,12 @@ Cargo.lock
 **/.DS_Store
 
 snapshot_shortage/
+
+# ignore raw request sample
+/src/rpcclient/raw_request_sample.rs
+
+foo/
+ 
+foot.txt
+
+/snapshot_shortage/

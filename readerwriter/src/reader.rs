@@ -1,12 +1,27 @@
+//! Reader trait and error types for binary deserialization.
+//!
+//! This module provides the [`Reader`] trait for reading binary data, and the [`ReadError`] type for error handling.
+//!
+//! # Example
+//! ```
+//! use readerwriter::Reader;
+//! let mut data: &[u8] = &[1, 2, 3, 4];
+//! let value = data.read_u32().unwrap();
+//! ```
+
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-/// Error kinds returns by the reader.
+/// Error kinds returned by the reader.
 #[derive(Debug)]
 pub enum ReadError {
+    /// Not enough bytes available to complete the read.
     InsufficientBytes,
+    /// There are trailing bytes left after reading.
     TrailingBytes,
+    /// The data format is invalid.
     InvalidFormat,
+    /// Custom error.
     Custom(Box<dyn Error + Send + Sync>),
 }
 
@@ -23,6 +38,8 @@ impl Display for ReadError {
 impl std::error::Error for ReadError {}
 
 /// An interface for reading binary data.
+///
+/// Implement this trait for types that can read bytes from a buffer or stream.
 pub trait Reader {
     /// Copies bytes into a slice. If there is not enough bytes available,
     /// does not consume any byte and returns ReadError::InsufficientBytes.

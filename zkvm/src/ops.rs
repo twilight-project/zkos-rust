@@ -346,7 +346,7 @@ pub enum Instruction {
     ///     ```
     ///
     /// Fails if the `prevoutput` is not a _string_ with exact encoding of an _output structure_.
-  //  Input,
+    Input,
 
     /// _items... predicate_ **output:_k_** → ø
     ///
@@ -361,7 +361,7 @@ pub enum Instruction {
     /// Fails if:
     /// * VM’s _last anchor_ is not set,
     /// * payload items are not _portable_.
- //   Output(usize),
+    Output(usize),
 
     /// _items... pred_ **contract:_k_** → _contract_
     ///
@@ -376,7 +376,7 @@ pub enum Instruction {
     /// Fails if:
     /// * VM’s _last anchor_ is not set,
     /// * payload items are not _portable_.
-  //  Contract(usize),
+    Contract(usize),
 
     /// _data_ **log** → ø
     ///
@@ -384,7 +384,7 @@ pub enum Instruction {
     /// 2. Adds _data entry_ with it to the _transaction log_.
     ///
     /// Fails if `data` is not a _string_.
-  //  Log,
+    Log,
 
     /// _contract(P) proof prog_ **call** → _results..._
     ///
@@ -404,7 +404,7 @@ pub enum Instruction {
     /// 1. `prog` is not a _program_,
     /// 2. or `proof` is not a _string_,
     /// 3. or `contract` is not a _contract_.
-   //Call,
+    Call,
 
     /// _contract(predicate, payload)_ **signtx** → _items..._
     ///
@@ -416,7 +416,7 @@ pub enum Instruction {
     ///
     /// Note: the instruction never fails as the only check (signature verification)
     /// is deferred until the end of VM execution.
-   // Signtx,
+    Signtx,
 
     /// _contract(predicate, payload) prog sig_ **signid** → _items..._
     ///
@@ -452,7 +452,7 @@ pub enum Instruction {
     /// 1. `sig` is not a 64-byte long _string_,
     /// 2. or `prog` is not a _program_,
     /// 3. or `contract` is not a _contract_.
-   // Signid,
+    Signid,
 
     /// _contract(predicate, payload) prog sig_ **signtag** → _items... tag_
     ///
@@ -490,16 +490,16 @@ pub enum Instruction {
     /// 2. or `prog` is not a _program_,
     /// 3. or `contract` is not a _contract_,
     /// 4. or last item in the `payload` (`tag`) is not a _string_.
-    //Signtag,
+    Signtag,
 
     /// **inputcoin:_i_** → _Input_
     ///
     /// Pushes a _input_coin_ from index `i` of transaction data.
-    //InputCoin(usize),
+    InputCoin(usize),
     /// **outputcoin:_i_** → _Input_
     ///
     /// Pushes a _output_coin_ from index `i` of transaction data.
-    //OutputCoin(usize),
+    OutputCoin(usize),
 
     /// Unassigned opcode.
     Ext(u8),
@@ -562,25 +562,25 @@ pub enum Opcode {
     /// A code for [Instruction::Fee]
     Fee = 0x19,
     /// A code for [Instruction::Input]
-  //  Input = 0x1a,
+    Input = 0x1a,
     /// A code for [Instruction::Output]
- //   Output = 0x1b,
+    Output = 0x1b,
     /// A code for [Instruction::Contract]
- //   Contract = 0x1c,
+    Contract = 0x1c,
     /// A code for [Instruction::Log]
- //   Log = 0x1d,
+    Log = 0x1d,
     /// A code for [Instruction::Call]
- //   Call = 0x1e,
+    Call = 0x1e,
     /// A code for [Instruction::Signtx]
- //   Signtx = 0x1f,
+    Signtx = 0x1f,
     /// A code for [Instruction::Signid]
- //   Signid = 0x20,
+    Signid = 0x20,
     /// A code for [Instruction::Signtag]
- //   Signtag = 0x21,
+    Signtag = 0x21,
     /// A code for [Instruction::InputCoin]
- //   InputCoin = 0x22,
+    InputCoin = 0x22,
     /// A code for [Instruction::OutputCoin]
- //   OutputCoin = MAX_OPCODE,
+    OutputCoin = MAX_OPCODE,
 }
 
 const MAX_OPCODE: u8 = 0x23;
@@ -651,29 +651,29 @@ impl Encodable for Instruction {
                 w.write_u32(b"m", *m as u32)?;
                 w.write_u32(b"n", *n as u32)?;
             }*/
-            // Instruction::Fee => write(Opcode::Fee)?,
-            // Instruction::Input => write(Opcode::Input)?,
-            // Instruction::Output(k) => {
-            //     write(Opcode::Output)?;
-            //     w.write_u32(b"k", *k as u32)?;
-            // }
-            // Instruction::Contract(k) => {
-            //     write(Opcode::Contract)?;
-            //     w.write_u32(b"k", *k as u32)?;
-            // }
-            // Instruction::Log => write(Opcode::Log)?,
-            // Instruction::Call => write(Opcode::Call)?,
-            // Instruction::Signtx => write(Opcode::Signtx)?,
-            // Instruction::Signid => write(Opcode::Signid)?,
-            // Instruction::Signtag => write(Opcode::Signtag)?,
-            // Instruction::InputCoin(k) => {
-            //     write(Opcode::InputCoin)?;
-            //     w.write_u32(b"k", *k as u32)?;
-            // }
-            // Instruction::OutputCoin(k) => {
-            //     write(Opcode::OutputCoin)?;
-            //     w.write_u32(b"k", *k as u32)?;
-            // }
+            Instruction::Fee => write(Opcode::Fee)?,
+            Instruction::Input => write(Opcode::Input)?,
+            Instruction::Output(k) => {
+                write(Opcode::Output)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
+            Instruction::Contract(k) => {
+                write(Opcode::Contract)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
+            Instruction::Log => write(Opcode::Log)?,
+            Instruction::Call => write(Opcode::Call)?,
+            Instruction::Signtx => write(Opcode::Signtx)?,
+            Instruction::Signid => write(Opcode::Signid)?,
+            Instruction::Signtag => write(Opcode::Signtag)?,
+            Instruction::InputCoin(k) => {
+                write(Opcode::InputCoin)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
+            Instruction::OutputCoin(k) => {
+                write(Opcode::OutputCoin)?;
+                w.write_u32(b"k", *k as u32)?;
+            }
             Instruction::Ext(x) => w.write_u8(b"ext", *x)?,
         };
         Ok(())
@@ -688,10 +688,10 @@ impl ExactSizeEncodable for Instruction {
             Instruction::Dup(_) => 1 + 4,
             Instruction::Roll(_) => 1 + 4,
             // Instruction::Cloak(_, _) => 1 + 4 + 4,
-            // Instruction::Output(_) => 1 + 4,
-            // Instruction::Contract(_) => 1 + 4,
-            // Instruction::InputCoin(_) => 1 + 4,
-            // Instruction::OutputCoin(_) => 1 + 4,
+            Instruction::Output(_) => 1 + 4,
+            Instruction::Contract(_) => 1 + 4,
+            Instruction::InputCoin(_) => 1 + 4,
+            Instruction::OutputCoin(_) => 1 + 4,
             _ => 1,
         }
     }
@@ -761,28 +761,28 @@ impl Instruction {
                 Ok(Instruction::Cloak(m, n))
             }*/
             Opcode::Fee => Ok(Instruction::Fee),
-            // Opcode::Input => Ok(Instruction::Input),
-            // Opcode::Output => {
-            //     let k = program.read_size()?;
-            //     Ok(Instruction::Output(k))
-            // }
-            // Opcode::Contract => {
-            //     let k = program.read_size()?;
-            //     Ok(Instruction::Contract(k))
-            // }
-            // Opcode::Log => Ok(Instruction::Log),
-            // Opcode::Call => Ok(Instruction::Call),
-            // Opcode::Signtx => Ok(Instruction::Signtx),
-            // Opcode::Signid => Ok(Instruction::Signid),
-            // Opcode::Signtag => Ok(Instruction::Signtag),
-            // Opcode::InputCoin => {
-            //     let idx = program.read_size()?;
-            //     Ok(Instruction::InputCoin(idx))
-            // }
-            // Opcode::OutputCoin => {
-            //     let idx = program.read_size()?;
-            //     Ok(Instruction::OutputCoin(idx))
-            // }
+            Opcode::Input => Ok(Instruction::Input),
+            Opcode::Output => {
+                let k = program.read_size()?;
+                Ok(Instruction::Output(k))
+            }
+            Opcode::Contract => {
+                let k = program.read_size()?;
+                Ok(Instruction::Contract(k))
+            }
+            Opcode::Log => Ok(Instruction::Log),
+            Opcode::Call => Ok(Instruction::Call),
+            Opcode::Signtx => Ok(Instruction::Signtx),
+            Opcode::Signid => Ok(Instruction::Signid),
+            Opcode::Signtag => Ok(Instruction::Signtag),
+            Opcode::InputCoin => {
+                let idx = program.read_size()?;
+                Ok(Instruction::InputCoin(idx))
+            }
+            Opcode::OutputCoin => {
+                let idx = program.read_size()?;
+                Ok(Instruction::OutputCoin(idx))
+            }
         }
     }
 }

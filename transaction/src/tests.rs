@@ -108,7 +108,7 @@ pub fn get_trader_order_program() -> Program {
             .eq()
             .verify();
     });
-    return order_prog;
+    order_prog
 }
 #[test]
 fn order_message_test_bali() {
@@ -232,7 +232,7 @@ fn order_message_prog(balance: u64, order_qty: u64) -> Program {
             .range()
             .drop();
     });
-    return order_prog;
+    order_prog
 }
 
 fn contract_initialize_program() -> Program {
@@ -256,7 +256,7 @@ fn contract_initialize_program() -> Program {
             .eq()
             .verify();
     });
-    return order_prog;
+    order_prog
 }
 
 fn contract_initialize_program_with_stack() -> Program {
@@ -280,7 +280,7 @@ fn contract_initialize_program_with_stack() -> Program {
             .eq()
             .verify();
     });
-    return order_prog;
+    order_prog
 }
 fn contract_initialize_program_with_stack_short() -> Program {
     let order_prog = Program::build(|p| {
@@ -295,7 +295,7 @@ fn contract_initialize_program_with_stack_short() -> Program {
             .range()
             .drop();
     });
-    return order_prog;
+    order_prog
 }
 fn order_message_prog_with_stack_initialized() -> Program {
     let order_prog = Program::build(|p| {
@@ -309,7 +309,7 @@ fn order_message_prog_with_stack_initialized() -> Program {
             .range()
             .drop();
     });
-    return order_prog;
+    order_prog
 }
 
 fn lend_order_initial_dup_test_stack_initialized() -> Program {
@@ -374,7 +374,7 @@ fn lend_order_initial_dup_test_stack_initialized() -> Program {
         //.drop();
     });
 
-    return order_prog;
+    order_prog
 }
 
 fn settle_order_lost_test_stack_initialized() -> Program {
@@ -429,7 +429,7 @@ fn settle_order_lost_test_stack_initialized() -> Program {
             .verify();
     });
 
-    return order_prog;
+    order_prog
 }
 fn settle_order_gain_test_stack_initialized() -> Program {
     let order_prog = Program::build(|p| {
@@ -483,7 +483,7 @@ fn settle_order_gain_test_stack_initialized() -> Program {
             .verify();
     });
 
-    return order_prog;
+    order_prog
 }
 fn order_message_prog_input_output(
     balance: u64,
@@ -506,7 +506,7 @@ fn order_message_prog_input_output(
             .drop()
             .drop();
     });
-    return order_prog;
+    order_prog
 }
 
 #[test]
@@ -933,9 +933,9 @@ fn test_private_transaction_single_sender_reciever() {
     // lets say bob wants to sent 500 tokens to alice from his account
     let (bob_account_1, bob_sk_account_1) =
         Account::generate_random_account_with_value(1000u64.into());
-    let (bob_pk, _ ) = bob_account_1.get_account();
+    let (bob_pk, _) = bob_account_1.get_account();
     //create alice account with 0 balance
-    let alice_pk = RistrettoPublicKey::update_public_key(&bob_pk, Scalar::random(&mut rng)); 
+    let alice_pk = RistrettoPublicKey::update_public_key(&bob_pk, Scalar::random(&mut rng));
     let alice_comm_scalar = Scalar::random(&mut rng);
     let alice_commitment =
         ElGamalCommitment::generate_commitment(&alice_pk, alice_comm_scalar, Scalar::from(0u64));
@@ -991,28 +991,25 @@ fn test_private_transaction_single_sender_reciever() {
     let (pk_new, comm_old) = out_acc.get_account();
     //create new commitment with the new pk
     let new_scalar = comm_scalar.unwrap()[0];
-    let new_commitment = ElGamalCommitment::generate_commitment(
-        &pk_new,
-        new_scalar.clone(),
-        Scalar::from(500u64),
-    );
+    let new_commitment =
+        ElGamalCommitment::generate_commitment(&pk_new, new_scalar.clone(), Scalar::from(500u64));
 
     // check commmitment
-   println!("res {:?}", new_commitment.eq(&comm_old));
-   assert_eq!(new_commitment, comm_old);
-   println!("Output : {:?}", output);
-   println!("Encrypt Scalar : {:?}", new_scalar);
+    println!("res {:?}", new_commitment.eq(&comm_old));
+    assert_eq!(new_commitment, comm_old);
+    println!("Output : {:?}", output);
+    println!("Encrypt Scalar : {:?}", new_scalar);
 
-  //  lets decrypt the value
+    //  lets decrypt the value
     let decrypt = out_acc.decrypt_account_balance_value(&bob_sk_account_1);
     let scalar_bytes = decrypt.unwrap().to_bytes();
-   //Convert [u8; 32] into [u8; 8]
+    //Convert [u8; 32] into [u8; 8]
     let array_8: [u8; 8] = scalar_bytes[0..8].try_into().unwrap();
     println!("Decrypt : {:?}", u64::from_le_bytes(array_8));
     let tx = crate::Transaction::transaction_transfer(crate::TransactionData::TransactionTransfer(
         transfer.clone(),
     ));
-   // println!("Transaction : {:?}", tx.clone());
+    // println!("Transaction : {:?}", tx.clone());
 
     // Verify the transaction
     let verify = tx.verify();
@@ -1092,7 +1089,7 @@ fn test_private_transaction_single_sender_reciever_input() {
     assert!(verify.is_ok());
 }
 #[test]
-    fn test_dark_transaction_pow_2() {
+fn test_dark_transaction_pow_2() {
     let mut rng = rand::thread_rng();
 
     // create mutiple sender and recievers
@@ -1196,11 +1193,8 @@ fn test_private_transaction_single_sender_reciever_input() {
         alice_scalar.clone(),
         Scalar::from(500u64),
     );
-    let fay_commitment = ElGamalCommitment::generate_commitment(
-        &pk_fay,
-        fay_scalar.clone(),
-        Scalar::from(300u64),
-    );
+    let fay_commitment =
+        ElGamalCommitment::generate_commitment(&pk_fay, fay_scalar.clone(), Scalar::from(300u64));
     assert_eq!(alice_commitment, comm_alice);
     assert_eq!(fay_commitment, comm_fay);
 }

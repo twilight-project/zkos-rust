@@ -55,18 +55,18 @@ impl Sender {
             let mut value_vector: Vec<i64> = tx_vector.iter().map(|s| s.total_amount).collect();
             let mut account_vector: Vec<Account> = tx_vector.iter().map(|s| s.account).collect();
 
-            let senders_count: usize = tx_vector.iter().count();
+            let senders_count: usize = tx_vector.len();
             let mut receivers_count = 0;
 
             let mut receiver_amount_vector: Vec<i64> = Vec::new();
             let mut receiver_account_vector: Vec<Account> = Vec::new();
 
             for sender in tx_vector.iter() {
-                receivers_count += &sender.receivers.iter().count();
+                receivers_count += &sender.receivers.len();
 
                 for rec in sender.receivers.iter() {
                     receiver_amount_vector.push(rec.amount);
-                    receiver_account_vector.push(rec.acc.clone());
+                    receiver_account_vector.push(rec.acc);
                 }
             }
 
@@ -187,7 +187,7 @@ impl Sender {
         if diff >= 1 {
             for i in 0..diff {
                 value_vector.push(0);
-                account_vector.push(anonymity_account_vec[i].clone());
+                account_vector.push(anonymity_account_vec[i]);
             }
         }
 
@@ -235,17 +235,7 @@ pub fn create_qq_reference_transaction() -> Transaction {
     let hash: Hash = Hash::default();
     //SHOULD BE TAKEN FROM UTXO SET
     let utxo = Utxo::from_hash(hash, 0);
-    let utxo_vector: Vec<Utxo> = vec![
-        utxo.clone(),
-        utxo.clone(),
-        utxo.clone(),
-        utxo.clone(),
-        utxo.clone(),
-        utxo.clone(),
-        utxo.clone(),
-        utxo.clone(),
-        utxo.clone(),
-    ];
+    let utxo_vector: Vec<Utxo> = vec![utxo, utxo, utxo, utxo, utxo, utxo, utxo, utxo, utxo];
 
     let updated_balance_reciever: Vec<u64> = vec![5]; //, 2, 1];
     println!("Data : {:?}", sender_count);
@@ -319,8 +309,8 @@ pub fn create_dark_reference_transaction() -> Transaction {
     //println!("Data : {:?}", sender_count);
     //create quisquis transfertransaction
     let transfer = TransferTransaction::create_private_transfer_transaction(
-        &values,
-        &accounts,
+        values,
+        accounts,
         &updated_sender_balance,
         &updated_balance_reciever,
         &inputs,
@@ -541,7 +531,7 @@ pub fn create_dark_reference_tx_for_utxo_test(
         &updated_balance_sender,
         &updated_balance_reciever,
         &vec![input],
-        &sk_sender,
+        sk_sender,
         sender_count,
         receiver_count,
         None,

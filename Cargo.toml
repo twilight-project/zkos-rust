@@ -1,5 +1,10 @@
 [workspace]
-
+resolver = "2"
 members = [ "address", "merkle", "mulmsgsig",  "rangeproof", "readerwriter", "starsig", "transaction", "transactionapi","utxo-in-memory", "zkvm", "chain-oracle"]
-exclude = ["elgamalsign"]
+
+
+[workspace.package]
+license = "Apache-2.0"
+authors = ["Twilight Project Contributors"]
+repository = "https://github.com/twilight-project/zkos-rust"
 
