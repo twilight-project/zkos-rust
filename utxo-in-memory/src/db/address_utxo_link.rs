@@ -72,12 +72,8 @@ impl AddressUtxoIDStorage {
     ///
     /// # Returns
     /// * `Some(utxo_id)` if the address is found, `None` otherwise
-    pub fn get_utxo_id_by_address(
-        &mut self,
-        address: String,
-        input_type: IOType
-    ) -> Option<String> {
-        match self.data.get_mut(&input_type.to_usize()) {
+    pub fn get_utxo_id_by_address(&self, address: String, input_type: IOType) -> Option<String> {
+        match self.data.get(&input_type.to_usize()) {
             Some(utxo_id) =>
                 match utxo_id.get(&address) {
                     Some(utxo_id) => Some(utxo_id.clone()),

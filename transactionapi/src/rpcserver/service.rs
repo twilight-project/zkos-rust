@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 //! RPC service implementation for transaction processing and blockchain interaction.
 //!
 //! This module provides core RPC service functions for transaction submission,
@@ -5,7 +6,6 @@
 //! and Prometheus metrics integration.
 
 use super::error::{ RpcError, RpcResult };
-#![allow(non_snake_case)]
 use super::threadpool::ThreadPool;
 use crate::TransactionStatusId;
 use address::{ Address, Network };
@@ -50,7 +50,7 @@ pub struct ServiceConfig {
 impl Default for ServiceConfig {
     fn default() -> Self {
         Self {
-            oracle_url: ZKORACLE_TX_SUBMIT_URL,
+            oracle_url: ZKORACLE_TX_SUBMIT_URL.clone(),
             timeout_seconds: 30,
             max_retries: 3,
         }
