@@ -57,54 +57,56 @@ pub use self::threadpool::ThreadPool;
 use chain_oracle::pubsub_chain;
 use chain_oracle::Block;
 use chain_oracle::TransactionMessage;
-use db::{AddressUtxoIDStorage, LocalDBtrait, LocalStorage};
+use db::{ AddressUtxoIDStorage, LocalDBtrait, LocalStorage };
 pub use pgsql::init_psql;
-use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
-use std::{
-    collections::HashMap,
-    fs,
-    sync::{Arc, Mutex, RwLock},
-};
-use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
+use prometheus::{ register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder };
+use std::{ collections::HashMap, fs, sync::{ Arc, Mutex, RwLock } };
+use tungstenite::{ connect, handshake::server::Response, Message, WebSocket };
 use url::Url;
-use zkvm::{zkos_types::Output, IOType};
+use zkvm::{ zkos_types::Output, IOType };
 lazy_static! {
     /// Global UTXO storage with partitioned storage by type (Coin, Memo, State)
-    pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage::<Output>>> =
-        Arc::new(RwLock::new(LocalStorage::<Output>::new(3)));
+    pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage<Output>>> = Arc::new(
+        RwLock::new(LocalStorage::<Output>::new(3))
+    );
 
     /// Address-to-UTXO mapping for efficient queries by address and type
-    pub static ref ADDRESS_TO_UTXO: Arc<Mutex<AddressUtxoIDStorage>> =
-        Arc::new(Mutex::new(AddressUtxoIDStorage::new()));
+    pub static ref ADDRESS_TO_UTXO: Arc<RwLock<AddressUtxoIDStorage>> = Arc::new(
+        RwLock::new(AddressUtxoIDStorage::new())
+    );
 
     /// Prometheus metric for memo UTXO count
-    pub static ref UTXO_MEMO_TELEMETRY_COUNTER: Gauge =
-        register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
+    pub static ref UTXO_MEMO_TELEMETRY_COUNTER: Gauge = register_gauge!(
+        "utxo_memo_count",
+        "A counter for memo utxo"
+    ).unwrap();
 
     /// Prometheus metric for state UTXO count
-    pub static ref UTXO_STATE_TELEMETRY_COUNTER: Gauge =
-        register_gauge!("utxo_state_count", "A counter for state utxo").unwrap();
+    pub static ref UTXO_STATE_TELEMETRY_COUNTER: Gauge = register_gauge!(
+        "utxo_state_count",
+        "A counter for state utxo"
+    ).unwrap();
 
     /// Prometheus metric for coin UTXO count
-    pub static ref UTXO_COIN_TELEMETRY_COUNTER: Gauge =
-        register_gauge!("utxo_coin_count", "A counter for coin utxo").unwrap();
+    pub static ref UTXO_COIN_TELEMETRY_COUNTER: Gauge = register_gauge!(
+        "utxo_coin_count",
+        "A counter for coin utxo"
+    ).unwrap();
 
     /// Thread pool for chain oracle subscription processing
-    pub static ref ZK_ORACLE_SUBSCRIBER_THREADPOOL: Arc<Mutex<ThreadPool>> =
-        Arc::new(Mutex::new(ThreadPool::new(
-            1,
-            String::from("ZK_ORACLE_SUBSCRIBER_THREADPOOL Threadpool")
-        )));
+    pub static ref ZK_ORACLE_SUBSCRIBER_THREADPOOL: Arc<Mutex<ThreadPool>> = Arc::new(
+        Mutex::new(ThreadPool::new(1, String::from("ZK_ORACLE_SUBSCRIBER_THREADPOOL Threadpool")))
+    );
 
     /// Thread pool for block height writing operations
-    pub static ref ZK_ORACLE_HEIGHT_WRITE_THREADPOOL: Arc<Mutex<ThreadPool>> =
-        Arc::new(Mutex::new(ThreadPool::new(
-            1,
-            String::from("ZK_ORACLE_SUBSCRIBER_THREADPOOL Threadpool")
-        )));
+    pub static ref ZK_ORACLE_HEIGHT_WRITE_THREADPOOL: Arc<Mutex<ThreadPool>> = Arc::new(
+        Mutex::new(ThreadPool::new(1, String::from("ZK_ORACLE_SUBSCRIBER_THREADPOOL Threadpool")))
+    );
 }
 use blockoperations::blockprocessing::{
-    total_coin_type_utxos, total_memo_type_utxos, total_state_type_utxos,
+    total_coin_type_utxos,
+    total_memo_type_utxos,
+    total_state_type_utxos,
 };
 
 /// Initializes the UTXO store by loading from PostgreSQL and setting up address mappings.
@@ -123,10 +125,11 @@ pub fn init_utxo() {
         let mut utxo_storage = UTXO_STORAGE.write().unwrap();
         // let _ = utxo_storage.load_from_snapshot();
         let _ = utxo_storage.load_from_snapshot_from_psql();
-        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.write().unwrap();
         for input_type in 0..3 {
-            let utxos: &mut std::collections::HashMap<Vec<u8>, Output> =
-                utxo_storage.data.get_mut(&input_type).unwrap();
+            let utxos: &mut std::collections::HashMap<Vec<u8>, Output> = utxo_storage.data
+                .get_mut(&input_type)
+                .unwrap();
 
             for (key, output_data) in utxos {
                 let addr = output_data.output.get_owner_address().unwrap().clone();
@@ -134,7 +137,7 @@ pub fn init_utxo() {
                 address_to_utxo_storage.add(
                     IOType::from_usize(input_type).unwrap(),
                     addr,
-                    hex::encode(key.clone()),
+                    hex::encode(key.clone())
                 );
             }
         }
@@ -146,18 +149,9 @@ pub fn init_utxo() {
     UTXO_STATE_TELEMETRY_COUNTER.set(total_state_type_utxos() as f64);
     UTXO_COIN_TELEMETRY_COUNTER.set(total_coin_type_utxos() as f64);
 
-    println!(
-        "UTXO Memo Telemetry Counter Value: {}",
-        UTXO_MEMO_TELEMETRY_COUNTER.get()
-    );
-    println!(
-        "UTXO coin Telemetry Counter Value: {}",
-        UTXO_COIN_TELEMETRY_COUNTER.get()
-    );
-    println!(
-        "UTXO state Telemetry Counter Value: {}",
-        UTXO_STATE_TELEMETRY_COUNTER.get()
-    );
+    println!("UTXO Memo Telemetry Counter Value: {}", UTXO_MEMO_TELEMETRY_COUNTER.get());
+    println!("UTXO coin Telemetry Counter Value: {}", UTXO_COIN_TELEMETRY_COUNTER.get());
+    println!("UTXO state Telemetry Counter Value: {}", UTXO_STATE_TELEMETRY_COUNTER.get());
 
     //load data from intial block from chain
     // if utxo_storage.block_height == 0 {
@@ -197,49 +191,39 @@ pub fn init_utxo() {
 pub fn zk_oracle_subscriber() {
     println!("started zk subsciber");
     let block_height = match fs::read_to_string("height.txt") {
-        Ok(block_height_str) => match block_height_str.trim().parse::<i64>() {
-            Ok(block_height) => block_height,
-            Err(_) => {
-                eprintln!("Failed to parse block height");
-                1
+        Ok(block_height_str) =>
+            match block_height_str.trim().parse::<i64>() {
+                Ok(block_height) => block_height,
+                Err(_) => {
+                    eprintln!("Failed to parse block height");
+                    1
+                }
             }
-        },
         Err(e) => {
             eprintln!("Failed to read block height: {}", e);
             1
         }
     };
-    // let url_str = format!(
-    //     "ws://147.182.235.183:7001/latestblock?blockHeight={}",
-    //     block_height
-    // );
-    // println!("url : {:?}", url_str);
-    // let url = Url::parse(&url_str);
-    // let url: Url = match url {
-    //     Ok(url) => url,
-    //     Err(e) => {
-    //         println!("Invalid URL: {}", e);
-    //         return;
-    //     }
-    // };
-
-    // let (mut socket, response) =
-    //     connect(url).expect("Can't establish a web socket connection to ZKOracle");
 
     //match establish_websocket_connection() {
     //  Ok((mut socket, response)) =>
     let mut oracle_threadpool = ZK_ORACLE_SUBSCRIBER_THREADPOOL.lock().unwrap();
     let (receiver, handle) = pubsub_chain::subscribe_block(true);
+    let receiver_clone = Arc::clone(&receiver);
     loop {
-        match receiver.lock().unwrap().recv() {
+        let receiver_clone_unwrapped = match receiver_clone.lock() {
+            Ok(receiver) => receiver,
+            Err(e) => {
+                println!("receiver lock failed: {:?}", e);
+                continue;
+            }
+        };
+        match receiver_clone_unwrapped.recv() {
             Ok(block) => {
                 oracle_threadpool.execute(move || {
                     let height = block.block_height;
                     let result =
                         blockoperations::blockprocessing::process_block_for_utxo_insert(block);
-                    // if result.suceess_tx.len() > 0 {
-                    //     save_snapshot();
-                    // }
                     let mut height_write_threadpool =
                         ZK_ORACLE_HEIGHT_WRITE_THREADPOOL.lock().unwrap();
 

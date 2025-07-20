@@ -151,7 +151,7 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     let transaction_type = transaction_info.tx_type;
 
     let utxo_verified = verify_utxo(transaction_info);
-
+    let mut address_to_utxo_storage = ADDRESS_TO_UTXO.write().unwrap();
     let mut utxo_storage = UTXO_STORAGE.write().unwrap();
 
     if utxo_verified {
@@ -172,12 +172,12 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
                 let _result = utxo_storage.remove(utxo_key.clone(), utxo_input_type);
 
                 //addres to utxo id link
-                let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+                // let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
                 address_to_utxo_storage.remove(
                     input.in_type.clone(),
                     input.as_owner_address().unwrap().clone(),
                 );
-                drop(address_to_utxo_storage);
+                // drop(address_to_utxo_storage);
                 //
                 match _result {
                     Ok(_) => {
@@ -202,13 +202,13 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
             let _result = utxo_storage.add(utxo_key.clone(), output_set.clone(), utxo_output_type);
 
             // address to utxo id linking ****
-            let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+            // let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
             address_to_utxo_storage.add(
                 output_set.out_type.clone(),
                 output_set.output.get_owner_address().unwrap().clone(),
                 hex::encode(utxo_key.clone()),
             );
-            drop(address_to_utxo_storage);
+            // drop(address_to_utxo_storage);
             //******* */
             match _result {
                 Ok(_) => {
@@ -299,6 +299,7 @@ pub fn process_trade_mint(
     tx_result: &mut BlockResult,
 ) {
     println!("In Process trade mint  tx :=:  {:?}", transaction);
+    let mut address_to_utxo_storage = ADDRESS_TO_UTXO.write().unwrap();
 
     let mut utxo_storage = UTXO_STORAGE.write().unwrap();
     let tx_id = hex::decode(transaction.tx_id.clone()).expect("error decoding tx id");
@@ -319,13 +320,13 @@ pub fn process_trade_mint(
         }));
         utxo_storage.add(utxo_key.clone(), output.clone(), output.out_type as usize);
         // address to utxo id linking ****
-        let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
+        // let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
         address_to_utxo_storage.add(
             output.out_type.clone(),
             address.as_hex(),
             hex::encode(utxo_key.clone()),
         );
-        drop(address_to_utxo_storage);
+        // drop(address_to_utxo_storage);
         //******* */
         let pk = address.as_hex();
         tx_result.suceess_tx.push(tx_id);
