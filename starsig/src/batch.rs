@@ -1,3 +1,7 @@
+//! Batch verification traits and types for Schnorr signatures.
+//!
+//! This module provides the [`BatchVerification`] trait and concrete implementations for single and batch verification.
+
 use core::borrow::Borrow;
 use core::iter;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
@@ -9,8 +13,9 @@ use rand_core::{CryptoRng, RngCore};
 use super::errors::StarsigError;
 
 /// Trait for a batch verification of signatures.
+///
 /// If you are only verifying signatures, without other proofs, you can use
-/// concrete implementation `BatchVerifier` without rolling out your own.
+/// the concrete implementation [`BatchVerifier`] or [`SingleVerifier`].
 pub trait BatchVerification {
     /// Adds scalar for multiplying by a base point and pairs of dynamic scalars/points.
     /// The API admits variable-length iterators of scalars/points
@@ -29,7 +34,13 @@ pub struct SingleVerifier {
 }
 
 impl SingleVerifier {
-    /// Creates a new verifier
+    /// Creates a new verifier and runs the provided closure.
+    ///
+    /// # Example
+    /// ```
+    /// use starsig::SingleVerifier;
+    /// let result = SingleVerifier::verify(|verifier| { /* ... */ });
+    /// ```
     pub fn verify<F>(closure: F) -> Result<(), StarsigError>
     where
         F: FnOnce(&mut Self),
@@ -64,7 +75,7 @@ impl BatchVerification for SingleVerifier {
     }
 }
 
-/// Batch signature verifier for use with `Signature::verify_batched`.
+/// Batch signature verifier.
 pub struct BatchVerifier<R: RngCore + CryptoRng> {
     rng: R,
     basepoint_scalar: Scalar,

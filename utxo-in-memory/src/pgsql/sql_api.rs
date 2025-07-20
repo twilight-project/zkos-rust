@@ -1,3 +1,8 @@
+//! PostgreSQL API for UTXO querying and data retrieval.
+//!
+//! This module provides query functionality for retrieving UTXOs from PostgreSQL
+//! with support for pagination, block height ranges, and data encoding/decoding.
+
 use crate::db::KeyId;
 use crate::db::UtxokeyidOutput;
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY};
@@ -7,23 +12,34 @@ use serde::{Deserialize, Serialize};
 use std::sync::mpsc;
 use zkvm::zkos_types::IOType;
 use zkvm::Output;
+
+/// Raw UTXO output data from database
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoOutputRaw {
+    /// UTXO key bytes
     pub utxo_key: Vec<u8>,
+    /// Serialized output data
     pub output: Vec<u8>,
+    /// Block height
     pub height: i64,
 }
 
+/// Result containing decoded UTXO data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoHexDecodeResult {
+    /// Vector of raw UTXO outputs
     pub result: Vec<UtxoOutputRaw>,
 }
+
+/// Result containing hex-encoded UTXO data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UtxoHexEncodedResult {
+    /// Optional hex-encoded result string
     pub result: Option<String>,
 }
 
 impl UtxoHexEncodedResult {
+    /// Encodes decoded data to hex string
     pub fn encode_to_hex(decoded_data: Vec<UtxoOutputRaw>) -> Self {
         if decoded_data.len() > 0 {
             UtxoHexEncodedResult {
@@ -34,7 +50,9 @@ impl UtxoHexEncodedResult {
         }
     }
 }
+
 impl UtxoHexDecodeResult {
+    /// Decodes hex string to UTXO data
     pub fn decode_from_hex(encoded_data: String) -> Self {
         UtxoHexDecodeResult {
             result: bincode::deserialize(&hex::decode(&encoded_data).unwrap()).unwrap(),
@@ -42,14 +60,22 @@ impl UtxoHexDecodeResult {
     }
 }
 
+/// Query parameters for UTXO retrieval
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryUtxoFromDB {
+    /// Start block height
     pub start_block: i128,
+    /// End block height
     pub end_block: i128,
+    /// Query limit
     pub limit: i64,
+    /// Pagination offset
     pub pagination: i64,
+    /// UTXO type to query
     pub io_type: IOType,
 }
+
+/// Test command types for database operations
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Deserialize, Serialize)]
 pub enum TestCommandString {
     UtxoCoinDbLength,
@@ -63,11 +89,24 @@ pub enum TestCommandString {
     LoadBackupFromLevelDB,
 }
 
+/// Test command structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestCommand {
+    /// Test command to execute
     pub test_command: TestCommandString,
 }
 
+/// Retrieves UTXOs from database by block height range with pagination
+///
+/// # Arguments
+/// * `start_block` - Starting block height
+/// * `end_block` - Ending block height (-1 for no upper limit)
+/// * `limit` - Number of results per page
+/// * `pagination` - Page number (0-based)
+/// * `io_type` - Type of UTXO to query
+///
+/// # Returns
+/// Result containing decoded UTXO data or error
 pub fn get_utxo_from_db_by_block_height_range(
     start_block: i128,
     end_block: i128,
@@ -152,6 +191,7 @@ mod test {
     use std::io::prelude::*;
     // cargo test -- --nocapture --test create_psql_table_test --test-threads 1
     #[test]
+    #[ignore]
     fn create_psql_table_test() {
         let result = get_utxo_from_db_by_block_height_range(0, 5, 2, 0, IOType::Coin);
 

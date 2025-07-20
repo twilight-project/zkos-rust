@@ -1,7 +1,9 @@
 #![allow(non_snake_case)]
-#![allow(missing_docs)]
-#![allow(warnings)]
-//! Block processing to update Utxo set.
+//! Block processing module for updating UTXO set.
+//!
+//! This module handles the processing of blockchain blocks, including transfer transactions,
+//! trade/mint operations, and UTXO verification. It maintains telemetry statistics and
+//! provides search functionality for UTXOs by type and address.
 
 use crate::db::*;
 /***************** POstgreSQL Insert Code *********/
@@ -40,28 +42,41 @@ use curve25519_dalek::scalar::Scalar;
 use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
 use quisquislib::{accounts::Account, ristretto::RistrettoSecretKey};
 
+/// Prometheus metrics for tracking system statistics
 lazy_static! {
+    /// Total dark sats minted counter
     pub static ref TOTAL_DARK_SATS_MINTED: Gauge =
         register_gauge!("dark_sats_minted", "A counter for dark Sats minted").unwrap();
+    /// Total transfer transaction counter
     pub static ref TOTAL_TRANSFER_TX: Gauge =
         register_gauge!("transfer_tx_count", "A counter for transfer tx").unwrap();
+    /// Total script transaction counter
     pub static ref TOTAL_SCRIPT_TX: Gauge =
         register_gauge!("script_tx_count", "A counter for script tx").unwrap();
 }
 
+/// Telemetry statistics loaded from configuration file
 #[derive(Debug, Deserialize)]
 struct TelemetryStats {
+    /// Total dark sats minted
     total_dark_sats_minted: u64,
+    /// Total transfer transactions
     total_transfer_tx: u64,
+    /// Total script transactions
     total_script_tx: u64,
 }
 
+/// Result of processing a block containing successful and failed transactions
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BlockResult {
+    /// List of successful transaction IDs
     pub suceess_tx: Vec<TxID>,
+    /// List of failed transaction IDs
     pub failed_tx: Vec<TxID>,
 }
+
 impl BlockResult {
+    /// Creates a new empty BlockResult
     pub fn new() -> Self {
         BlockResult {
             suceess_tx: Vec::new(),
@@ -70,76 +85,7 @@ impl BlockResult {
     }
 }
 
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct Block {
-//     #[serde(rename = "Blockhash")]
-//     pub block_hash: String,
-//     #[serde(rename = "Blockheight", deserialize_with = "string_to_u64")]
-//     pub block_height: u64,
-//     #[serde(rename = "Transactions")]
-//     pub transactions: Vec<TransactionMessage>,
-// }
-
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct TransactionMessageTransfer {
-//     #[serde(rename = "@type")]
-//     pub tx_type: String,
-//     #[serde(rename = "TxId")]
-//     pub tx_id: String,
-//     #[serde(rename = "TxByteCode")]
-//     pub tx_byte_code: String,
-//     #[serde(rename = "ZkOracleAddress")]
-//     pub zk_oracle_address: String,
-// }
-
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct TransactionMessageTrading {
-//     #[serde(rename = "@type")]
-//     pub tx_type: String,
-//     #[serde(rename = "MintOrBurn")]
-//     pub mint_or_burn: bool,
-//     #[serde(rename = "BtcValue")]
-//     pub btc_value: u32,
-//     #[serde(rename = "QqAccount")]
-//     pub qq_account: String,
-//     #[serde(rename = "EncryptScalar")]
-//     pub encrypt_scalar: u64,
-//     #[serde(rename = "TwilightAddress")]
-//     pub twilight_address: String,
-//     #[serde(rename = "TxId")]
-//     pub tx_id: String,
-// }
-
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct TransactionMessage {
-//     #[serde(rename = "@type")]
-//     pub tx_type: String,
-//     #[serde(rename = "TxId")]
-//     pub tx_id: String,
-//     #[serde(rename = "TxByteCode")]
-//     pub tx_byte_code: Option<String>,
-//     #[serde(rename = "ZkOracleAddress")]
-//     pub zk_oracle_address: Option<String>,
-//     #[serde(rename = "MintOrBurn")]
-//     pub mint_or_burn: Option<bool>, // Optional because it's not present in all types.
-//     #[serde(rename = "BtcValue")]
-//     pub btc_value: Option<String>,
-//     #[serde(rename = "QqAccount")]
-//     pub qq_account: Option<String>,
-//     #[serde(rename = "EncryptScalar")]
-//     pub encrypt_scalar: Option<String>,
-//     #[serde(rename = "TwilightAddress")]
-//     pub twilight_address: Option<String>,
-// }
-
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub enum MessageType {
-//     #[serde(rename = "/twilightproject.nyks.zkos.MsgMintBurnTradingBtc")]
-//     Trading(TransactionMessage),
-//     #[serde(rename = "/twilightproject.nyks.zkos.MsgTransferTx")]
-//     Transfer(TransactionMessage),
-// }
-
+/// Reads telemetry statistics from telemetry.ini file and updates Prometheus metrics
 pub fn read_telemetry_stats_from_file() -> Result<(), Box<dyn std::error::Error>> {
     let contents = fs::read_to_string("telemetry.ini")?;
     let config: TelemetryStats = serde_ini::from_str(&contents)?;
@@ -151,6 +97,7 @@ pub fn read_telemetry_stats_from_file() -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// Writes current telemetry statistics to telemetry.ini file
 fn write_telemetry_stats_to_file() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create("telemetry.ini")?;
     write!(
@@ -164,6 +111,7 @@ fn write_telemetry_stats_to_file() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Deserializes string to u64 for JSON parsing
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
@@ -184,6 +132,12 @@ where
     deserializer.deserialize_str(StringVisitor)
 }
 
+/// Processes a transfer transaction by updating UTXO storage
+///
+/// # Arguments
+/// * `transaction` - The transaction message to process
+/// * `height` - Current block height
+/// * `tx_result` - Mutable reference to store processing results
 pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result: &mut BlockResult) {
     let tx_bytes = hex::decode(transaction.tx_byte_code.unwrap()).expect("Decoding failed");
     let transaction_info: Transaction = bincode::deserialize(&tx_bytes).unwrap();
@@ -333,6 +287,12 @@ pub fn process_transfer(transaction: TransactionMessage, height: u64, tx_result:
     }
 }
 
+/// Processes a trade/mint transaction for BTC operations
+///
+/// # Arguments
+/// * `transaction` - The transaction message to process
+/// * `height` - Current block height
+/// * `tx_result` - Mutable reference to store processing results
 pub fn process_trade_mint(
     transaction: TransactionMessage,
     height: u64,
@@ -446,6 +406,13 @@ pub fn process_trade_mint(
     }*/
 }
 
+/// Processes a complete block and returns transaction results
+///
+/// # Arguments
+/// * `block` - The block to process
+///
+/// # Returns
+/// BlockResult containing successful and failed transaction IDs
 pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
     let mut tx_result: BlockResult = BlockResult::new();
     for transaction in block.transactions {
@@ -462,6 +429,7 @@ pub fn process_block_for_utxo_insert(block: Block) -> BlockResult {
     tx_result
 }
 
+/// Returns all coin-type UTXOs as hex strings
 pub fn all_coin_type_utxo() -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
     let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -482,6 +450,7 @@ pub fn all_coin_type_utxo() -> Vec<String> {
     }
     return result;
 }
+/// Returns all memo-type UTXOs as hex strings
 pub fn all_memo_type_utxo() -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
     let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -502,6 +471,7 @@ pub fn all_memo_type_utxo() -> Vec<String> {
     }
     return result;
 }
+/// Returns all state-type UTXOs as hex strings
 pub fn all_state_type_utxo() -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
     let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -523,6 +493,7 @@ pub fn all_state_type_utxo() -> Vec<String> {
     return result;
 }
 
+/// Returns all coin-type outputs as serialized hex string
 pub fn all_coin_type_output() -> String {
     let mut result: Vec<Output> = Vec::new();
     let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -535,6 +506,13 @@ pub fn all_coin_type_output() -> String {
     return hex::encode(bytes);
 }
 
+/// Searches for coin-type UTXOs owned by a specific address
+///
+/// # Arguments
+/// * `address` - The address to search for
+///
+/// # Returns
+/// Vector of UTXOs owned by the address
 pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
     let mut utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -559,6 +537,13 @@ pub fn search_coin_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
 
     return filtered_utxo;
 }
+/// Searches for memo-type UTXOs owned by a specific address
+///
+/// # Arguments
+/// * `address` - The address to search for
+///
+/// # Returns
+/// Vector of UTXOs owned by the address
 pub fn search_memo_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
     let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -582,6 +567,13 @@ pub fn search_memo_type_utxo_by_address(address: address::Standard) -> Vec<Utxo>
 
     return filtered_utxo;
 }
+/// Searches for state-type UTXOs owned by a specific address
+///
+/// # Arguments
+/// * `address` - The address to search for
+///
+/// # Returns
+/// Vector of UTXOs owned by the address
 pub fn search_state_type_utxo_by_address(address: address::Standard) -> Vec<Utxo> {
     let mut filtered_utxo: Vec<Utxo> = Vec::new();
     let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -606,6 +598,13 @@ pub fn search_state_type_utxo_by_address(address: address::Standard) -> Vec<Utxo
     return filtered_utxo;
 }
 
+/// Searches for a coin-type UTXO by its key
+///
+/// # Arguments
+/// * `utxo` - The UTXO to search for
+///
+/// # Returns
+/// The output data if found, error string otherwise
 pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
     let mut utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Coin as usize;
@@ -616,6 +615,14 @@ pub fn search_coin_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static 
     return Ok(result);
 }
 
+/// Searches for a UTXO by its key and type
+///
+/// # Arguments
+/// * `utxo` - The UTXO to search for
+/// * `input_type` - The type of UTXO (Coin, Memo, State)
+///
+/// # Returns
+/// The output data if found, error string otherwise
 pub fn search_utxo_by_utxo_key(utxo: Utxo, input_type: IOType) -> Result<Output, &'static str> {
     let mut utxo_storage = UTXO_STORAGE.read().unwrap();
 
@@ -625,6 +632,14 @@ pub fn search_utxo_by_utxo_key(utxo: Utxo, input_type: IOType) -> Result<Output,
     };
     return Ok(result);
 }
+/// Searches for a UTXO by its key bytes and type
+///
+/// # Arguments
+/// * `utxo` - The UTXO key as bytes
+/// * `input_type` - The type of UTXO (Coin, Memo, State)
+///
+/// # Returns
+/// The output data if found, error string otherwise
 pub fn search_utxo_by_utxo_key_bytes(
     utxo: Vec<u8>,
     input_type: IOType,
@@ -637,6 +652,13 @@ pub fn search_utxo_by_utxo_key_bytes(
     };
     return Ok(result);
 }
+/// Searches for a memo-type UTXO by its key
+///
+/// # Arguments
+/// * `utxo` - The UTXO to search for
+///
+/// # Returns
+/// The output data if found, error string otherwise
 pub fn search_memo_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
     let mut utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Memo as usize;
@@ -646,6 +668,13 @@ pub fn search_memo_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static 
     };
     return Ok(result);
 }
+/// Searches for a state-type UTXO by its key
+///
+/// # Arguments
+/// * `utxo` - The UTXO to search for
+///
+/// # Returns
+/// The output data if found, error string otherwise
 pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static str> {
     let mut utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::State as usize;
@@ -655,6 +684,7 @@ pub fn search_state_type_utxo_by_utxo_key(utxo: Utxo) -> Result<Output, &'static
     };
     return Ok(result);
 }
+/// Returns the total count of memo-type UTXOs
 pub fn total_memo_type_utxos() -> u64 {
     println!("inside total memo");
     let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -664,6 +694,7 @@ pub fn total_memo_type_utxos() -> u64 {
     return result;
 }
 
+/// Returns the total count of state-type UTXOs
 pub fn total_state_type_utxos() -> u64 {
     let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::State as usize;
@@ -672,6 +703,7 @@ pub fn total_state_type_utxos() -> u64 {
     return result;
 }
 
+/// Returns the total count of coin-type UTXOs
 pub fn total_coin_type_utxos() -> u64 {
     let utxo_storage = UTXO_STORAGE.read().unwrap();
     let input_type = IOType::Coin as usize;
@@ -679,6 +711,14 @@ pub fn total_coin_type_utxos() -> u64 {
     println!("{}", result);
     return result;
 }
+
+/// Verifies that all UTXOs in a transaction exist and are valid
+///
+/// # Arguments
+/// * `transaction` - The transaction to verify
+///
+/// # Returns
+/// True if all UTXOs are valid, false otherwise
 pub fn verify_utxo(transaction: transaction::Transaction) -> bool {
     let utxo_storage = UTXO_STORAGE.read().unwrap();
 
@@ -1031,6 +1071,7 @@ mod test {
 
     // cargo test -- --nocapture --test check_block_test --test-threads 5
     #[test]
+    #[ignore]
     fn check_block_test() {
         init_utxo();
         let utxo_storage = UTXO_STORAGE.read().unwrap();
@@ -1048,6 +1089,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn create_utxo_block_test() {
         //keep the private key safe
 

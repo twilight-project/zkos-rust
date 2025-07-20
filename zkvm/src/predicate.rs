@@ -147,7 +147,7 @@ impl Predicate {
         let root = &call_proof
             .path
             .compute_root(program_item, &Hasher::new(b"ZkVM.taproot"));
-        let h = Self::commit_taproot(key, &root);
+        let h = Self::commit_taproot(key, root);
 
         // P == X + h1(X, M)*B -> 0 == -P + X + h1(X, M)*B
         batch.append(
@@ -174,9 +174,9 @@ impl Predicate {
     }
 }
 
-impl Into<CompressedRistretto> for Predicate {
-    fn into(self) -> CompressedRistretto {
-        self.to_point()
+impl From<Predicate> for CompressedRistretto {
+    fn from(val: Predicate) -> Self {
+        val.to_point()
     }
 }
 
@@ -188,7 +188,7 @@ impl PredicateTree {
         blinding_key: [u8; 32],
     ) -> Result<Self, VMError> {
         // If the key is None, use a point with provably unknown discrete log w.r.t. primary basepoint.
-        let key = key.unwrap_or_else(|| Predicate::unsignable_key());
+        let key = key.unwrap_or_else(Predicate::unsignable_key);
         let leaves = Self::create_merkle_leaves(&progs, blinding_key);
         if leaves.len() > (1 << 31) {
             return Err(VMError::InvalidPredicateTree);
@@ -239,7 +239,7 @@ impl PredicateTree {
         // let path = tree.create_path(leaf_index).ok_or(VMError::BadArguments)?;
         let path = Path::new(&self.leaves, leaf_index, &Hasher::new(b"ZkVM.taproot"))
             .ok_or(VMError::BadArguments)?;
-        let verification_key = self.key.clone();
+        let verification_key = self.key;
         let call_proof = CallProof {
             verification_key,
             path,

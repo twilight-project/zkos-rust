@@ -1,3 +1,12 @@
+//! JSON-RPC version management for request identification.
+//! 
+//! This module provides the `Version` struct for handling JSON-RPC versions,
+//! supporting the JSON-RPC 2.0 specification. It includes utility functions
+//! for checking supported versions and ensuring compatibility.
+//! 
+//! ## Functions
+//! 
+//! - `current`: Get the currently supported JSON-RPC version
 //! JSON-RPC versions
 
 use core::{

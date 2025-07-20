@@ -307,7 +307,7 @@ impl String {
     /// Downcast the data item to an `Contract` type.
     pub fn to_output(self) -> Result<Contract, VMError> {
         match self {
-            String::Opaque(data) => Ok((&data[..]).read_all(|r| Contract::decode(r))?),
+            String::Opaque(data) => Ok((&data[..]).read_all(Contract::decode)?),
             String::Output(i) => Ok(*i),
             _ => Err(VMError::TypeNotOutput),
         }

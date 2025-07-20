@@ -1,3 +1,16 @@
+//! Serialization and deserialization for Schnorr signatures.
+//!
+//! This module provides methods for encoding and decoding [`Signature`]s as byte arrays, as well as
+//! Serde support for binary serialization.
+//!
+//! # Example
+//! ```
+//! use starsig::Signature;
+//! let sig_bytes: [u8; 64] = [0u8; 64];
+//! let sig = Signature::from_bytes(sig_bytes).unwrap();
+//! let encoded = sig.to_bytes();
+//! ```
+
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 use serde::{de::Deserializer, de::Visitor, ser::Serializer, Deserialize, Serialize};
@@ -7,6 +20,9 @@ use super::StarsigError;
 
 impl Signature {
     /// Decodes a signature from a 64-byte slice.
+    ///
+    /// # Errors
+    /// Returns [`StarsigError::InvalidSignature`] if the input is not 64 bytes or not canonical.
     pub fn from_bytes(sig: impl AsRefExt) -> Result<Self, StarsigError> {
         let sig = sig.as_ref_ext();
         if sig.len() != 64 {
@@ -32,6 +48,8 @@ impl Signature {
 }
 
 /// Same as `AsRef<[u8]>`, but extended to 64-byte array.
+///
+/// This trait allows passing both slices and arrays to [`Signature::from_bytes`].
 pub trait AsRefExt {
     /// Returns a slice
     fn as_ref_ext(&self) -> &[u8];
@@ -43,7 +61,7 @@ impl AsRefExt for [u8] {
     }
 }
 
-impl<'a> AsRefExt for &'a [u8] {
+impl AsRefExt for &[u8] {
     fn as_ref_ext(&self) -> &[u8] {
         self
     }

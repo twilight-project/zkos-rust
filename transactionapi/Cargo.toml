@@ -2,8 +2,16 @@
 name = "transactionapi"
 version = "0.1.0"
 edition = "2021"
+readme = "README.md"
+description = "ZkOS Transaction API for blockchain interaction and UTXO management"
+repository = "https://github.com/twilight-project/zkos-rust"
+keywords = ["blockchain", "zkos", "rpc", "api", "utxo"]
+categories = ["api-bindings", "blockchain"]
+publish = false
+rust-version = "1.70"
+# documentation = "https://docs.rs/"
+# license, repository, authors inherited from [workspace.package]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
 name = "api_server"
 [dependencies]

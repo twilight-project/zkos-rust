@@ -2,7 +2,14 @@
 name = "rangeproof"
 version = "0.1.0"
 edition = "2021"
-
+description = "Programmable range proof construction using Bulletproofs R1CS framework."
+repository = "https://github.com/twilight-project/zkos-rust"
+keywords = ["cryptography", "crypto", "bulletproof", "spacesuit", "cloak"]
+categories = ["cryptography"]
+publish = false
+rust-version = "1.70"
+# documentation = "https://docs.rs/"
+# license, repository, authors inherited from [workspace.package]
 [dependencies]
 thiserror = "1"
 merlin = "2"

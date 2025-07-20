@@ -1,3 +1,13 @@
+//! Verifier types and operations for ZkVM.
+//!
+//! This module defines the transaction verification system, including:
+//!
+//! - [`Verifier`]: Main verifier that processes transactions and validates proofs
+//! - [`VerifierRun`]: Running state for program execution during verification
+//!
+//! The module provides transaction verification, R1CS proof validation, and signature
+//! verification with support for batch operations and performance timing.
+
 use std::time::Instant;
 
 use bulletproofs::r1cs;
@@ -41,6 +51,7 @@ impl Delegate<r1cs::Verifier<Transcript>> for Verifier {
     type RunType = VerifierRun;
     type BatchVerifier = starsig::BatchVerifier<rand::rngs::ThreadRng>;
 
+    /// Commits a variable to the constraint system and returns the point and variable.
     fn commit_variable(
         &mut self,
         com: &Commitment,
@@ -50,15 +61,18 @@ impl Delegate<r1cs::Verifier<Transcript>> for Verifier {
         Ok((point, var))
     }
 
+    /// Processes transaction signature by extracting verification key and storing it.
     fn process_tx_signature(
         &mut self,
         pred: Predicate,
         contract_id: ContractID,
     ) -> Result<(), VMError> {
         let key = pred.to_verification_key()?;
-        Ok(self.signtx_items.push((key, contract_id)))
+        self.signtx_items.push((key, contract_id));
+        Ok(())
     }
 
+    /// Retrieves the next instruction from the program.
     fn next_instruction(
         &mut self,
         run: &mut Self::RunType,
@@ -72,14 +86,17 @@ impl Delegate<r1cs::Verifier<Transcript>> for Verifier {
         Ok(Some(instr))
     }
 
+    /// Creates a new run instance from a program item.
     fn new_run(&self, prog: ProgramItem) -> Result<Self::RunType, VMError> {
         Ok(VerifierRun::new(prog.to_bytecode()?))
     }
 
+    /// Returns a mutable reference to the constraint system.
     fn cs(&mut self) -> &mut r1cs::Verifier<Transcript> {
         &mut self.cs
     }
 
+    /// Returns a mutable reference to the batch verifier.
     fn batch_verifier(&mut self) -> &mut Self::BatchVerifier {
         &mut self.batch
     }
@@ -101,7 +118,7 @@ impl Verifier {
 
         let mut verifier = Verifier {
             signtx_items: Vec::new(),
-            cs: cs,
+            cs,
             batch: starsig::BatchVerifier::new(rand::thread_rng()),
         };
 
@@ -118,7 +135,7 @@ impl Verifier {
             id,
             log,
             feerate: FeeRate::new(fee, tx.encoded_size()),
-            signature: tx.signature.clone(),
+            signature: tx.signature,
             proof: tx.proof.clone(),
             verifier,
         })
@@ -158,7 +175,7 @@ impl Verifier {
         let mut signtx_transcript = Transcript::new(b"ZkVM.signtx");
         signtx_transcript.append_message(b"txid", &id);
 
-        if verifier.signtx_items.len() != 0 {
+        if !verifier.signtx_items.is_empty() {
             signature.verify_multi_batched(
                 &mut signtx_transcript,
                 verifier.signtx_items,
@@ -193,7 +210,7 @@ impl Verifier {
 
         let mut verifier = Verifier {
             signtx_items: Vec::new(),
-            cs: cs,
+            cs,
             batch: starsig::BatchVerifier::new(rand::thread_rng()),
         };
 
@@ -258,6 +275,7 @@ impl Verifier {
 }
 
 impl VerifierRun {
+    /// Creates a new verifier run with the given program.
     fn new(program: Vec<u8>) -> Self {
         VerifierRun { program, offset: 0 }
     }

@@ -1,8 +1,16 @@
 #![allow(warnings)]
+//! JSON-RPC server implementation for ZkOS transaction API.
+//!
+//! This module provides a comprehensive JSON-RPC 2.0 server with endpoints for:
+//! - Transaction submission and verification (txCommit)
+//! - UTXO queries by address and type (getUtxos, getMemoUtxos, getStateUtxos)
+//! - Output retrieval and search functionality
+//! - Database queries with pagination
+//! - Test commands for snapshot management and storage operations
+
 use crate::rpcserver::types::UtxoDetailResponse;
 
 use super::service;
-// use crate::rpcserver::types::*;
 use jsonrpc_core::types::error::Error as JsonRpcError;
 use jsonrpc_core::*;
 use jsonrpc_http_server::jsonrpc_core::{MetaIoHandler, Metadata, Params};
@@ -30,20 +38,32 @@ use utxo_in_memory::pgsql::{
 /**************** POstgreSQL Insert Code End **********/
 
 use zkvm::zkos_types::{MessageType, Utxo};
+
+/// Metadata structure for RPC requests
 #[derive(Default, Clone, Debug)]
 struct Meta {
     metadata: HashMap<String, Option<String>>,
 }
+
 impl Metadata for Meta {}
 
+/// Starts the JSON-RPC server with all registered endpoints
+///
+/// The server runs on 127.0.0.1:3030 and provides endpoints for:
+/// - Transaction operations (txCommit)
+/// - UTXO queries (getUtxos, getMemoUtxos, getStateUtxos)
+/// - Output retrieval (getOutput, getMemoOutput, getStateOutput)
+/// - Database queries (getUtxosFromDB)
+/// - Test commands (TestCommand)
 pub fn rpcserver() {
     println!("Starting rpc server");
-    // let mut io = IoHandler::default();
     let mut io = MetaIoHandler::default();
 
+    // Transaction commit endpoint
     io.add_method_with_meta("txCommit", move |params: Params, _meta: Meta| async move {
         let tx: transaction::Transaction;
-        // extract the params vector from the request
+
+        // Parse transaction parameters
         let vector_params: Vec<String> = match params.parse::<Vec<String>>() {
             Ok(vec) => {
                 if vec.is_empty() {
@@ -60,13 +80,14 @@ pub fn rpcserver() {
                 return Err(err);
             }
         };
-        // extract the tx hex string
+
+        // Extract and decode transaction hex string
         let hex_tx = vector_params[0].clone();
         if hex_tx.trim().is_empty() {
             let err = JsonRpcError::invalid_params("Expected hex string.".to_string());
             return Err(err);
         }
-        // Decode the tx hex string to bytes
+
         let tx_bytes = match hex::decode(hex_tx) {
             Ok(bytes) => bytes,
             Err(e) => {
@@ -75,7 +96,8 @@ pub fn rpcserver() {
                 return Err(err);
             }
         };
-        // reconstruct the tx from bytes
+
+        // Deserialize transaction from bytes
         tx = match bincode::deserialize(&tx_bytes) {
             Ok(t) => t,
             Err(e) => {
@@ -84,7 +106,7 @@ pub fn rpcserver() {
             }
         };
 
-        // check if tx is message type
+        // Handle message type transactions with twilight address
         let twilight_address = if tx.tx_type == TransactionType::Message {
             let address = vector_params[1].clone();
             if address.trim().is_empty() {
@@ -96,26 +118,21 @@ pub fn rpcserver() {
             "".to_string()
         };
 
-        // println!("{:?}", twilight_address);
-
-        // verify the inputs from utxo set for the tx
+        // Verify UTXO inputs
         let utxo_verified = verify_utxo(tx.clone());
         if utxo_verified == false {
             let response_body = "Error: Failed to verify the Input Utxo".to_string();
             let response_body = serde_json::Value::String(response_body);
             Ok(response_body)
         } else {
-            // verify the tx
-            //let transfer_tx = TransactionData::to_transfer(tx.clone().tx).unwrap();
+            // Verify transaction
             let tx_verified = tx.clone().verify();
 
-            //let tx_verified = verify_transaction(tx.clone());
             match tx_verified {
                 Ok(()) => {
-                    // get the tx fee from verified tx
                     let fee = tx.get_tx_fee();
-                    // commit the tx
-                    // check if transaction is Transfer/BurnMessage
+
+                    // Handle different transaction types
                     match tx.tx_type {
                         TransactionType::Transfer | TransactionType::Script => {
                             println!("Transfer Tx / Script tx submitted to Zkos Oracle");
@@ -141,36 +158,18 @@ pub fn rpcserver() {
 
                             match message.msg_type {
                                 MessageType::Burn => {
-                                    // send the ZkOS burn tx to the Zkos Oracle
                                     let result = service::tx_commit(tx.clone(), fee).await;
-                                    //match result {
-                                    // Ok(_) => {
                                     println!("ZkOS burn tx submitted to Zkos Oracle");
                                     // The ZkOS burn tx was sucessfully submitted.
                                     // Now the Zkos server needs to send the MintorBurnTx after some delay to the oracle
                                     // The oracle will send the MintorBurnTx to the chain
-                                    // seleep the process for 5 seconds
-                                    //  std::thread::sleep(std::time::Duration::from_secs(5));
-                                    // send the MintorBurnTx initialization to the oracle
-                                    // let account = message.input.to_quisquis_account().unwrap();
-                                    // let result = service::mint_burn_tx_initiate(message.proof.amount,
-                                    //   &account, &message.proof.encrypt_scalar, twilight_address).await;
+
                                     let response_body = match result {
                                         Ok(response_body) => response_body,
                                         Err(err) => err.to_string(),
                                     };
                                     let response_body = serde_json::Value::String(response_body);
                                     return Ok(response_body);
-                                    // }
-                                    // Err(err) => {
-                                    // let err = JsonRpcError::invalid_params(format!(
-                                    //  "Burn Message Error: The burn ZkOS tx was not commited properly"
-                                    // ));
-                                    // return Err(err);
-                                    // }
-                                    //}
-                                    // let response_body = serde_json::Value::String(response_body);
-                                    // Ok(response_body)
                                 }
                                 _ => {
                                     let err = JsonRpcError::invalid_params(format!(
@@ -179,9 +178,6 @@ pub fn rpcserver() {
                                     return Err(err);
                                 }
                             }
-                            // let response_body = service::tx_commit(tx.clone()).await;
-                            // let response_body = serde_json::Value::String(response_body);
-                            // Ok(response_body)
                         }
                         _ => {
                             let err = JsonRpcError::invalid_params(format!(
@@ -200,6 +196,7 @@ pub fn rpcserver() {
         }
     });
 
+    // UTXO ID retrieval endpoint
     io.add_method_with_meta(
         "get_utxos_id",
         move |params: Params, _meta: Meta| async move {
@@ -236,6 +233,8 @@ pub fn rpcserver() {
             }
         },
     );
+
+    // UTXO detail retrieval endpoint
     io.add_method_with_meta(
         "get_utxos_detail",
         move |params: Params, _meta: Meta| async move {
@@ -258,14 +257,12 @@ pub fn rpcserver() {
                 Some(utxo_id) => {
                     let utxo_bytes = match hex::decode(utxo_id) {
                         Ok(bytes) => bytes,
-
                         Err(args) => {
                             let err =
                                 JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
                             return Err(err);
                         }
                     };
-                    // let utxo_id: Utxo = bincode::deserialize(&utxo_bytes).unwrap();
 
                     let response_body = match bincode::deserialize(&utxo_bytes) {
                         Ok(utxo_id) => {
@@ -304,6 +301,7 @@ pub fn rpcserver() {
         },
     );
 
+    // Coin UTXOs by address endpoint
     io.add_method_with_meta("getUtxos", move |params: Params, _meta: Meta| async move {
         let address: address::Standard;
 
@@ -326,6 +324,7 @@ pub fn rpcserver() {
                 return Err(err);
             }
         };
+
         address = match address::Standard::from_hex_with_error(&hex_str) {
             Ok(addr) => addr,
             Err(e) => {
@@ -344,6 +343,8 @@ pub fn rpcserver() {
             Ok(response_body)
         }
     });
+
+    // Memo UTXOs by address endpoint
     io.add_method_with_meta(
         "getMemoUtxos",
         move |params: Params, _meta: Meta| async move {
@@ -368,6 +369,7 @@ pub fn rpcserver() {
                     return Err(err);
                 }
             };
+
             address = match address::Standard::from_hex_with_error(&hex_str) {
                 Ok(addr) => addr,
                 Err(e) => {
@@ -389,6 +391,8 @@ pub fn rpcserver() {
             }
         },
     );
+
+    // State UTXOs by address endpoint
     io.add_method_with_meta(
         "getStateUtxos",
         move |params: Params, _meta: Meta| async move {
@@ -413,6 +417,7 @@ pub fn rpcserver() {
                     return Err(err);
                 }
             };
+
             address = match address::Standard::from_hex_with_error(&hex_str) {
                 Ok(addr) => addr,
                 Err(e) => {
@@ -436,7 +441,7 @@ pub fn rpcserver() {
         },
     );
 
-    // add pagination for all utxo call
+    // All coin UTXOs endpoint
     io.add_method_with_meta(
         "allCoinUtxos",
         move |params: Params, _meta: Meta| async move {
@@ -453,6 +458,8 @@ pub fn rpcserver() {
             }
         },
     );
+
+    // All memo UTXOs endpoint
     io.add_method_with_meta(
         "allMemoUtxos",
         move |params: Params, _meta: Meta| async move {
@@ -469,6 +476,8 @@ pub fn rpcserver() {
             }
         },
     );
+
+    // All state UTXOs endpoint
     io.add_method_with_meta(
         "allStateUtxos",
         move |params: Params, _meta: Meta| async move {
@@ -486,6 +495,7 @@ pub fn rpcserver() {
         },
     );
 
+    // All outputs endpoint
     io.add_method_with_meta(
         "allOutputs",
         move |params: Params, _meta: Meta| async move {
@@ -503,6 +513,7 @@ pub fn rpcserver() {
         },
     );
 
+    // Get output by UTXO key endpoint
     io.add_method_with_meta(
         "get_output",
         move |params: Params, _meta: Meta| async move {
@@ -514,9 +525,9 @@ pub fn rpcserver() {
                     return Err(err);
                 }
             };
+
             let utxo_bytes = match hex::decode(utxo_request.address_or_id) {
                 Ok(bytes) => bytes,
-
                 Err(args) => {
                     let err = JsonRpcError::invalid_params(format!("invalid Hex, {:?}", args));
                     return Err(err);
@@ -535,6 +546,7 @@ pub fn rpcserver() {
         },
     );
 
+    // Get coin output endpoint
     io.add_method_with_meta("getOutput", move |params: Params, _meta: Meta| async move {
         let hex_str = match params.parse::<Vec<String>>() {
             Ok(vec) => {
@@ -555,6 +567,7 @@ pub fn rpcserver() {
                 return Err(err);
             }
         };
+
         let utxo = match hex::decode(hex_str) {
             Ok(bytes) => match Utxo::from_bytes(&bytes) {
                 Some(utxo) => utxo,
@@ -577,6 +590,7 @@ pub fn rpcserver() {
         Ok(response_body)
     });
 
+    // Get memo output endpoint
     io.add_method_with_meta(
         "getMemoOutput",
         move |params: Params, _meta: Meta| async move {
@@ -599,6 +613,7 @@ pub fn rpcserver() {
                     return Err(err);
                 }
             };
+
             let utxo = match hex::decode(hex_str) {
                 Ok(bytes) => match Utxo::from_bytes(&bytes) {
                     Some(utxo) => utxo,
@@ -622,6 +637,7 @@ pub fn rpcserver() {
         },
     );
 
+    // Get state output endpoint
     io.add_method_with_meta(
         "getStateOutput",
         move |params: Params, _meta: Meta| async move {
@@ -644,6 +660,7 @@ pub fn rpcserver() {
                     return Err(err);
                 }
             };
+
             let utxo = match hex::decode(hex_str) {
                 Ok(bytes) => match Utxo::from_bytes(&bytes) {
                     Some(utxo) => utxo,
@@ -667,6 +684,7 @@ pub fn rpcserver() {
         },
     );
 
+    // Database UTXO query endpoint with pagination
     io.add_method_with_meta(
         "getUtxosFromDB",
         move |params: Params, _meta: Meta| async move {
@@ -706,6 +724,7 @@ pub fn rpcserver() {
         },
     );
 
+    // Test command endpoint for administrative operations
     io.add_method_with_meta(
         "TestCommand",
         move |params: Params, _meta: Meta| async move {
@@ -731,12 +750,7 @@ pub fn rpcserver() {
                         for (i, v) in utxo_storage.data.get_mut(&0).unwrap().iter() {
                             length_count.push(v);
                         }
-                        println!(
-                            "State length : {}",
-                            // utxo_storage.data.get_mut(&2).unwrap().len()
-                            length_count.len()
-                        );
-
+                        println!("State length : {}", length_count.len());
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoMemoDbLength => {
@@ -745,11 +759,7 @@ pub fn rpcserver() {
                         for (i, v) in utxo_storage.data.get_mut(&1).unwrap().iter() {
                             length_count.push(v);
                         }
-                        println!(
-                            "State length : {}",
-                            // utxo_storage.data.get_mut(&2).unwrap().len()
-                            length_count.len()
-                        );
+                        println!("State length : {}", length_count.len());
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     TestCommandString::UtxoStateDbLength => {
@@ -758,11 +768,7 @@ pub fn rpcserver() {
                         for (i, v) in utxo_storage.data.get_mut(&2).unwrap().iter() {
                             length_count.push(v);
                         }
-                        println!(
-                            "State length : {}",
-                            // utxo_storage.data.get_mut(&2).unwrap().len()
-                            length_count.len()
-                        );
+                        println!("State length : {}", length_count.len());
                         Ok(serde_json::to_value("".to_string()).unwrap())
                     }
                     _ => {
@@ -781,6 +787,7 @@ pub fn rpcserver() {
         },
     );
 
+    // Start the HTTP server
     eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
     let server = ServerBuilder::new(io)
         .threads(20)

@@ -5,7 +5,6 @@
 //! * `[...]` is a sub-program.
 //! * `{...}` is a contract.
 
-use std;
 use std::fmt;
 
 use crate::constraints::Commitment;
@@ -19,7 +18,7 @@ use crate::types::{String, Value};
 use crate::zkos_types::OutputCoin;
 impl fmt::Debug for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let progslice: &[Instruction] = &self;
+        let progslice: &[Instruction] = self;
         for i in 0..progslice.len() {
             let instr = &progslice[i];
             let lookahead = &progslice[(i + 1)..];
@@ -43,10 +42,10 @@ impl String {
                 if bytes.len() < 32 {
                     match std::string::String::from_utf8(bytes.clone()) {
                         Ok(s) => write!(f, "push:\"{}\"", s),
-                        Err(_) => write!(f, "push:0x{}", hex::encode(&bytes)),
+                        Err(_) => write!(f, "push:0x{}", hex::encode(bytes)),
                     }
                 } else {
-                    write!(f, "push:0x{}", hex::encode(&bytes))
+                    write!(f, "push:0x{}", hex::encode(bytes))
                 }
             }
             String::Predicate(predicate) => write!(f, "push:{:?}", predicate),
@@ -93,10 +92,10 @@ impl Instruction {
                 // 1. `{contract} input`
                 // 2. else opaque: encode as 0x<hex...>
                 // 3. else non-opaque: use Debug
-                match (string, lookahead.get(0)) {
+                match (string, lookahead.first()) {
                     (String::Opaque(bytes), Some(&Instruction::Input)) => {
                         (&bytes[..])
-                            .read_all(|r| Contract::decode(r))
+                            .read_all(Contract::decode)
                             .map(|c| String::Output(Box::new(c)).fmt_as_pushdata(f))
                             .unwrap_or_else(|_| string.fmt_as_pushdata(f)) // bad encoding -> keep opaque
                     }
@@ -143,7 +142,7 @@ impl Instruction {
 
         // If we know that there are more instructions in the program,
         // add a separating space character.
-        if lookahead.len() > 0 {
+        if !lookahead.is_empty() {
             write!(f, " ")?
         }
 
@@ -154,8 +153,8 @@ impl Instruction {
 impl fmt::Debug for Predicate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Predicate::Opaque(r) => write!(f, "0x{}", hex::encode(&r.as_bytes())),
-            Predicate::Key(vk) => write!(f, "0x{}", hex::encode(&vk.as_bytes())),
+            Predicate::Opaque(r) => write!(f, "0x{}", hex::encode(r.as_bytes())),
+            Predicate::Key(vk) => write!(f, "0x{}", hex::encode(vk.as_bytes())),
             Predicate::Tree(pt) => write!(f, "{:?}", pt),
         }
     }
@@ -163,7 +162,7 @@ impl fmt::Debug for Predicate {
 
 impl fmt::Debug for Anchor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "0x{}", hex::encode(&self.0))
+        write!(f, "0x{}", hex::encode(self.0))
     }
 }
 
@@ -181,7 +180,7 @@ impl fmt::Debug for PortableItem {
 impl fmt::Debug for Commitment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Commitment::Closed(point) => write!(f, "0x{}", hex::encode(&point.as_bytes())),
+            Commitment::Closed(point) => write!(f, "0x{}", hex::encode(point.as_bytes())),
             Commitment::Open(cw) => write!(f, "{:?}", cw),
         }
     }
@@ -189,22 +188,22 @@ impl fmt::Debug for Commitment {
 
 impl fmt::Debug for TxID {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TxID({})", hex::encode(&self))
+        write!(f, "TxID({})", hex::encode(self))
     }
 }
 
 impl fmt::Debug for Tx {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "Tx(v{}, [{:x},{:x}]) {{\n",
+            "Tx(v{}, [{:x},{:x}]) {{",
             self.header.version, self.header.mintime_ms, self.header.maxtime_ms
         )?;
         match Program::parse(&self.program) {
-            Ok(p) => write!(f, "    Program({:?})\n", p)?,
-            Err(e) => write!(
+            Ok(p) => writeln!(f, "    Program({:?})", p)?,
+            Err(e) => writeln!(
                 f,
-                "    InvalidProgram({})->{:?}\n",
+                "    InvalidProgram({})->{:?}",
                 hex::encode(&self.program),
                 e
             )?,
@@ -221,15 +220,15 @@ impl fmt::Debug for Tx {
 
 impl fmt::Debug for VerifiedTx {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "VerifiedTx(v{}, [{:x},{:x}]) {{\n",
+            "VerifiedTx(v{}, [{:x},{:x}]) {{",
             self.header.version, self.header.mintime_ms, self.header.maxtime_ms
         )?;
-        write!(f, "    {:?}\n", &self.id)?;
-        write!(f, "    Fee rate: {:?}\n", &self.feerate)?;
+        writeln!(f, "    {:?}", &self.id)?;
+        writeln!(f, "    Fee rate: {:?}", &self.feerate)?;
         for entry in self.log.iter() {
-            write!(f, "    {:?}\n", entry)?;
+            writeln!(f, "    {:?}", entry)?;
         }
         write!(f, "}}")
     }

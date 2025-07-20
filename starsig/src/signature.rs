@@ -1,3 +1,7 @@
+//! Schnorr signature type and signing/verification routines.
+//!
+//! This module provides the [`Signature`] type and associated methods for signing and verifying messages and transcripts.
+
 use core::iter;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -21,7 +25,14 @@ pub struct Signature {
 }
 
 impl Signature {
-    /// Creates a signature for a single private key and single message
+    /// Creates a signature for a single private key and single message.
+    ///
+    /// # Arguments
+    /// * `transcript` - The Merlin transcript with the message context.
+    /// * `privkey` - The signing key (scalar).
+    ///
+    /// # Returns
+    /// A Schnorr [`Signature`].
     pub fn sign(transcript: &mut Transcript, privkey: Scalar) -> Signature {
         let X = VerificationKey::from_secret(&privkey); // pubkey
 
@@ -110,7 +121,7 @@ impl Signature {
         self.verify(&mut Self::transcript_for_message(label, message), pubkey)
     }
 
-    /// Verifies the signature over a message using the provided verification key.
+    /// Verifies the signature over a message using the provided verification key in a batch.
     /// Transcript should be in the same state as it was during the `sign` call
     /// that created the signature.
     pub fn verify_message_batched(
@@ -127,6 +138,7 @@ impl Signature {
         )
     }
 
+    /// Helper to create a transcript for a message and label.
     fn transcript_for_message(label: &'static [u8], message: &[u8]) -> Transcript {
         let mut t = Transcript::new(b"Starsig.sign_message");
         t.append_message(label, message);
@@ -139,8 +151,8 @@ impl fmt::Debug for Signature {
         write!(
             f,
             "Signature({}{})",
-            hex::encode(&self.s.as_bytes()),
-            hex::encode(&self.R.as_bytes())
+            hex::encode(self.s.as_bytes()),
+            hex::encode(self.R.as_bytes())
         )
         // Without hex crate we'd do this, but it outputs comma-separated numbers: [aa, 11, 5a, ...]
         // write!(f, "{:x?}", &self.0)

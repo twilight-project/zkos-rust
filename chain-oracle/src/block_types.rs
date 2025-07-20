@@ -1,9 +1,14 @@
+//! Types and helpers for parsing and representing Cosmos chain blocks and transactions.
+//!
+//! This module provides Rust structs for deserializing block and transaction data from
+//! Cosmos-based blockchains, as well as helpers for extracting and working with this data.
 use base64::prelude::*;
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+/// Error response from block queries
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockError {
@@ -11,15 +16,25 @@ pub struct BlockError {
     pub message: String,
     pub details: Vec<String>,
 }
+/// Represents a raw block as returned by the Cosmos RPC API.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockRaw {
+    /// The block's unique identifier (hash and part set header).
     #[serde(rename = "block_id")]
     pub block_id: BlockId,
+    /// The block's data, including header, transactions, etc.
     pub block: Block1,
 }
 
 impl BlockRaw {
+    /// Returns the transaction IDs for all transactions in the block.
+    ///
+    /// # Returns
+    /// A vector of transaction IDs as hex strings.
+    ///
+    /// # Panics
+    /// Panics if base64 decoding fails (should not happen for valid blocks).
     pub fn get_txid(&mut self) -> Vec<String> {
         let mut txid_vec: Vec<String> = Vec::new();
         let txs = self.block.data.txs.clone();
@@ -33,9 +48,11 @@ impl BlockRaw {
         }
         txid_vec
     }
+    /// Gets raw byte code for all transactions
     pub fn get_tx_byte_code(&mut self) -> Vec<String> {
         self.block.data.txs.clone()
     }
+    /// Gets transaction byte code with corresponding transaction hashes
     pub fn get_tx_byte_code_with_txhash(&mut self) -> Vec<(String, String)> //byte_code, txhash
     {
         let mut txid_vec: Vec<(String, String)> = Vec::new();
@@ -51,12 +68,15 @@ impl BlockRaw {
         }
         txid_vec
     }
+    /// Gets the block hash
     pub fn get_block_hash(&mut self) -> String {
         self.block_id.hash.clone()
     }
+    /// Gets the block height
     pub fn get_block_height(&mut self) -> u64 {
         self.block.header.height
     }
+    /// Retrieves the latest block height from the chain
     pub fn get_latest_block_height() -> Result<u64, String> {
         let url = format!(
             "{}/cosmos/base/tendermint/v1beta1/blocks/latest",
@@ -71,6 +91,7 @@ impl BlockRaw {
             Err(arg) => Err(arg.to_string()),
         }
     }
+    /// Retrieves block data for a specific height
     pub fn get_block_data_from_height(block_height: u64) -> Result<BlockRaw, String> {
         let url = format!(
             "{}/cosmos/base/tendermint/v1beta1/blocks/{}",
@@ -230,6 +251,7 @@ pub struct Signature {
     pub signature: String,
 }
 
+/// Represents a transaction message in the chain
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TransactionMessage {
     pub tx_type: String,
@@ -243,6 +265,7 @@ pub struct TransactionMessage {
     pub twilight_address: Option<String>,
 }
 
+/// Raw transaction message data from the chain
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TransactionMessageRaW {
     #[serde(rename = "@type")]
@@ -265,6 +288,7 @@ pub struct TransactionMessageRaW {
     pub twilight_address: Option<String>,
 }
 impl TransactionMessageRaW {
+    /// Converts raw transaction message to processed format
     pub fn to_tx_msg(&self, tx_hash: String) -> TransactionMessage {
         let tx_msg_raw = self.clone();
         TransactionMessage {
@@ -284,6 +308,7 @@ impl TransactionMessageRaW {
     }
 }
 impl TransactionMessage {
+    /// Creates new transaction messages from raw data
     pub fn new(txid_hash: String, tx_byte_code: String) -> Vec<TransactionMessage> {
         let tx_data_result = TxRaw::get_transaction_from_chain_by_txhash(txid_hash.clone());
         let mut tx_msg_vec: Vec<TransactionMessage> = Vec::new();
@@ -362,6 +387,9 @@ use std::fs;
 use crate::pubsub_chain::request_url;
 use crate::TxRaw;
 use crate::NYKS_BLOCK_SUBSCRIBER_URL;
+/// Custom deserializer for converting a string to a `u64`.
+///
+/// Used for fields that are serialized as strings in the JSON API.
 pub fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,

@@ -1,24 +1,35 @@
-//! JSON-RPC IDs
-
+//! JSON-RPC ID management for request identification.
+//!
+//! This module provides the `Id` enum for handling JSON-RPC request identifiers,
+//! supporting numerical, string, and null ID types as per the JSON-RPC 2.0 specification.
+//! Includes utility functions for generating UUID-based IDs and comprehensive
+//! serialization testing.
 
 use serde::{Deserialize, Serialize};
 
 use super::utils::uuid_str;
 
-/// JSON-RPC ID: request-specific identifier
+/// JSON-RPC request identifier supporting multiple ID types.
+///
+/// According to JSON-RPC 2.0 specification, an identifier can be a string,
+/// number, or null value. This enum handles all three cases.
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd)]
 #[serde(untagged)]
 pub enum Id {
-    /// Numerical JSON ID
+    /// Numerical JSON-RPC ID (e.g., 42, 0, -1)
     Num(i64),
-    /// String JSON ID
+    /// String JSON-RPC ID (e.g., "request-1", UUID strings)
     Str(String),
-    /// null JSON ID
+    /// Null JSON-RPC ID (represents absence of identifier)
     None,
 }
 
 impl Id {
-    /// Create a JSON-RPC ID containing a UUID v4 (i.e. random)
+    /// Creates a new JSON-RPC ID with a random UUID v4 string.
+    ///
+    /// # Returns
+    /// An `Id::Str` containing a UUID v4 string for unique request identification.
+    ///
     pub fn uuid_v4() -> Self {
         Self::Str(uuid_str())
     }
@@ -42,6 +53,10 @@ mod tests {
 
     use super::*;
 
+    /// Tests JSON-RPC ID serialization and deserialization round-trips.
+    ///
+    /// Verifies that all ID types (string, number, null) can be properly
+    /// serialized to JSON and deserialized back to their original form.
     #[test]
     fn round_tripping_jsonrpc_id() {
         let str = r#""42""#;
@@ -60,6 +75,13 @@ mod tests {
         serialization_roundtrip::<Id>(null);
     }
 
+    /// Helper function to test serialization round-trips for any serializable type.
+    ///
+    /// # Arguments
+    /// * `json_data` - JSON string to deserialize and then re-serialize
+    ///
+    /// # Generic Parameters
+    /// * `T` - Type that implements Debug, PartialEq, Serialize, and DeserializeOwned
     fn serialization_roundtrip<T>(json_data: &str)
     where
         T: Debug + PartialEq + Serialize + DeserializeOwned,

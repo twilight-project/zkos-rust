@@ -1,3 +1,12 @@
+//! Prover types and operations for ZkVM.
+//!
+//! This module defines the transaction proving system, including:
+//!
+//! - [`Prover`]: Main prover that creates transactions and generates proofs
+//! - [`ProverRun`]: Running state for program execution during proving
+//!
+//! The module provides transaction building, R1CS proof generation, and signature
+//! creation with support for witness data and performance timing.
 // ignore warnings
 #![allow(warnings)]
 use bulletproofs::r1cs::ConstraintSystem;
@@ -30,6 +39,7 @@ pub struct Prover<'g> {
     batch: starsig::BatchVerifier<rand::rngs::ThreadRng>,
 }
 
+/// Running state for program execution during proving.
 pub struct ProverRun {
     program: VecDeque<Instruction>,
 }
@@ -38,6 +48,7 @@ impl<'t, 'g> Delegate<r1cs::Prover<'g, Transcript>> for Prover<'g> {
     type RunType = ProverRun;
     type BatchVerifier = starsig::BatchVerifier<rand::rngs::ThreadRng>;
 
+    /// Commits a variable to the constraint system using witness data.
     fn commit_variable(
         &mut self,
         com: &Commitment,
@@ -46,6 +57,7 @@ impl<'t, 'g> Delegate<r1cs::Prover<'g, Transcript>> for Prover<'g> {
         Ok(self.cs.commit(v.into(), v_blinding))
     }
 
+    /// Processes transaction signature by extracting verification key witness and storing it.
     fn process_tx_signature(
         &mut self,
         pred: Predicate,
@@ -56,6 +68,7 @@ impl<'t, 'g> Delegate<r1cs::Prover<'g, Transcript>> for Prover<'g> {
         Ok(())
     }
 
+    /// Retrieves the next instruction from the program queue.
     fn next_instruction(
         &mut self,
         run: &mut Self::RunType,
@@ -63,16 +76,19 @@ impl<'t, 'g> Delegate<r1cs::Prover<'g, Transcript>> for Prover<'g> {
         Ok(run.program.pop_front())
     }
 
+    /// Creates a new run instance from a program item.
     fn new_run(&self, data: ProgramItem) -> Result<Self::RunType, VMError> {
         Ok(ProverRun {
             program: data.to_program()?.to_vec().into(),
         })
     }
 
+    /// Returns a mutable reference to the constraint system.
     fn cs(&mut self) -> &mut r1cs::Prover<'g, Transcript> {
         &mut self.cs
     }
 
+    /// Returns a mutable reference to the batch verifier.
     fn batch_verifier(&mut self) -> &mut Self::BatchVerifier {
         &mut self.batch
     }

@@ -1,164 +1,122 @@
-# Signatures: Engineering design doc
+[![Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](/LICENSE)
+<!-- CI badge example; uncomment when you have CI -->
+<!-- [![CI](https://github.com/twilight-project/zkos-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/twilight-project/zkos-rust/actions/workflows/ci.yml) -->
 
-This is a signature scheme for signing messages. 
-This design doc describes the protocol for signing a single message with one public key 
-(where the public key can be created from a single party's private key, 
-or from the aggregation of multiple public keys),
-and for signing multiple messages with multiple public keys.
-The public key aggregation and multi-message signing protocols are implemented from the paper,
-["Simple Schnorr Multi-Signatures with Applications to Bitcoin"](https://eprint.iacr.org/2018/068.pdf).
+**Status:** experimental ⛏️ – APIs may break before v1.0.
 
+> **Origin:** Portions adapted from the  
+> [`stellar/slingshot`](https://github.com/stellar/slingshot/tree/main/musig) project (Apache-2.0).
 
+ mulmsgsig
 
-## Definitions
+Multi-message multi-signature scheme for Ristretto255 with batch verification support.
 
-### Scalar
+## Overview
 
-A _scalar_ is an integer modulo [Ristretto group](https://ristretto.group) order 
-`|G| = 2^252 + 27742317777372353535851937790883648493`.
+This crate provides a pure Rust implementation of multi-message multi-signatures over the Ristretto255 curve. It allows a single signature to verify multiple messages, each signed by a different key, with support for efficient batch verification.
 
-Scalars are encoded as 32-byte strings using little-endian convention.
+## Features
 
-Every scalar is required to be in a canonical (reduced) form.
-
-### Point
-
-A _point_ is an element in the [Ristretto group](https://ristretto.group).
-
-Points are encoded as _compressed Ristretto points_ (32-byte strings).
+- **Multi-message signatures**: Sign multiple messages with different keys in a single signature
+- **Batch verification**: Efficiently verify multiple signatures together
+- **Transcript-based API**: Uses Merlin transcripts for domain separation and security
+- **Ristretto255 curve**: Built on the secure Ristretto255 elliptic curve
+- **Integration**: Seamlessly integrates with the `starsig` crate
 
 
-### Base point
+## Usage
 
-Ristretto base point in compressed form:
+### Basic Multi-Message Signing
 
+```rust
+use mulmsgsig::Multisignature;
+use starsig::{Signature, VerificationKey};
+use merlin::Transcript;
+use curve25519_dalek::scalar::Scalar;
+
+// Create signing keys
+let privkey1 = Scalar::from(1u64);
+let privkey2 = Scalar::from(2u64);
+let pubkey1 = VerificationKey::from_secret(&privkey1);
+let pubkey2 = VerificationKey::from_secret(&privkey2);
+
+// Create messages for each key
+let messages = vec![
+    (pubkey1, b"message1"),
+    (pubkey2, b"message2"),
+];
+
+// Sign multiple messages with multiple keys
+let mut transcript = Transcript::new(b"example");
+let signature = Signature::sign_multi(
+    vec![privkey1, privkey2],
+    messages.clone(),
+    &mut transcript,
+).unwrap();
+
+// Verify the multi-message signature
+let mut verify_transcript = Transcript::new(b"example");
+assert!(signature.verify_multi(&mut verify_transcript, messages).is_ok());
 ```
-B = e2f2ae0a6abc4e71a884a961c500515f58e30b6aa582dd8db6a65945e08d2d76
+
+### Batch Verification
+
+```rust
+use mulmsgsig::Multisignature;
+use starsig::{BatchVerifier, Signature, VerificationKey};
+use merlin::Transcript;
+use curve25519_dalek::scalar::Scalar;
+
+// Create multiple signatures
+let mut batch = BatchVerifier::new();
+let mut transcript = Transcript::new(b"batch_example");
+// Add signatures to batch
+for (i, (privkey, message)) in privkeys.iter().zip(messages.iter()).enumerate() {
+    let pubkey = VerificationKey::from_secret(privkey);
+    let signature = Signature::sign_multi(
+        vec![*privkey],
+        vec![(pubkey, *message)],
+        &mut transcript.clone(),
+    ).unwrap();
+    
+    signature.verify_multi_batched(
+        &mut transcript.clone(),
+        vec![(pubkey, *message)],
+        &mut batch,
+    );
+}
+
+// Verify all signatures at once
+assert!(batch.verify().is_ok());
 ```
 
-### MusigContext
+## API Reference
 
-This is a public trait with functions:
-- `commit(&self, &mut transcript)`: takes a mutable transcript, and commits the internal context to the transcript.
-- `challenge(&self, index, &mut transcript) -> Scalar`: takes the index of a public key
-and a mutable transcript, and returns the suitable challenge for that public key from the transcript. 
-- `len(&self) -> usize`: returns the number of pubkeys associated with the context.
-- `key(&self, index: usize)`: returns the key at `index`.
+### Traits
 
+- `Multisignature`: Extension trait for multi-message signature operations
+- `MusigContext`: Context management for multi-signature schemes
+- `TranscriptProtocol`: Transcript extensions for multi-message protocols
 
-### Multimessage
+### Types
 
-Implements MusigContext
+- `Multimessage<M>`: Multi-message context implementation
+- `MusigError`: Error types for multi-message operations
 
-Fields:
-- pairs: `Vec<(VerificationKey, &[u8])>`
+### Key Functions
 
-Functions:
-- `Multimessage::new(Vec<(VerificationKey, &[u8])>) -> Self`: creates a new Multimessage instance using the input.
-
-- `Multimessage::commit(&self, &mut transcript)`: 
-  It commits to the number of pairs, with label "Musig.Multimessage". 
-  It then commits each of the pairs in `self.pairs`, by iterating through `self.pairs` and 
-  committing the `VerificationKey` with label "X" and the message with label "m".
-
-- `Multimessage::challenge(&self, i, &mut transcript) -> Scalar`: 
-  Computes challenge `c_i = H(R, <S>, i)`, where `i` is the index of the public key 
-  that it is getting a challenge for. The function expects that the nonce commitment sum `R`, 
-  and the pairs `<S>`, have already been committed to the input `transcript`.
-
-  It forks the input transcript by cloning it. It commits `i` to the forked transcript with label "i".
-  It then gets and returns the challenge scalar `c_i` from the forked transcript with label "c".
-
-- `Multimessage::len(&self) -> usize`: returns the length of `self.pairs`.
-
-- `Multimessage:key(&self, index) -> VerificationKey`: returns the key at that index in `self.pairs`.
+- `Signature::sign_multi()`: Create multi-message signatures
+- `Signature::verify_multi()`: Verify multi-message signatures
+- `Signature::verify_multi_batched()`: Add to batch verification
 
 
-### Signature
+## Minimum Supported Rust Version
 
-A signature is comprised of a scalar `s`, and a RistrettoPoint `R`. 
-In the simple Schnorr signature case, `s` represents the Schnorr signature scalar and `R` represents the nonce commitment. 
-In the Musig signature case, `s` represents the sum of the Schnorr signature scalars of each party, or `s = sum_i (s_i)`. 
-`R` represents the sum of the nonce commitments of each party, or `R = sum_i (R_i)`. 
+Rust **1.70** or newer.
 
-Functions:
-- `Signature::sign_single(...) -> Signature`
-- `Signature::sign_multi(...) -> Result<Signature, MusigError>`
-For more detail, see the [signing](#signing) section.
+---
 
-- `Signature::verify(...) -> DeferredVerification`
-- `Signature::verify_multi(...) -> DeferredVerification`
-For more detail, see the [verification](#verifying) section.
+## License & Attribution
 
-## Operations
-
-
-### Signing
-
-There are several paths to signing:
-1. Make a Schnorr signature with one public key (derived from one private key).
-    Function: `Signature::sign_single(...)`
-
-    Input: 
-    - transcript: `&mut Transcript` - a transcript to which the message to be signed has already been committed.
-    - privkey: `Scalar`
-
-    Operation:
-    - Clone the transcript state, mix it with the privkey and system-provided RNG to generate the nonce `r`. 
-    This makes the nonce uniquely bound to a message and private key, and also makes it non-deterministic to prevent "rowhammer" attacks.
-    - Use the nonce to create a nonce commitment `R = r * G`
-    - Make `c = H(X, R, m)`. Because `m` has already been fed into the transcript externally, 
-    we do this by committing `X = privkey * G` to the transcript with label "X", 
-    committing `R` to the transcript with label "R", and getting the challenge scalar `c` with label "c".
-    - Make `s = r + c * x` where `x = privkey`
-
-    Output:
-    - Signature { `s`, `R` }
-
-
-2. Make a Schnorr signature with multiple public keys and multiple messages, in a way that is safe from Russell's attack.
-    - Create a `Multimessage` context by calling `Multimessage::new(...)`. 
-      See the [multimessage](#multimessage) section for more details.
-
-    For each signer that is taking part in the signing:
-    - Call `Signer::new(transcript, privkey, multimessage)`.
-    - All following steps are the same as in protocol #2.
-
-### Verifying
-
-There are several paths to verifying: 
-1. Normal Schnorr signature verification (covers cases #1 and #2 in the [signing section](#signing)).
-    Function: `Signature::verify(...)`
-
-    Input: 
-    - `&self`
-    - transcript: `&mut Transcript` - a transcript to which the signed message has already been committed.
-    - X: `VerificationKey`
-
-    Operation:
-    - Make `c = H(X, R, m)`. Since the transcript already has the message `m` committed to it, 
-    the function only needs to commit `X` with label "X" and `R` with label "R", 
-    and then get the challenge scalar `c` with label "c".
-    - Make the `DeferredVerification` operation that checks if `s * G == R + c * P`. 
-    `G` is the [base point](#base-point).
-
-    Output:
-    - `DeferredVerification` of the point operations to compute to check for validity.
-
-2. Multi-message Schnorr signature verification (covers case #2 in [signing section](#signing)).
-    Function: `Signature::verify_multi(...)`
-
-    Input: 
-    - `&self`
-    - transcript: `&mut Transcript` - a transcript to which the signed message has already been committed.
-    - messages: `Vec<(VerificationKey, &[u8])>` 
-
-    Operation:
-    - Make a `Multimessage` instance from `messages`, and call `commit()` on it to commit its state 
-    to the transcript. 
-    - Commit `self.R` to the transcript with label "R".
-    - Use `multimessage.challenge(pubkey, &mut transcript)` to get the per-pubkey challenge `c_i` for each party.
-    - Make the `DeferredVerification` operation that checks the linear combination: `s * G = R + sum{c_i * X_i}`.
-
-    Output:
-    - `DeferredVerification` of the point operations to compute to check for validity.
+Licensed under [`Apache-2.0`](../../LICENSE).  
+Portions derived from Stellar’s **Slingshot** project (Apache-2.0).

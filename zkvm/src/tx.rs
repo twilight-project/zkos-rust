@@ -1,3 +1,7 @@
+//! Transaction types and operations for ZkVM.
+//!
+//! Defines transaction structures ([`Tx`], [`UnsignedTx`], [`VerifiedTx`]), transaction logs ([`TxLog`]),
+//! and related types for creating, signing, and validating ZkVM transactions.
 use bulletproofs::r1cs::R1CSProof;
 use bulletproofs::BulletproofGens;
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -248,7 +252,7 @@ impl Tx {
     /// Returns an error if the byte slice cannot be parsed into a `Tx`.
     pub fn from_bytes(mut slice: &[u8]) -> Result<Tx, VMError> {
         slice
-            .read_all(|r| Self::decode(r))
+            .read_all(Self::decode)
             .map_err(|_| VMError::InvalidFormat)
     }
 }
@@ -327,9 +331,9 @@ impl From<Vec<TxEntry>> for TxLog {
     }
 }
 
-impl Into<Vec<TxEntry>> for TxLog {
-    fn into(self) -> Vec<TxEntry> {
-        self.0
+impl From<TxLog> for Vec<TxEntry> {
+    fn from(val: TxLog) -> Self {
+        val.0
     }
 }
 

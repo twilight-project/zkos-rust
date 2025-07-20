@@ -1,3 +1,49 @@
+//! ZkOS UTXO State Management System
+//!
+//! This crate provides a comprehensive UTXO (Unspent Transaction Output) management system
+//! for ZkOS, supporting three types of state:
+//!
+//! - **🪙 Coins**: Confidential digital assets with ElGamal encryption
+//! - **📝 Memos**: Programmable data containers with time-bound access
+//! - **🏗️ State**: Smart contract state with nonce-based versioning
+//!
+//! ## Core Features
+//!
+//! - **In-Memory Storage**: High-performance partitioned storage by UTXO type
+//! - **PostgreSQL Persistence**: Reliable state persistence and recovery
+//! - **Block Processing**: Real-time blockchain integration via chain oracle
+//! - **Address Mapping**: Efficient address-to-UTXO queries
+//! - **Snapshot System**: State recovery and backup capabilities
+//! - **Telemetry**: Prometheus metrics for monitoring
+//!
+//! ## Architecture
+//!
+//! The system maintains state through:
+//!
+//! - **`LocalStorage<T>`**: Partitioned in-memory storage
+//! - **`AddressUtxoIDStorage`**: Address-to-UTXO mapping
+//! - **`SnapShot`**: State persistence and recovery
+//! - **Block Processing**: Real-time state updates from blockchain
+//!
+//! ## State Types
+//!
+//! ### Coins
+//! Confidential digital assets with ElGamal encryption for privacy-preserving transfers.
+//!
+//! ### Memos
+//! Programmable data containers with script-based access control and time restrictions.
+//!
+//! ### State
+//! Smart contract state with nonce-based versioning for deterministic state transitions.
+//!
+//! ## Integration
+//!
+//! This crate integrates with:
+//! - **ZkVM**: For transaction verification and state validation
+//! - **Chain Oracle**: For real-time blockchain data
+//! - **Transaction API**: For external state queries
+//! - **PostgreSQL**: For persistent storage
+
 #![allow(warnings)]
 pub mod blockoperations;
 pub mod db;
@@ -23,21 +69,34 @@ use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
 use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
+    /// Global UTXO storage with partitioned storage by type (Coin, Memo, State)
     pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage::<Output>>> =
         Arc::new(RwLock::new(LocalStorage::<Output>::new(3)));
+
+    /// Address-to-UTXO mapping for efficient queries by address and type
     pub static ref ADDRESS_TO_UTXO: Arc<Mutex<AddressUtxoIDStorage>> =
         Arc::new(Mutex::new(AddressUtxoIDStorage::new()));
+
+    /// Prometheus metric for memo UTXO count
     pub static ref UTXO_MEMO_TELEMETRY_COUNTER: Gauge =
         register_gauge!("utxo_memo_count", "A counter for memo utxo").unwrap();
+
+    /// Prometheus metric for state UTXO count
     pub static ref UTXO_STATE_TELEMETRY_COUNTER: Gauge =
         register_gauge!("utxo_state_count", "A counter for state utxo").unwrap();
+
+    /// Prometheus metric for coin UTXO count
     pub static ref UTXO_COIN_TELEMETRY_COUNTER: Gauge =
         register_gauge!("utxo_coin_count", "A counter for coin utxo").unwrap();
+
+    /// Thread pool for chain oracle subscription processing
     pub static ref ZK_ORACLE_SUBSCRIBER_THREADPOOL: Arc<Mutex<ThreadPool>> =
         Arc::new(Mutex::new(ThreadPool::new(
             1,
             String::from("ZK_ORACLE_SUBSCRIBER_THREADPOOL Threadpool")
         )));
+
+    /// Thread pool for block height writing operations
     pub static ref ZK_ORACLE_HEIGHT_WRITE_THREADPOOL: Arc<Mutex<ThreadPool>> =
         Arc::new(Mutex::new(ThreadPool::new(
             1,
@@ -48,6 +107,14 @@ use blockoperations::blockprocessing::{
     total_coin_type_utxos, total_memo_type_utxos, total_state_type_utxos,
 };
 
+/// Initializes the UTXO store by loading from PostgreSQL and setting up address mappings.
+///
+/// This function:
+/// 1. Initializes PostgreSQL connection
+/// 2. Loads UTXO data from database
+/// 3. Builds address-to-UTXO mappings
+/// 4. Updates Prometheus metrics
+/// 5. Sets up telemetry counters
 pub fn init_utxo() {
     println!("starting utxo init");
     init_psql();
@@ -118,6 +185,15 @@ pub fn init_utxo() {
 
 //     Ok((socket, response))
 // }
+
+/// Starts the ZkOS chain oracle subscriber for real-time block processing.
+///
+/// This function:
+/// 1. Reads the current block height from file
+/// 2. Subscribes to blockchain updates via chain oracle
+/// 3. Processes incoming blocks to update UTXO state
+/// 4. Updates block height tracking
+/// 5. Uses thread pools for concurrent processing
 pub fn zk_oracle_subscriber() {
     println!("started zk subsciber");
     let block_height = match fs::read_to_string("height.txt") {
@@ -187,7 +263,13 @@ pub fn zk_oracle_subscriber() {
     //}
 }
 
-fn save_snapshot() {
+/// Creates a snapshot of the current UTXO state for persistence and recovery.
+///
+/// This function:
+/// 1. Takes a snapshot of the current UTXO storage
+/// 2. Logs the snapshot details for debugging
+/// 3. Returns the snapshot result
+pub fn save_snapshot() {
     let mut utxo_storage = UTXO_STORAGE.write().unwrap();
     println!("get block height:{:#?}", utxo_storage.block_height);
     println!("get snap:{:#?}", utxo_storage.snaps);
@@ -199,6 +281,12 @@ fn save_snapshot() {
     println!("get snap:{:#?}", res);
 }
 
+/// Writes the current block height to a file for persistence.
+///
+/// This function:
+/// 1. Writes the block height to "height.txt"
+/// 2. Logs success or failure
+/// 3. Used for tracking blockchain progress
 fn write_block_height(block_height: u64) {
     match fs::write("height.txt", block_height.to_string()) {
         Ok(_) => println!("Successfully wrote block height:{} to file", block_height),

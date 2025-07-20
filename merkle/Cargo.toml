@@ -2,16 +2,28 @@
 name = "merkle"
 version = "0.1.0"
 edition = "2021"
+description = "Efficient, generic Merkle tree utilities for cryptographic applications."
+repository = "https://github.com/twilight-project/zkos-rust"
+readme = "README.md"
+keywords = ["merkle", "tree", "cryptography", "hash", "proof"]
+categories = ["cryptography", "data-structures"]
+publish = false
+rust-version = "1.70"
+# documentation = "https://docs.rs/merkle"
+# license, repository, authors inherited from [workspace.package]
+
+[features]
+default = ["serde"]
+serde = ["dep:serde"]
 
 [dependencies]
-merlin = {version = "2.0"}
+serde = { version = "1.0", features = ["derive"], optional = true }
+merlin = "2"
+hex = "0.4"
 subtle = "2"
-serde = { version = "1.0", features=["derive"] }
-hex = "^0.3"
+readerwriter = { path = "../readerwriter" }
+address = { path = "../address" }
 
-[dependencies.readerwriter]
-path = "../readerwriter"
-
-[dependencies.address]
-path = "../address"
+[badges]
+maintenance = { status = "experimental" }
 

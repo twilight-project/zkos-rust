@@ -1,4 +1,9 @@
+//! Error types for Schnorr signature operations.
+//!
+//! This module defines the [`StarsigError`] enum for errors encountered during key aggregation, signing, or verification.
+
 use thiserror::Error;
+
 /// Represents an error in key aggregation, signing, or verification.
 #[derive(Error, Clone, Debug, Eq, PartialEq)]
 pub enum StarsigError {

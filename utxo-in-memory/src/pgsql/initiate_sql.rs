@@ -1,4 +1,11 @@
+//! PostgreSQL initialization module for setting up database tables.
+//!
+//! This module initializes the PostgreSQL database connection pool and
+//! creates the necessary tables for UTXO storage. It uses lazy_static to
+//! ensure thread-safe initialization of the connection pool.
+
 use crate::{db::KeyId, ThreadPool};
+use lazy_static::lazy_static;
 use r2d2_postgres::postgres::NoTls;
 use r2d2_postgres::PostgresConnectionManager;
 use std::collections::HashMap;
@@ -92,87 +99,3 @@ fn create_utxo_state_table() -> Result<(), r2d2_postgres::postgres::Error> {
         Err(arg) => Err(arg),
     }
 }
-
-// pub fn load_backup_from_psql()->Vec<(usize,Vec<(KeyId,zkvm::Output)>)> {
-//     let mut utxo_storage = crate::UTXO_STORAGE.lock().unwrap();
-
-//     let snapshot_path = utxo_storage.snaps.snap_rules.path.clone();
-//     // let snap_path = format!("{}-snapmap", snapshot_path.clone());
-//     let last_block = utxo_storage.block_height.clone();
-//     // let new_snapshot_id = utxo_storage.snaps.lastsnapid + 1;
-//     let mut snap_partition_clone: Vec<(usize, HashMap<KeyId, zkvm::zkos_types::Output>)> =
-//         Vec::new();
-
-//     let inner_snap_threadpool = ThreadPool::new(
-//         if utxo_storage.partition_size >= 5 {
-//             5
-//         } else {
-//             utxo_storage.partition_size + 1
-//         },
-//         String::from("inner_snap_threadpool"),
-//     );
-
-//     let (sender, receiver) = mpsc::channel();
-//     inner_snap_threadpool.execute(move || {
-//         let mut query:String="".to_string();
-//        let io_type=IOType::Coin;
-//         match io_type{
-//             IOType::Coin=>{
-//                 if end_block < 0 {
-//                 query = format!("SELECT  output, block_height FROM public.utxo_coin_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",0,10000*1,10000);
-
-//                  println!("{}",query);
-//            }
-
-//             IOType::Memo=>{   if end_block < 0 {
-//                 query = format!("SELECT  output, block_height FROM public.utxo_memo_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",0,10000*1,10000);
-//                println!("{}",query);
-//            }
-
-//             IOType::State=>{   if end_block < 0 {
-//                 query = format!("SELECT  output, block_height FROM public.utxo_state_logs where block_height >= {} order by block_height asc OFFSET {} limit {};",0,10000*1,10000);
-//                println!("{}",query);
-//            }
-
-//    }
-//         }
-
-//         let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
-//         let mut result: Vec<(KeyId, zkvm::zkos_types::Output)> = Vec::new();
-//         match client.query(&query, &[]) {
-//             Ok(data) => {
-//                 for row in data {
-//                     result.push((row.get("utxo"),bincode::deserialize(row.get("output")).unwrap()));
-//                 }
-//                 sender.send(Ok(result)).unwrap();
-//             }
-//             Err(arg) => sender
-//                 .send(Err(std::io::Error::new(std::io::ErrorKind::Other, arg)))
-//                 .unwrap(),
-//         }
-
-//     });
-
-//     drop(inner_snap_threadpool);
-
-//     match receiver.recv().unwrap() {
-//         Ok(value) => {
-//             return Ok(UtxoHexDecodeResult { result: value });
-//         }
-//         Err(arg) => {
-//             return Err(std::io::Error::new(std::io::ErrorKind::Other, arg));
-//         }
-//     };
-// }
-// // ------------------------------------------------------------------------
-// // Tests
-// // ------------------------------------------------------------------------
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     // cargo test -- --nocapture --test create_psql_table_test --test-threads 1
-//     #[test]
-//     fn create_psql_table_test() {
-//         init_psql();
-//     }
-// }

@@ -1,6 +1,12 @@
-// #![allow(dead_code)]
-// #![allow(unused_imports)]
-// #![allow(non_camel_case_types)]
+//! UTXO storage implementation with partitioned in-memory storage and snapshot capabilities.
+//!
+//! This module provides the core storage functionality for UTXOs, including:
+//! - Partitioned in-memory storage by UTXO type (Coin, Memo, State)
+//! - Snapshot creation and restoration using LevelDB
+//! - PostgreSQL integration for persistence
+//! - Telemetry counters for monitoring
+//! - Thread-safe operations with concurrent access
+
 use crate::db::*;
 use crate::ADDRESS_TO_UTXO;
 pub type KeyId = Vec<u8>;
@@ -19,38 +25,68 @@ use std::sync::mpsc;
 
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUERY, THREADPOOL_SQL_QUEUE};
 
+/// Trait defining the interface for local UTXO database operations
 pub trait LocalDBtrait<T> {
+    /// Creates a new storage instance with specified partition size
     fn new(partition: usize) -> Self;
+
+    /// Adds a UTXO to storage
     fn add(&mut self, id: KeyId, value: T, input_type: usize) -> Result<T, std::io::Error>;
+
+    /// Removes a UTXO from storage
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
+
+    /// Checks if a UTXO exists in storage
     fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool;
+
+    /// Retrieves a UTXO by its ID
     fn get_utxo_by_id(&self, id: KeyId, input_type: usize) -> Result<T, std::io::Error>;
+
+    /// Creates a snapshot of current storage state
     fn take_snapshot(&mut self) -> Result<(), std::io::Error>;
+
+    /// Loads storage state from snapshot
     fn load_from_snapshot(&mut self) -> Result<(), std::io::Error>;
+
+    /// Loads storage state from PostgreSQL
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error>;
+
+    /// Updates metadata and triggers snapshot if needed
     fn data_meta_update(&mut self, blockheight: usize) -> bool;
+
+    /// Returns count of UTXOs by type
     fn get_count_by_type(&self, input_type: usize) -> u64;
+
+    /// Retrieves UTXOs from database by block height range
     fn get_utxo_from_db_by_block_height_range1(
         start_block: i128,
         limit: i64,
         pagination: i64,
         io_type: usize,
     ) -> Result<Vec<UtxokeyidOutput<T>>, std::io::Error>;
-    // bulk add and bulk remove functions needed
 }
 
+/// Container for UTXO key and output data
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct UtxokeyidOutput<T> {
+    /// UTXO key identifier
     pub keyid: Vec<u8>,
+    /// UTXO output data
     pub output: T,
 }
 
+/// Main storage structure for UTXOs with partitioned data
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct LocalStorage<T> {
+    /// Partitioned storage: HashMap<InputType, HashMap<KeyId, T>>
     pub data: HashMap<InputType, HashMap<KeyId, T>>,
+    /// Current block height
     pub block_height: SequenceNumber,
+    /// Aggregate log sequence number
     pub aggrigate_log_sequence: SequenceNumber,
+    /// Snapshot configuration and state
     pub snaps: SnapShot,
+    /// Number of partitions
     pub partition_size: usize,
 }
 
@@ -58,6 +94,7 @@ impl<T> LocalDBtrait<T> for LocalStorage<T>
 where
     T: Clone + serde::Serialize + serde::de::DeserializeOwned + Send + 'static,
 {
+    /// Creates new LocalStorage with specified partition size
     fn new(mut partition_size: usize) -> LocalStorage<T> {
         LocalStorage {
             data: {
@@ -77,6 +114,7 @@ where
         }
     }
 
+    /// Adds UTXO to storage and updates telemetry counters
     fn add(&mut self, id: KeyId, value: T, input_type: usize) -> Result<T, std::io::Error> {
         self.data
             .get_mut(&input_type)
@@ -93,6 +131,7 @@ where
         Ok(value)
     }
 
+    /// Removes UTXO from storage and updates telemetry counters
     fn remove(&mut self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
         match self.data.get_mut(&input_type).unwrap().remove(&id) {
             Some(value) => {
@@ -114,9 +153,12 @@ where
         }
     }
 
+    /// Checks if UTXO exists in storage
     fn search_key(&mut self, id: &KeyId, input_type: usize) -> bool {
         self.data.get_mut(&input_type).unwrap().contains_key(id)
     }
+
+    /// Retrieves UTXO by ID
     fn get_utxo_by_id(&self, id: KeyId, input_type: usize) -> Result<T, std::io::Error> {
         match self.data.get(&input_type).unwrap().get(&id) {
             Some(value) => {
@@ -131,6 +173,7 @@ where
         }
     }
 
+    /// Returns count of UTXOs by type
     fn get_count_by_type(&self, input_type: usize) -> u64 {
         let result: u64 = match self.data.get(&input_type) {
             Some(inner_map) => inner_map.len() as u64,
@@ -140,6 +183,7 @@ where
         return result;
     }
 
+    /// Creates snapshot of current storage state to LevelDB
     fn take_snapshot(&mut self) -> Result<(), std::io::Error> {
         let snapshot_path = self.snaps.snap_rules.path.clone();
         let snap_path = format!("{}-snapmap", snapshot_path.clone());
@@ -200,6 +244,7 @@ where
         Ok(())
     }
 
+    /// Loads storage state from LevelDB snapshot
     fn load_from_snapshot(&mut self) -> Result<(), std::io::Error> {
         let last_updated_block = self.snaps.block_height;
         let snapshot_id = self.snaps.currentsnapid;
@@ -230,6 +275,7 @@ where
         //get current block from the chain and update the remaining data from chain
     }
 
+    /// Loads storage state from PostgreSQL database
     fn load_from_snapshot_from_psql(&mut self) -> Result<(), std::io::Error> {
         let mut address_to_utxo_storage = ADDRESS_TO_UTXO.lock().unwrap();
         for inputtype in 0..self.partition_size {
@@ -268,6 +314,8 @@ where
 
         Ok(())
     }
+
+    /// Updates metadata and triggers snapshot creation if threshold is reached
     fn data_meta_update(&mut self, blockheight: usize) -> bool {
         self.block_height = blockheight as usize;
         self.aggrigate_log_sequence += 1;
@@ -279,6 +327,7 @@ where
         true
     }
 
+    /// Retrieves UTXOs from PostgreSQL by block height range with pagination
     fn get_utxo_from_db_by_block_height_range1(
         start_block: i128,
         limit: i64,
@@ -333,6 +382,7 @@ where
     }
 }
 
+/// Bulk transfers all UTXOs from memory to PostgreSQL
 pub fn takesnapshotfrom_memory_to_postgresql_bulk() {
     let mut utxo_storage = crate::UTXO_STORAGE.write().unwrap();
 

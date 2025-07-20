@@ -2,11 +2,15 @@
 name = "transaction"
 version = "0.1.0"
 edition = "2021"
-license = "Apache-2.0"
-#repository = ""
+repository = "https://github.com/twilight-project/zkos-rust"
 categories = ["cryptography", "blockchain"]
-keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs"]
-description = "A blockchain VM with QuisQuis transactions and zero-knowledge smart contracts"
+keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs", "confidential", "privacy"]
+description ="Confidential transaction system with zero-knowledge proofs for the ZkOS workspace"
+readme = "README.md"
+rust-version = "1.70"
+publish = false
+# documentation = "https://docs.rs/"
+# license, repository, authors inherited from [workspace.package]
 
 [dependencies]
 thiserror = "1"

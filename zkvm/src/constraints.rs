@@ -1,5 +1,18 @@
-//! Constraint system-related types and operations:
-//! Commitments, Variables, Expressions and Constraints.
+//! Constraint system types and operations for ZkVM.
+//!
+//! This module defines the core abstractions for representing and manipulating
+//! Rank-1 Constraint Systems (R1CS) in zero-knowledge proofs, including:
+//!
+//! - [`Commitment`]: Pedersen commitments, both open (with witness) and closed (blinded).
+//! - [`Variable`]: High-level variables referencing commitments.
+//! - [`Expression`]: Linear combinations of variables and constants.
+//! - [`Constraint`], [`SecretConstraint`]: Boolean constraints over expressions, supporting
+//!   equality, conjunction, disjunction, and negation, with optimizations for cleartext cases.
+//!
+//! The module provides methods for constructing, combining, and verifying constraints,
+//! as well as evaluating them with or without witness data. It also includes
+//! encoding/decoding utilities and test helpers for constraint arithmetic.
+//!
 
 use bulletproofs::{r1cs, r1cs::ConstraintSystem, PedersenGens};
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -113,7 +126,7 @@ impl Constraint {
 
             Ok(())
         })
-        .map_err(|e| VMError::R1CSError(e))
+        .map_err(VMError::R1CSError)
     }
 
     /// Creates an equality constraint.
@@ -224,12 +237,9 @@ impl SecretConstraint {
                 let (xy_assg, xw_assg, y_assg) = match x_assg {
                     Some(x) => {
                         let is_zero = x.ct_eq(&Scalar::zero());
-                        let y = Scalar::conditional_select(
-                            &Scalar::zero(),
-                            &Scalar::one(),
-                            is_zero.into(),
-                        );
-                        let w = Scalar::conditional_select(&x, &Scalar::one(), is_zero.into());
+                        let y =
+                            Scalar::conditional_select(&Scalar::zero(), &Scalar::one(), is_zero);
+                        let w = Scalar::conditional_select(&x, &Scalar::one(), is_zero);
                         let w = w.invert();
                         (Some((x, y)), Some((x, w)), Some(y))
                     }
@@ -369,7 +379,7 @@ impl Expression {
                 // Multiply coefficients in right_terms by l,
                 // Multiply assignment in right_assignment by l
                 for (_, n) in right_terms.iter_mut() {
-                    *n = *n * l.to_scalar();
+                    *n *= l.to_scalar();
                 }
                 Expression::LinearCombination(right_terms, right_assignment.map(|r| r * l))
             }
@@ -381,7 +391,7 @@ impl Expression {
                 // Multiply coefficients in left_terms by r,
                 // Multiply assignment in left_assignment by r
                 for (_, n) in left_terms.iter_mut() {
-                    *n = *n * r.to_scalar();
+                    *n *= r.to_scalar();
                 }
                 Expression::LinearCombination(left_terms, left_assignment.map(|l| l * r))
             }
@@ -416,10 +426,7 @@ impl Expression {
     fn eval(&self) -> Option<ScalarWitness> {
         match self {
             Expression::Constant(a) => Some(*a),
-            Expression::LinearCombination(_, a) => match a {
-                Some(a) => Some(*a),
-                None => None,
-            },
+            Expression::LinearCombination(_, a) => a.as_ref().map(|a| *a),
         }
     }
 }
@@ -427,6 +434,7 @@ impl Expression {
 impl Neg for Expression {
     type Output = Expression;
 
+    /// Negates an expression by negating all coefficients and the assignment.
     fn neg(self) -> Expression {
         match self {
             Expression::Constant(a) => Expression::Constant(-a),
@@ -443,6 +451,7 @@ impl Neg for Expression {
 impl Add for Expression {
     type Output = Expression;
 
+    /// Adds two expressions by combining their terms and assignments.
     fn add(self, rhs: Expression) -> Expression {
         match (self, rhs) {
             (Expression::Constant(left), Expression::Constant(right)) => {
@@ -482,25 +491,32 @@ impl Add for Expression {
 // Upcasting witness/points into Commitment
 
 impl From<CommitmentWitness> for Commitment {
+    /// Converts a commitment witness into an open commitment.
     fn from(x: CommitmentWitness) -> Self {
         Commitment::Open(Box::new(x))
     }
 }
 
 impl From<CompressedRistretto> for Commitment {
+    /// Converts a compressed Ristretto point into a closed commitment.
     fn from(x: CompressedRistretto) -> Self {
         Commitment::Closed(x)
     }
 }
 
-impl Into<CompressedRistretto> for Commitment {
-    fn into(self) -> CompressedRistretto {
-        self.to_point()
+impl From<Commitment> for CompressedRistretto {
+    /// Converts a commitment into its compressed Ristretto point representation.
+    fn from(val: Commitment) -> Self {
+        val.to_point()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    //! Tests for constraint system arithmetic and optimization.
+    //!
+    //! Tests cover expression arithmetic (addition, negation, multiplication),
+    //! constraint creation and optimization, and mock constraint system behavior.
     use super::*;
     use merlin::Transcript;
 

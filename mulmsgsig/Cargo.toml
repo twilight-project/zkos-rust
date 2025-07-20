@@ -2,6 +2,14 @@
 name = "mulmsgsig"
 version = "0.1.0"
 edition = "2021"
+description = "Multi-message multi-signature scheme for Ristretto255 with batch verification support."
+repository = "https://github.com/twilight-project/zkos-rust"
+keywords = ["cryptography", "crypto", "signatures", "schnorr", "multi-message", "verification"]
+categories = ["cryptography"]
+publish = false
+rust-version = "1.70"
+# documentation = "https://docs.rs/merkle"
+# license, repository, authors inherited from [workspace.package]
 
 [dependencies]
 thiserror = "1"
@@ -17,3 +25,5 @@ path = "../starsig"
 [features]
 default = []
 nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc", "subtle/nightly"]
+
+

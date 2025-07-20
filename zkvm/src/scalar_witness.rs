@@ -59,7 +59,7 @@ impl ScalarWitness {
     /// Returns true if the scalar fits in u64.
     pub fn in_range(self) -> bool {
         let scalar_bytes = self.to_scalar().to_bytes();
-        (&scalar_bytes[8..32]).iter().all(|v| v == &0)
+        scalar_bytes[8..32].iter().all(|v| v == &0)
     }
 }
 
@@ -128,9 +128,9 @@ impl From<Scalar> for ScalarWitness {
 
 // Converting scalar witness to an opaque Scalar.
 
-impl Into<Scalar> for ScalarWitness {
-    fn into(self) -> Scalar {
-        self.to_scalar()
+impl From<ScalarWitness> for Scalar {
+    fn from(val: ScalarWitness) -> Self {
+        val.to_scalar()
     }
 }
 

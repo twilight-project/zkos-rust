@@ -1,9 +1,23 @@
+//! Extension trait for Merlin transcripts for use with Schnorr signatures.
+//!
+//! This module provides the [`TranscriptProtocol`] trait, which extends the Merlin [`Transcript`] API
+//! with methods for committing scalars and points and generating challenge scalars, as used in the starsig protocol.
+//!
+//! # Example
+//! ```
+//! use merlin::Transcript;
+//! use starsig::TranscriptProtocol;
+//! let mut t = Transcript::new(b"example");
+//! t.starsig_domain_sep();
+//! // ...
+//! ```
+
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 use merlin::Transcript;
 
 /// Extension trait to the Merlin transcript API that allows committing scalars and points and
-/// generating challenges as scalars.
+/// generating challenges as scalars for the starsig protocol.
 pub trait TranscriptProtocol {
     /// Commit a domain separator for a single-message signature protocol.
     fn starsig_domain_sep(&mut self);
@@ -11,7 +25,7 @@ pub trait TranscriptProtocol {
     fn append_scalar(&mut self, label: &'static [u8], scalar: &Scalar);
     /// Commit a `point` with the given `label`.
     fn append_point(&mut self, label: &'static [u8], point: &CompressedRistretto);
-    /// Compute a `label`ed challenge variable.
+    /// Compute a `labeled` challenge variable as a scalar.
     fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar;
 }
 
