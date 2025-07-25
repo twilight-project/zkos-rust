@@ -202,6 +202,7 @@ pub struct Version {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LastBlockId {
+    #[serde(deserialize_with = "null_to_empty_string")]
     pub hash: String,
     #[serde(rename = "part_set_header")]
     pub part_set_header: PartSetHeader2,
@@ -211,6 +212,7 @@ pub struct LastBlockId {
 #[serde(rename_all = "camelCase")]
 pub struct PartSetHeader2 {
     pub total: i64,
+    #[serde(deserialize_with = "null_to_empty_string")]
     pub hash: String,
 }
 
@@ -239,6 +241,7 @@ pub struct LastCommit {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockId2 {
+    #[serde(deserialize_with = "null_to_empty_string")]
     pub hash: String,
     #[serde(rename = "part_set_header")]
     pub part_set_header: PartSetHeader3,
@@ -248,6 +251,7 @@ pub struct BlockId2 {
 #[serde(rename_all = "camelCase")]
 pub struct PartSetHeader3 {
     pub total: i64,
+    #[serde(deserialize_with = "null_to_empty_string")]
     pub hash: String,
 }
 
@@ -419,4 +423,176 @@ where
         }
     }
     deserializer.deserialize_str(StringVisitor)
+}
+
+use serde::{Deserialize as NullDeserialize, Deserializer as NullDeserializer};
+
+pub fn null_to_empty_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: NullDeserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_block_raw_decode_height_1() {
+        let json_str = r#"{
+            "block_id": {
+                "hash": "ZxPZxXEc3r9uJVgqCjeqRAnrSWzv5QUg+AVWXO4BcK4=",
+                "part_set_header": {
+                    "total": 1,
+                    "hash": "sBIbv/9Gfqx9MzgmCYETc0Nx32fcclNxz+9R3MSuMF0="
+                }
+            },
+            "block": {
+                "header": {
+                    "version": {
+                        "block": "11",
+                        "app": "0"
+                    },
+                    "chain_id": "nyks",
+                    "height": "1",
+                    "time": "2025-06-13T12:55:07.001017274Z",
+                    "last_block_id": {
+                        "hash": null,
+                        "part_set_header": {
+                            "total": 0,
+                            "hash": null
+                        }
+                    },
+                    "last_commit_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                    "data_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                    "validators_hash": "2JXZzU66O/FG00NQMm6Z77VAOWFiqY494wVoQKe47uk=",
+                    "next_validators_hash": "2JXZzU66O/FG00NQMm6Z77VAOWFiqY494wVoQKe47uk=",
+                    "consensus_hash": "BICRvH3cKD93v7+R1zxE2ljD34qcvIZ0Bdi389qtoi8=",
+                    "app_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                    "last_results_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                    "evidence_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                    "proposer_address": "GTahVJYnvUCi88UM6EZDxgJEHVM="
+                },
+                "data": {
+                    "txs": []
+                },
+                "evidence": {
+                    "evidence": []
+                },
+                "last_commit": {
+                    "height": "0",
+                    "round": 0,
+                    "block_id": {
+                        "hash": null,
+                        "part_set_header": {
+                            "total": 0,
+                            "hash": null
+                        }
+                    },
+                    "signatures": []
+                }
+            }
+        }"#;
+
+        let block_raw: BlockRaw = match serde_json::from_str(json_str) {
+            Ok(block_raw) => block_raw,
+            Err(e) => {
+                println!("Error: {:?}", e);
+                panic!("Error: {:?}", e);
+            }
+        };
+        println!("block_raw: {:?}", block_raw);
+        assert_eq!(
+            block_raw.block_id.hash,
+            "ZxPZxXEc3r9uJVgqCjeqRAnrSWzv5QUg+AVWXO4BcK4="
+        );
+        assert_eq!(block_raw.block_id.part_set_header.total, 1);
+        assert_eq!(block_raw.block.header.chain_id, "nyks");
+        assert_eq!(block_raw.block.header.height, 1);
+        assert!(block_raw.block.data.txs.is_empty());
+    }
+
+    #[test]
+    fn test_block_raw_decode_height_2() {
+        let json_str = r#"{
+            "block_id": {
+                "hash": "yK6nk0XNaGa/yxmsPYSo9imvpPm1KKb0Pl1GHeEKgfc=",
+                "part_set_header": {
+                "total": 1,
+                "hash": "QgWBa+3nEyKl3WHjpyt7/W9/ABVfFjYhZZd6etUQRsc="
+                }
+            },
+            "block": {
+                "header": {
+                "version": {
+                    "block": "11",
+                    "app": "0"
+                },
+                "chain_id": "nyks",
+                "height": "2",
+                "time": "2025-06-13T13:06:36.719861789Z",
+                "last_block_id": {
+                    "hash": "ZxPZxXEc3r9uJVgqCjeqRAnrSWzv5QUg+AVWXO4BcK4=",
+                    "part_set_header": {
+                    "total": 1,
+                    "hash": "sBIbv/9Gfqx9MzgmCYETc0Nx32fcclNxz+9R3MSuMF0="
+                    }
+                },
+                "last_commit_hash": "frt1X5vTIn8dwMnQBsrlIzwNu+itG/yS+Hpbk1B5jMA=",
+                "data_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                "validators_hash": "2JXZzU66O/FG00NQMm6Z77VAOWFiqY494wVoQKe47uk=",
+                "next_validators_hash": "2JXZzU66O/FG00NQMm6Z77VAOWFiqY494wVoQKe47uk=",
+                "consensus_hash": "BICRvH3cKD93v7+R1zxE2ljD34qcvIZ0Bdi389qtoi8=",
+                "app_hash": "cmM8gjlrWjhTB/TfQLIbf1skbm0J8D7ieJr+4XEDKug=",
+                "last_results_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                "evidence_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+                "proposer_address": "GTahVJYnvUCi88UM6EZDxgJEHVM="
+                },
+                "data": {
+                "txs": [ ]
+                },
+                "evidence": {
+                "evidence": [ ]
+                },
+                "last_commit": {
+                "height": "1",
+                "round": 0,
+                "block_id": {
+                    "hash": "ZxPZxXEc3r9uJVgqCjeqRAnrSWzv5QUg+AVWXO4BcK4=",
+                    "part_set_header": {
+                    "total": 1,
+                    "hash": "sBIbv/9Gfqx9MzgmCYETc0Nx32fcclNxz+9R3MSuMF0="
+                    }
+                },
+                "signatures": [
+                    {
+                    "block_id_flag": "BLOCK_ID_FLAG_COMMIT",
+                    "validator_address": "GTahVJYnvUCi88UM6EZDxgJEHVM=",
+                    "timestamp": "2025-06-13T13:06:36.719861789Z",
+                    "signature": "OXGW+sa3kt7fmUFItAaenP1pMVhTrz5tXKQvNFEhKa8VYHRPjA/YXaDcLFI5hgoW8kmQPSDjXpOvqv19ylY5CA=="
+                    }
+                ]
+                }
+            }
+            }"#;
+
+        let block_raw: BlockRaw = match serde_json::from_str(json_str) {
+            Ok(block_raw) => block_raw,
+            Err(e) => {
+                println!("Error: {:?}", e);
+                panic!("Error: {:?}", e);
+            }
+        };
+        println!("block_raw: {:?}", block_raw);
+        assert_eq!(
+            block_raw.block_id.hash,
+            "yK6nk0XNaGa/yxmsPYSo9imvpPm1KKb0Pl1GHeEKgfc="
+        );
+        assert_eq!(block_raw.block_id.part_set_header.total, 1);
+        assert_eq!(block_raw.block.header.chain_id, "nyks");
+        assert_eq!(block_raw.block.header.height, 2);
+        assert!(block_raw.block.data.txs.is_empty());
+    }
 }
