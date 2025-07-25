@@ -56,14 +56,18 @@ pub use self::db::SnapShot;
 pub use self::threadpool::ThreadPool;
 use chain_oracle::pubsub_chain;
 use chain_oracle::Block;
-use chain_oracle::TransactionMessage;
-use db::{ AddressUtxoIDStorage, LocalDBtrait, LocalStorage };
+use chain_oracle::{TransactionMessage, BLOCK_HEIGHT_FILE};
+use db::{AddressUtxoIDStorage, LocalDBtrait, LocalStorage};
 pub use pgsql::init_psql;
-use prometheus::{ register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder };
-use std::{ collections::HashMap, fs, sync::{ Arc, Mutex, RwLock } };
-use tungstenite::{ connect, handshake::server::Response, Message, WebSocket };
+use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
+use std::{
+    collections::HashMap,
+    fs,
+    sync::{Arc, Mutex, RwLock},
+};
+use tungstenite::{connect, handshake::server::Response, Message, WebSocket};
 use url::Url;
-use zkvm::{ zkos_types::Output, IOType };
+use zkvm::{zkos_types::Output, IOType};
 lazy_static! {
     /// Global UTXO storage with partitioned storage by type (Coin, Memo, State)
     pub static ref UTXO_STORAGE: Arc<RwLock<LocalStorage<Output>>> = Arc::new(
@@ -104,9 +108,7 @@ lazy_static! {
     );
 }
 use blockoperations::blockprocessing::{
-    total_coin_type_utxos,
-    total_memo_type_utxos,
-    total_state_type_utxos,
+    total_coin_type_utxos, total_memo_type_utxos, total_state_type_utxos,
 };
 
 /// Initializes the UTXO store by loading from PostgreSQL and setting up address mappings.
@@ -127,9 +129,8 @@ pub fn init_utxo() {
         let _ = utxo_storage.load_from_snapshot_from_psql();
         let mut address_to_utxo_storage = ADDRESS_TO_UTXO.write().unwrap();
         for input_type in 0..3 {
-            let utxos: &mut std::collections::HashMap<Vec<u8>, Output> = utxo_storage.data
-                .get_mut(&input_type)
-                .unwrap();
+            let utxos: &mut std::collections::HashMap<Vec<u8>, Output> =
+                utxo_storage.data.get_mut(&input_type).unwrap();
 
             for (key, output_data) in utxos {
                 let addr = output_data.output.get_owner_address().unwrap().clone();
@@ -137,7 +138,7 @@ pub fn init_utxo() {
                 address_to_utxo_storage.add(
                     IOType::from_usize(input_type).unwrap(),
                     addr,
-                    hex::encode(key.clone())
+                    hex::encode(key.clone()),
                 );
             }
         }
@@ -149,9 +150,18 @@ pub fn init_utxo() {
     UTXO_STATE_TELEMETRY_COUNTER.set(total_state_type_utxos() as f64);
     UTXO_COIN_TELEMETRY_COUNTER.set(total_coin_type_utxos() as f64);
 
-    println!("UTXO Memo Telemetry Counter Value: {}", UTXO_MEMO_TELEMETRY_COUNTER.get());
-    println!("UTXO coin Telemetry Counter Value: {}", UTXO_COIN_TELEMETRY_COUNTER.get());
-    println!("UTXO state Telemetry Counter Value: {}", UTXO_STATE_TELEMETRY_COUNTER.get());
+    println!(
+        "UTXO Memo Telemetry Counter Value: {}",
+        UTXO_MEMO_TELEMETRY_COUNTER.get()
+    );
+    println!(
+        "UTXO coin Telemetry Counter Value: {}",
+        UTXO_COIN_TELEMETRY_COUNTER.get()
+    );
+    println!(
+        "UTXO state Telemetry Counter Value: {}",
+        UTXO_STATE_TELEMETRY_COUNTER.get()
+    );
 
     //load data from intial block from chain
     // if utxo_storage.block_height == 0 {
@@ -190,15 +200,14 @@ pub fn init_utxo() {
 /// 5. Uses thread pools for concurrent processing
 pub fn zk_oracle_subscriber() {
     println!("started zk subsciber");
-    let block_height = match fs::read_to_string("height.txt") {
-        Ok(block_height_str) =>
-            match block_height_str.trim().parse::<i64>() {
-                Ok(block_height) => block_height,
-                Err(_) => {
-                    eprintln!("Failed to parse block height");
-                    1
-                }
+    let block_height = match fs::read_to_string(BLOCK_HEIGHT_FILE.as_str()) {
+        Ok(block_height_str) => match block_height_str.trim().parse::<i64>() {
+            Ok(block_height) => block_height,
+            Err(_) => {
+                eprintln!("Failed to parse block height");
+                1
             }
+        },
         Err(e) => {
             eprintln!("Failed to read block height: {}", e);
             1
@@ -272,7 +281,7 @@ pub fn save_snapshot() {
 /// 2. Logs success or failure
 /// 3. Used for tracking blockchain progress
 fn write_block_height(block_height: u64) {
-    match fs::write("height.txt", block_height.to_string()) {
+    match fs::write(BLOCK_HEIGHT_FILE.as_str(), block_height.to_string()) {
         Ok(_) => println!("Successfully wrote block height:{} to file", block_height),
         Err(e) => eprintln!("Failed to write block height: {}", e),
     }

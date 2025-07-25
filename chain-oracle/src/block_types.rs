@@ -7,6 +7,10 @@ use serde_derive::Deserialize;
 use serde_derive::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+lazy_static! {
+    pub static ref BLOCK_HEIGHT_FILE: String =
+        std::env::var("BLOCK_HEIGHT_FILE").unwrap_or_else(|_| "height.txt".to_string());
+}
 
 /// Error response from block queries
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -85,7 +89,14 @@ impl BlockRaw {
         // println!("url :{:?}", url);
         match request_url(&url) {
             Ok(block_data) => {
-                let mut block = BlockRaw::decode(block_data).unwrap();
+                let mut block = match BlockRaw::decode(block_data) {
+                    Ok(block) => block,
+                    Err(arg) => {
+                        println!("Error: {:?}", arg);
+                        return Err(arg.to_string());
+                    }
+                };
+
                 Ok(block.get_block_height())
             }
             Err(arg) => Err(arg.to_string()),
@@ -355,23 +366,23 @@ impl Block {
         }
     }
     pub fn get_local_block_height() -> u64 {
-        let block_height: u64 = match fs::read_to_string("height.txt") {
+        let block_height: u64 = match fs::read_to_string(BLOCK_HEIGHT_FILE.as_str()) {
             Ok(block_height_str) => match block_height_str.trim().parse::<u64>() {
                 Ok(block_height) => block_height,
                 Err(_) => {
                     eprintln!("Failed to parse block height");
-                    0
+                    1
                 }
             },
             Err(e) => {
                 eprintln!("Failed to read block height: {}", e);
-                0
+                1
             }
         };
         block_height
     }
     pub fn write_local_block_height(block_height: u64) {
-        match fs::write("height.txt", block_height.to_string()) {
+        match fs::write(BLOCK_HEIGHT_FILE.as_str(), block_height.to_string()) {
             Ok(_) => {}
             Err(e) => eprintln!("Failed to write block height: {}", e),
         }

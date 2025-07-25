@@ -28,3 +28,5 @@ pub use self::block_types::*;
 pub use self::pubsub_chain::NYKS_BLOCK_SUBSCRIBER_URL;
 pub use self::transaction_types::*;
 pub use threadpool::ThreadPool;
+#[macro_use]
+extern crate lazy_static;

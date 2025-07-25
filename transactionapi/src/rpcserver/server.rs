@@ -8,39 +8,33 @@
 //! - Database queries with pagination
 //! - Test commands for snapshot management and storage operations
 
-use super::error::{ RpcError, RpcResult };
+use super::error::{RpcError, RpcResult};
 use super::service;
-use super::types::{ UtxoDetailResponse, UtxoRequest };
-use jsonrpc_core::{ MetaIoHandler, Metadata, Params, Value };
-use jsonrpc_http_server::{ hyper, ServerBuilder };
+use super::types::{UtxoDetailResponse, UtxoRequest};
+use address::Standard;
+use jsonrpc_core::{MetaIoHandler, Metadata, Params, Value};
+use jsonrpc_http_server::{hyper, ServerBuilder};
 use std::collections::HashMap;
-use transaction::{ TransactionData, TransactionType };
+use transaction::{TransactionData, TransactionType};
 use utxo_in_memory::blockoperations::blockprocessing::{
-    all_coin_type_output,
-    all_coin_type_utxo,
-    all_memo_type_utxo,
-    all_state_type_utxo,
-    search_coin_type_utxo_by_address,
-    search_coin_type_utxo_by_utxo_key,
-    search_memo_type_utxo_by_address,
-    search_memo_type_utxo_by_utxo_key,
-    search_state_type_utxo_by_address,
-    search_state_type_utxo_by_utxo_key,
-    search_utxo_by_utxo_key_bytes,
-    verify_utxo,
+    all_coin_type_output, all_coin_type_utxo, all_memo_type_utxo, all_state_type_utxo,
+    search_coin_type_utxo_by_address, search_coin_type_utxo_by_utxo_key,
+    search_memo_type_utxo_by_address, search_memo_type_utxo_by_utxo_key,
+    search_state_type_utxo_by_address, search_state_type_utxo_by_utxo_key,
+    search_utxo_by_utxo_key_bytes, verify_utxo,
 };
 use utxo_in_memory::db::LocalDBtrait;
 use utxo_in_memory::pgsql::{
-    get_utxo_from_db_by_block_height_range,
-    QueryUtxoFromDB,
-    TestCommand,
-    TestCommandString,
+    get_utxo_from_db_by_block_height_range, QueryUtxoFromDB, TestCommand, TestCommandString,
     UtxoHexEncodedResult,
 };
-use utxo_in_memory::{ ADDRESS_TO_UTXO, UTXO_STORAGE };
-use zkvm::zkos_types::{ MessageType, Utxo };
+use utxo_in_memory::{ADDRESS_TO_UTXO, UTXO_STORAGE};
+use zkvm::zkos_types::{MessageType, Utxo};
 use zkvm::IOType;
-use address::Standard;
+lazy_static! {
+    pub static ref ZKOS_RPC_SERVER_URL_PORT: String =
+        std::env::var("ZKOS_RPC_SERVER_URL_PORT").unwrap_or_else(|_| "0.0.0.0:3030".to_string());
+}
 
 /// Metadata structure for RPC requests
 #[derive(Default, Clone, Debug)]
@@ -56,9 +50,9 @@ impl Metadata for Meta {}
 /// To maintain backward compatibility, it formats any `Err` variants into the legacy
 /// string format inside a successful `Ok` response, thus avoiding a breaking change.
 fn add_rpc_method<F, T>(io: &mut MetaIoHandler<Meta>, name: &'static str, method: F)
-    where
-        F: Fn(Params) -> T + Send + Sync + 'static,
-        T: std::future::Future<Output = RpcResult<Value>> + Send + 'static
+where
+    F: Fn(Params) -> T + Send + Sync + 'static,
+    T: std::future::Future<Output = RpcResult<Value>> + Send + 'static,
 {
     io.add_method_with_meta(name, move |params, _meta| {
         let fut = method(params);
@@ -101,10 +95,17 @@ pub fn rpcserver() {
     add_rpc_method(&mut io, "TestCommand", test_command_logic);
 
     // Start the HTTP server
-    eprintln!("Starting jsonRPC server @ 127.0.0.1:3030");
+    eprintln!(
+        "Starting jsonRPC server @ {}",
+        ZKOS_RPC_SERVER_URL_PORT.as_str()
+    );
     let server = ServerBuilder::new(io)
         .threads(20)
-        .start_http(&"0.0.0.0:3030".parse().expect("Invalid socket address"))
+        .start_http(
+            &ZKOS_RPC_SERVER_URL_PORT
+                .parse()
+                .expect("Invalid socket address"),
+        )
         .expect("Failed to start RPC server");
 
     println!("started rpc api server");
@@ -119,9 +120,9 @@ async fn tx_commit_logic(params: Params) -> RpcResult<Value> {
         .map_err(|e| RpcError::InvalidParams(format!("Could not parse parameters: {}", e)))?;
 
     if vector_params.is_empty() {
-        return Err(
-            RpcError::InvalidParams("Expected a hex-encoded transaction string.".to_string())
-        );
+        return Err(RpcError::InvalidParams(
+            "Expected a hex-encoded transaction string.".to_string(),
+        ));
     }
 
     let hex_tx = vector_params[0].clone();
@@ -129,11 +130,12 @@ async fn tx_commit_logic(params: Params) -> RpcResult<Value> {
     let tx: transaction::Transaction = bincode::deserialize(&tx_bytes)?;
 
     if !verify_utxo(tx.clone()) {
-        return Err(RpcError::TxVerificationError("Failed to verify the input UTXO.".to_string()));
+        return Err(RpcError::TxVerificationError(
+            "Failed to verify the input UTXO.".to_string(),
+        ));
     }
 
-    tx
-        .clone()
+    tx.clone()
         .verify()
         .map_err(|e| RpcError::TxVerificationError(e.to_string()))?;
 
@@ -141,8 +143,8 @@ async fn tx_commit_logic(params: Params) -> RpcResult<Value> {
     match tx.tx_type {
         TransactionType::Transfer | TransactionType::Script => {
             println!("Transfer Tx / Script tx submitted to Zkos Oracle");
-            let response = service
-                ::tx_commit(tx, fee).await
+            let response = service::tx_commit(tx, fee)
+                .await
                 .map_err(|e| RpcError::InternalError(e.to_string()))?;
             Ok(serde_json::to_value(response)?)
         }
@@ -157,15 +159,19 @@ async fn tx_commit_logic(params: Params) -> RpcResult<Value> {
             match message.msg_type {
                 MessageType::Burn => {
                     println!("ZkOS burn tx submitted to Zkos Oracle");
-                    let response = service
-                        ::tx_commit(tx, fee).await
+                    let response = service::tx_commit(tx, fee)
+                        .await
                         .map_err(|e| RpcError::InternalError(e.to_string()))?;
                     Ok(serde_json::to_value(response)?)
                 }
-                _ => Err(RpcError::InvalidParams("Expected a valid Burn Message".into())),
+                _ => Err(RpcError::InvalidParams(
+                    "Expected a valid Burn Message".into(),
+                )),
             }
         }
-        _ => Err(RpcError::InvalidParams("Expected a valid Transfer/Burn Message".into())),
+        _ => Err(RpcError::InvalidParams(
+            "Expected a valid Transfer/Burn Message".into(),
+        )),
     }
 }
 
@@ -173,9 +179,9 @@ async fn get_utxos_id_logic(params: Params) -> RpcResult<Value> {
     let utxo_request: UtxoRequest = params
         .parse()
         .map_err(|e| RpcError::InvalidParams(e.to_string()))?;
-    let mut address_to_utxo_storage = ADDRESS_TO_UTXO.read().map_err(|_|
+    let mut address_to_utxo_storage = ADDRESS_TO_UTXO.read().map_err(|_| {
         RpcError::InternalError("Failed to acquire read lock on UTXO storage".to_string())
-    )?;
+    })?;
 
     let utxo_id = address_to_utxo_storage
         .get_utxo_id_by_address(utxo_request.address_or_id, utxo_request.input_type)
@@ -188,9 +194,9 @@ async fn get_utxos_detail_logic(params: Params) -> RpcResult<Value> {
     let utxo_request: UtxoRequest = params
         .parse()
         .map_err(|e| RpcError::InvalidParams(e.to_string()))?;
-    let mut address_to_utxo_storage = ADDRESS_TO_UTXO.read().map_err(|_|
+    let mut address_to_utxo_storage = ADDRESS_TO_UTXO.read().map_err(|_| {
         RpcError::InternalError("Failed to acquire read lock on UTXO storage".to_string())
-    )?;
+    })?;
 
     let utxo_id_hex = address_to_utxo_storage
         .get_utxo_id_by_address(utxo_request.address_or_id, utxo_request.input_type)
@@ -201,33 +207,35 @@ async fn get_utxos_detail_logic(params: Params) -> RpcResult<Value> {
     let utxo_id_bytes = hex::decode(&utxo_id_hex)?;
     let utxo_id: Utxo = bincode::deserialize(&utxo_id_bytes)?;
 
-    let output = search_utxo_by_utxo_key_bytes(utxo_id_bytes, utxo_request.input_type).map_err(|e| {
-        RpcError::InternalError(format!("Failed to find UTXO by key bytes: {}", e))
-    })?;
+    let output = search_utxo_by_utxo_key_bytes(utxo_id_bytes, utxo_request.input_type)
+        .map_err(|e| RpcError::InternalError(format!("Failed to find UTXO by key bytes: {}", e)))?;
 
-    Ok(serde_json::to_value(&UtxoDetailResponse::new(utxo_id, output))?)
+    Ok(serde_json::to_value(&UtxoDetailResponse::new(
+        utxo_id, output,
+    ))?)
 }
 
 /// Generic logic for retrieving UTXOs by address.
 async fn get_utxos_by_address_logic<F, R>(params: Params, search_fn: F) -> RpcResult<Value>
-    where F: Fn(address::Standard) -> R, R: serde::Serialize
+where
+    F: Fn(address::Standard) -> R,
+    R: serde::Serialize,
 {
     let vector_params: Vec<String> = params
         .parse()
         .map_err(|e| RpcError::InvalidParams(format!("Could not parse params: {}", e)))?;
 
-    let hex_str = vector_params
-        .get(0)
-        .ok_or_else(|| {
-            RpcError::InvalidParams("Expected hex string address as first parameter.".to_string())
-        })?;
+    let hex_str = vector_params.get(0).ok_or_else(|| {
+        RpcError::InvalidParams("Expected hex string address as first parameter.".to_string())
+    })?;
 
     if hex_str.trim().is_empty() {
-        return Err(RpcError::InvalidParams("Address cannot be empty.".to_string()));
+        return Err(RpcError::InvalidParams(
+            "Address cannot be empty.".to_string(),
+        ));
     }
 
-    let address = address::Standard
-        ::from_hex_with_error(hex_str)
+    let address = address::Standard::from_hex_with_error(hex_str)
         .map_err(|e| RpcError::InvalidParams(e.to_string()))?;
 
     let utxos = search_fn(address);
@@ -248,7 +256,9 @@ async fn get_state_utxos_logic(params: Params) -> RpcResult<Value> {
 
 /// Generic logic for retrieving all UTXOs of a certain type.
 async fn all_utxos_logic<F, R>(search_fn: F) -> RpcResult<Value>
-    where F: Fn() -> R, R: serde::Serialize
+where
+    F: Fn() -> R,
+    R: serde::Serialize,
 {
     let utxos = search_fn();
     Ok(serde_json::to_value(&utxos)?)
@@ -277,32 +287,30 @@ async fn get_output_by_key_logic(params: Params) -> RpcResult<Value> {
         .map_err(|e| RpcError::InvalidParams(e.to_string()))?;
     let utxo_bytes = hex::decode(utxo_request.address_or_id)?;
 
-    let output = search_utxo_by_utxo_key_bytes(utxo_bytes, utxo_request.input_type).map_err(|e| {
-        RpcError::InternalError(format!("Failed to search UTXO by key bytes: {}", e))
-    })?;
+    let output =
+        search_utxo_by_utxo_key_bytes(utxo_bytes, utxo_request.input_type).map_err(|e| {
+            RpcError::InternalError(format!("Failed to search UTXO by key bytes: {}", e))
+        })?;
 
     Ok(serde_json::to_value(&output)?)
 }
 
 /// Generic logic for retrieving a single output by its UTXO key.
 async fn get_output_by_utxo_logic<F, R>(params: Params, search_fn: F) -> RpcResult<Value>
-    where
-        F: Fn(Utxo) -> Result<R, &'static str>, // Add lifetime specifier
-        R: serde::Serialize
+where
+    F: Fn(Utxo) -> Result<R, &'static str>, // Add lifetime specifier
+    R: serde::Serialize,
 {
     let vector_params: Vec<String> = params
         .parse()
         .map_err(|e| RpcError::InvalidParams(format!("Could not parse params: {}", e)))?;
-    let hex_str = vector_params
-        .get(0)
-        .ok_or_else(|| {
-            RpcError::InvalidParams("Expected hex string UTXO key as first parameter.".to_string())
-        })?;
+    let hex_str = vector_params.get(0).ok_or_else(|| {
+        RpcError::InvalidParams("Expected hex string UTXO key as first parameter.".to_string())
+    })?;
 
     let utxo_bytes = hex::decode(hex_str)?;
-    let utxo = Utxo::from_bytes(&utxo_bytes).ok_or_else(||
-        RpcError::InvalidParams("Invalid UTXO byte sequence.".to_string())
-    )?;
+    let utxo = Utxo::from_bytes(&utxo_bytes)
+        .ok_or_else(|| RpcError::InvalidParams("Invalid UTXO byte sequence.".to_string()))?;
 
     let output = search_fn(utxo).map_err(|e| RpcError::ResponseError(e.to_string()))?;
     Ok(serde_json::to_value(&output)?)
@@ -334,8 +342,9 @@ async fn get_utxos_from_db_logic(params: Params) -> RpcResult<Value> {
         query_params.end_block,
         query_params.limit,
         query_params.pagination,
-        query_params.io_type
-    ).map_err(|e| RpcError::InternalError(format!("Database query failed: {:?}", e)))?;
+        query_params.io_type,
+    )
+    .map_err(|e| RpcError::InternalError(format!("Database query failed: {:?}", e)))?;
 
     let hex_encoded = UtxoHexEncodedResult::encode_to_hex(result.result);
     Ok(serde_json::to_value(&hex_encoded)?)
@@ -348,39 +357,38 @@ async fn test_command_logic(params: Params) -> RpcResult<Value> {
 
     match command_params.test_command {
         TestCommandString::TakeSnapshotintoLevelDB => {
-            let mut utxo_storage = UTXO_STORAGE.write().map_err(|_|
-                RpcError::InternalError("Failed to acquire write lock".to_string())
-            )?;
+            let mut utxo_storage = UTXO_STORAGE
+                .write()
+                .map_err(|_| RpcError::InternalError("Failed to acquire write lock".to_string()))?;
             utxo_storage
                 .take_snapshot()
-                .map_err(|e| {
-                    RpcError::InternalError(format!("Failed to take snapshot: {}", e))
-                })?;
+                .map_err(|e| RpcError::InternalError(format!("Failed to take snapshot: {}", e)))?;
         }
         TestCommandString::LoadBackupFromLevelDB => {
-            let mut utxo_storage = UTXO_STORAGE.write().map_err(|_|
-                RpcError::InternalError("Failed to acquire write lock".to_string())
-            )?;
+            let mut utxo_storage = UTXO_STORAGE
+                .write()
+                .map_err(|_| RpcError::InternalError("Failed to acquire write lock".to_string()))?;
             utxo_storage
                 .load_from_snapshot()
-                .map_err(|e| {
-                    RpcError::InternalError(format!("Failed to load snapshot: {}", e))
-                })?;
+                .map_err(|e| RpcError::InternalError(format!("Failed to load snapshot: {}", e)))?;
         }
         TestCommandString::TakeSnapshotintoPostgreSQL => {
             utxo_in_memory::db::takesnapshotfrom_memory_to_postgresql_bulk();
         }
         TestCommandString::UtxoCoinDbLength => {
-            let utxo_storage = UTXO_STORAGE.read().map_err(|_|
-                RpcError::InternalError("Failed to acquire read lock".to_string())
-            )?;
-            let coin_db = utxo_storage.data
+            let utxo_storage = UTXO_STORAGE
+                .read()
+                .map_err(|_| RpcError::InternalError("Failed to acquire read lock".to_string()))?;
+            let coin_db = utxo_storage
+                .data
                 .get(&0)
                 .ok_or_else(|| RpcError::InternalError("Coin UTXO DB not found".to_string()))?;
             return Ok(serde_json::to_value(coin_db.len())?);
         }
         _ => {
-            return Err(RpcError::InvalidParams("Unsupported test command".to_string()));
+            return Err(RpcError::InvalidParams(
+                "Unsupported test command".to_string(),
+            ));
         }
     }
 

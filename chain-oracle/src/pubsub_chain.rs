@@ -107,11 +107,11 @@ pub fn subscribe_block(
                         Ok(height) => height,
                         Err(arg) => {
                             height_attempt += 1;
-                            if height_attempt == 5 {
+                            if height_attempt == 10 {
                                 println!("Cannot get latest height \nError: {:?}\n", arg);
                             }
                             thread::sleep(time::Duration::from_millis(500));
-                            0
+                            1
                         }
                     };
                     if height_attempt == 10 {
