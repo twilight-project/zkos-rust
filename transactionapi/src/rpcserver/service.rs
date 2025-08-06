@@ -5,21 +5,21 @@
 //! mint/burn operations, and blockchain state queries with thread pool management
 //! and Prometheus metrics integration.
 
-use super::error::{ RpcError, RpcResult };
+use super::error::{RpcError, RpcResult};
 use super::threadpool::ThreadPool;
 use crate::TransactionStatusId;
-use address::{ Address, Network };
+use address::{Address, Network};
 use curve25519_dalek::scalar::Scalar;
 use hex;
-use prometheus::{ register_gauge, Gauge };
+use prometheus::{register_gauge, Gauge};
 use quisquislib::accounts::Account;
 use reqwest::Client;
-use serde::{ Deserialize, Serialize };
-use sha3::{ Digest, Keccak256 };
+use serde::{Deserialize, Serialize};
+use sha3::{Digest, Keccak256};
 use std::sync::Mutex;
 use std::time::Duration;
-use transaction::Transaction;
 use tokio::runtime::Runtime;
+use transaction::Transaction;
 
 lazy_static! {
     /// Thread pool for handling RPC queue operations
@@ -59,9 +59,9 @@ impl Default for ServiceConfig {
 
 /// Queues a transaction for processing using the thread pool
 pub fn tx_queue(transaction: Transaction, fee: u64) -> RpcResult<()> {
-    let queue = THREADPOOL_RPC_QUEUE.lock().map_err(|_|
-        RpcError::InternalError("Failed to acquire thread pool lock".to_string())
-    )?;
+    let queue = THREADPOOL_RPC_QUEUE
+        .lock()
+        .map_err(|_| RpcError::InternalError("Failed to acquire thread pool lock".to_string()))?;
 
     queue.execute(move || {
         if let Err(e) = RUNTIME.block_on(tx_commit(transaction, fee)) {
@@ -88,8 +88,7 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> RpcResult<String> 
         .map_err(|e| RpcError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
 
     let url = format!("{}/transaction", config.oracle_url);
-    let serialized: Vec<u8> = bincode
-        ::serialize(&transaction)
+    let serialized: Vec<u8> = bincode::serialize(&transaction)
         .map_err(|e| RpcError::SerializationError(e.to_string()))?;
 
     let tx_hex = hex::encode(serialized.clone());
@@ -104,35 +103,24 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> RpcResult<String> 
         tx: tx_hex,
         fee,
     };
+    // let result = nyks_wallet::transfer_tx(payload.id, payload.tx, payload.fee).await;
 
-    let json_data = serde_json
-        ::to_string(&payload)
-        .map_err(|e| RpcError::SerializationError(format!("Failed to serialize payload: {}", e)))?;
-
+    // let json_data = serde_json::to_string(&payload)
+    //     .map_err(|e| RpcError::SerializationError(format!("Failed to serialize payload: {}", e)))?;
+    // println!("url: {}", url);
     // Retry logic
     let mut last_error = None;
     for attempt in 1..=config.max_retries {
-        match
-            client
-                .post(&url)
-                .header(reqwest::header::CONTENT_TYPE, "application/json")
-                .body(json_data.clone())
-                .send().await
-        {
-            Ok(response) => {
-                if response.status().is_success() {
-                    let response_body = response
-                        .text().await
-                        .map_err(|e|
-                            RpcError::NetworkError(format!("Failed to read response: {}", e))
-                        )?;
-
+        match nyks_wallet::transfer_tx(payload.id.clone(), payload.tx.clone(), payload.fee).await {
+            Ok((response, code)) => {
+                if code == 0 {
                     TOTAL_TX_COUNTER.inc();
-                    return Ok(response_body);
+                    return Ok(response);
                 } else {
-                    last_error = Some(
-                        RpcError::NetworkError(format!("HTTP error: {}", response.status()))
-                    );
+                    last_error = Some(RpcError::NetworkError(format!(
+                        "HTTP error, code: {}, response: {}",
+                        code, response
+                    )));
                 }
             }
             Err(e) => {
@@ -145,11 +133,9 @@ pub async fn tx_commit(transaction: Transaction, fee: u64) -> RpcResult<String> 
         }
     }
 
-    Err(
-        last_error.unwrap_or_else(|| {
-            RpcError::InternalError("Transaction commit failed after all retries".to_string())
-        })
-    )
+    Err(last_error.unwrap_or_else(|| {
+        RpcError::InternalError("Transaction commit failed after all retries".to_string())
+    }))
 }
 
 /// Initiates mint/burn transaction with account and scalar data
@@ -157,7 +143,7 @@ pub async fn mint_burn_tx_initiate(
     value: u64,
     qq_account: &Account,
     encrypt_scalar: &Scalar,
-    twilight_address: String
+    twilight_address: String,
 ) -> RpcResult<String> {
     let config = ServiceConfig::default();
     let client = Client::builder()
@@ -177,23 +163,27 @@ pub async fn mint_burn_tx_initiate(
         twilight_address,
     };
 
-    let json_data = serde_json
-        ::to_string(&payload)
+    let json_data = serde_json::to_string(&payload)
         .map_err(|e| RpcError::SerializationError(format!("Failed to serialize payload: {}", e)))?;
 
     let response = client
         .post(&url)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(json_data)
-        .send().await
+        .send()
+        .await
         .map_err(|e| RpcError::NetworkError(format!("Request failed: {}", e)))?;
 
     if !response.status().is_success() {
-        return Err(RpcError::NetworkError(format!("HTTP error: {}", response.status())));
+        return Err(RpcError::NetworkError(format!(
+            "HTTP error: {}",
+            response.status()
+        )));
     }
 
     let response_body = response
-        .text().await
+        .text()
+        .await
         .map_err(|e| RpcError::NetworkError(format!("Failed to read response: {}", e)))?;
 
     Ok(response_body)

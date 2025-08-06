@@ -8,6 +8,8 @@
 //! - Database queries with pagination
 //! - Test commands for snapshot management and storage operations
 
+use crate::rpcclient::method::GetTxCommit;
+
 use super::error::{RpcError, RpcResult};
 use super::service;
 use super::types::{UtxoDetailResponse, UtxoRequest};
@@ -146,7 +148,9 @@ async fn tx_commit_logic(params: Params) -> RpcResult<Value> {
             let response = service::tx_commit(tx, fee)
                 .await
                 .map_err(|e| RpcError::InternalError(e.to_string()))?;
-            Ok(serde_json::to_value(response)?)
+            let response_string = GetTxCommit { txHash: response };
+            let response_string = serde_json::to_string(&response_string)?;
+            Ok(serde_json::to_value(response_string)?)
         }
         TransactionType::Message => {
             let message = match tx.tx {
@@ -162,7 +166,9 @@ async fn tx_commit_logic(params: Params) -> RpcResult<Value> {
                     let response = service::tx_commit(tx, fee)
                         .await
                         .map_err(|e| RpcError::InternalError(e.to_string()))?;
-                    Ok(serde_json::to_value(response)?)
+                    let response_string = GetTxCommit { txHash: response };
+                    let response_string = serde_json::to_string(&response_string)?;
+                    Ok(serde_json::to_value(response_string)?)
                 }
                 _ => Err(RpcError::InvalidParams(
                     "Expected a valid Burn Message".into(),
