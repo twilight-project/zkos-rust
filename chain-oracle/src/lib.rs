@@ -9,6 +9,7 @@
 extern crate lazy_static;
 mod block_types;
 mod transaction_types;
+pub mod server;
 pub use self::block_types::*;
 pub use self::transaction_types::*;
 pub mod pubsub_chain;

@@ -27,3 +27,9 @@ sha2 = "0.10.7"
 stopwatch = "0.0.7"
 lazy_static = "1.4.0"
 dotenv = "0.15.0"
+# HTTP server dependencies
+tokio = { version = "1.0", features = ["full"] }
+axum = "0.6"
+# Logging dependencies
+log = "0.4"
+env_logger = "0.10"
