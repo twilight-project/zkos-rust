@@ -50,6 +50,11 @@ let latest_height = BlockRaw::get_latest_block_height().unwrap();
 - `threadpool.rs` – Simple thread pool implementation for concurrent processing.
 - `example_main.rs` – Example usage (if present).
 
+## Minimum Supported Rust Version
+
+Rust **1.70** or newer.
+
+
 ## License
 
-Licensed under the Apache License, Version 2.0.
+Licensed under [`Apache-2.0`](../../LICENSE). 

@@ -1,10 +1,21 @@
+//! ZkOS-specific types and operations for ZkVM.
+//!
+//! This module defines the core types for ZkOS transactions, including:
+//!
+//! - **UTXO Model**: [`Utxo`], [`Input`], [`Output`] for transaction inputs and outputs
+//! - **Data Types**: [`InputData`], [`OutputData`] with variants for Coin, Memo, and State
+//! - **Witness Types**: [`Witness`], [`ValueWitness`], [`StateWitness`] for zero-knowledge proofs
+//! - **Message Types**: [`MessageType`], [`IOType`] for transaction classification
+//!
+//! The module provides serialization, verification, and conversion utilities for
+//! ZkOS-specific transaction components with support for confidential values and
+//! zero-knowledge proofs.
 #![allow(non_snake_case)]
 #![allow(missing_docs)]
 #![allow(warnings)]
 #![allow(dead_code)]
 use core::panic;
 
-//use crate::readerwriter::{Encodable, ExactSizeEncodable, Writer, WriteError};
 use crate::constraints::Commitment;
 use crate::encoding::*;
 use crate::tx::TxID;

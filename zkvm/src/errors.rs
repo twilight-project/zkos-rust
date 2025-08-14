@@ -182,14 +182,6 @@ pub enum VMError {
     #[error("Input is not Coin")]
     InvalidInputCoin,
 
-     /// This error occurs when tx attempts to add invalid output memo.
-    #[error("Output is not Memo")]
-    InvalidOutputMemo,
-
-      /// This error occurs when tx attempts to add invalid output state.
-    #[error("Output is not State")]
-    InvalidOutputState,
-
     /// This error occurs when tx attempts to add invalid output coin.
     #[error("Output  is not Coin")]
     InvalidOutputCoin,
