@@ -66,7 +66,7 @@ path = "../zkvm"
 [dependencies.nyks-wallet]
 # path = "../../../Relayer-dev/nyks-wallet/"
 git = "https://github.com/twilight-project/nyks-wallet"
-branch = "order-module"
+tag = "v0.0.2-validator-wallet"
 features = ["validator-wallet"]
 
 
