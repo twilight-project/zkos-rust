@@ -16,14 +16,14 @@
 //! AddressUtxoIDStorage {
 //!   data: {
 //!     0: HashMap<String, String>, // Coin UTXOs: Address → UTXO ID
-//!     1: HashMap<String, String>, // Memo UTXOs: Address → UTXO ID  
+//!     1: HashMap<String, String>, // Memo UTXOs: Address → UTXO ID
 //!     2: HashMap<String, String>, // State UTXOs: Address → UTXO ID
 //!   }
 //! }
 //!
 
 use crate::db::*;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::{ Deserialize, Serialize };
 use std::collections::HashMap;
 use zkvm::IOType;
 
@@ -48,7 +48,7 @@ impl AddressUtxoIDStorage {
     ///
     /// This method initializes separate hash maps for each UTXO type:
     /// - Type 0: Coin UTXOs
-    /// - Type 1: Memo UTXOs  
+    /// - Type 1: Memo UTXOs
     /// - Type 2: State UTXOs
     ///
     /// # Returns
@@ -72,16 +72,13 @@ impl AddressUtxoIDStorage {
     ///
     /// # Returns
     /// * `Some(utxo_id)` if the address is found, `None` otherwise
-    pub fn get_utxo_id_by_address(
-        &mut self,
-        address: String,
-        input_type: IOType,
-    ) -> Option<String> {
-        match self.data.get_mut(&input_type.to_usize()) {
-            Some(utxo_id) => match utxo_id.get(&address) {
-                Some(utxo_id) => Some(utxo_id.clone()),
-                None => None,
-            },
+    pub fn get_utxo_id_by_address(&self, address: String, input_type: IOType) -> Option<String> {
+        match self.data.get(&input_type.to_usize()) {
+            Some(utxo_id) =>
+                match utxo_id.get(&address) {
+                    Some(utxo_id) => Some(utxo_id.clone()),
+                    None => None,
+                }
             None => None,
         }
     }
@@ -101,10 +98,7 @@ impl AddressUtxoIDStorage {
     /// * `Some(previous_utxo_id)` if the address was previously mapped, `None` otherwise
     ///
     pub fn add(&mut self, input_type: IOType, address: String, utxo_id: String) -> Option<String> {
-        self.data
-            .get_mut(&input_type.to_usize())
-            .unwrap()
-            .insert(address.clone(), utxo_id.clone())
+        self.data.get_mut(&input_type.to_usize()).unwrap().insert(address.clone(), utxo_id.clone())
     }
 
     /// Removes an address to UTXO ID mapping
@@ -124,22 +118,19 @@ impl AddressUtxoIDStorage {
     pub fn remove(
         &mut self,
         input_type: IOType,
-        address: String,
+        address: String
     ) -> Result<String, std::io::Error> {
-        match self
-            .data
-            .get_mut(&input_type.to_usize())
-            .unwrap()
-            .remove(&address)
-        {
+        match self.data.get_mut(&input_type.to_usize()).unwrap().remove(&address) {
             Some(value) => {
                 return Ok(value.clone());
             }
             None => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("utxo id:{:?} not found", address),
-                ))
+                return Err(
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("utxo id:{:?} not found", address)
+                    )
+                );
             }
         }
     }

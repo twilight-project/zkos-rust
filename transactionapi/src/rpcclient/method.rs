@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 //! RPC method definitions and response handling for ZkOS Transaction API.
 //!
 //! This module defines all available JSON-RPC methods and their corresponding
@@ -13,7 +14,7 @@
 //!
 //! ### UTXO Queries
 //! - `getUtxos` - Get coin UTXOs by address
-//! - `getMemoUtxos` - Get memo UTXOs by address  
+//! - `getMemoUtxos` - Get memo UTXOs by address
 //! - `getStateUtxos` - Get state UTXOs by address
 //! - `allUtxos` - Get all coin UTXOs
 //! - `allMemoUtxos` - Get all memo UTXOs
@@ -28,13 +29,14 @@
 //! ### Database Queries
 //! - `getUtxosFromDB` - Query UTXOs from PostgreSQL with filtering
 
-use serde::{Deserialize, Serialize};
+use serde::{ Deserialize, Serialize };
 
 /// JSON-RPC methods available in the ZkOS Transaction API
 ///
 /// These methods correspond to the endpoints documented in the API specification.
 /// Each method has specific parameter requirements and response formats.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+#[allow(non_camel_case_types)]
 pub enum Method {
     /// Sends a transaction and immediately returns transaction hash.
     ///
@@ -142,24 +144,27 @@ impl AllOutputsResponse {
     /// # Returns
     /// Vector of coin outputs deserialized from response
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> Vec<zkvm::zkos_types::Output> {
         let mut result: Vec<zkvm::zkos_types::Output> = Vec::new();
 
         let tx_hash: Vec<zkvm::zkos_types::Output> = match resp.result {
-            Ok(response) => match response {
-                serde_json::Value::String(tx_hex_data) => match hex::decode(tx_hex_data) {
-                    Ok(u8_bytes) => match bincode::deserialize(&u8_bytes) {
-                        Ok(output_vec) => {
-                            result = output_vec;
-                            result
+            Ok(response) =>
+                match response {
+                    serde_json::Value::String(tx_hex_data) =>
+                        match hex::decode(tx_hex_data) {
+                            Ok(u8_bytes) =>
+                                match bincode::deserialize(&u8_bytes) {
+                                    Ok(output_vec) => {
+                                        result = output_vec;
+                                        result
+                                    }
+                                    Err(_args) => result,
+                                }
+                            Err(_args) => result,
                         }
-                        Err(_args) => result,
-                    },
-                    Err(_args) => result,
-                },
-                _ => result,
-            },
+                    _ => result,
+                }
             Err(_arg) => result,
         };
         tx_hash
@@ -185,7 +190,7 @@ impl GetUtxosResponse {
     /// # Returns
     /// Vector of coin UTXOs for the address
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> Vec<zkvm::zkos_types::Utxo> {
         let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
             Ok(response) => {
@@ -220,7 +225,7 @@ impl GetMemoUtxosResponse {
     /// # Returns
     /// Vector of memo UTXOs for the address
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> Vec<zkvm::zkos_types::Utxo> {
         let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
             Ok(response) => {
@@ -255,7 +260,7 @@ impl GetStateUtxosResponse {
     /// # Returns
     /// Vector of state UTXOs for the address
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> Vec<zkvm::zkos_types::Utxo> {
         let utxo_vec: Vec<zkvm::zkos_types::Utxo> = match resp.result {
             Ok(response) => {
@@ -290,7 +295,7 @@ impl AllUtxoResponse {
     /// # Returns
     /// Vector of UTXO identifiers as hex strings
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> AllUtxoResponse {
         let utxo_vec: Vec<String> = match resp.result {
             Ok(response) => {
@@ -325,7 +330,7 @@ impl GetCoinOutputResponse {
     /// # Returns
     /// Optional coin output if found
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> GetCoinOutputResponse {
         let utxo_vec: Option<zkvm::zkos_types::Output> = match resp.result {
             Ok(response) => {
@@ -360,7 +365,7 @@ impl GetMemoOutputResponse {
     /// # Returns
     /// Optional memo output if found
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> GetMemoOutputResponse {
         let utxo_vec: Option<zkvm::zkos_types::Output> = match resp.result {
             Ok(response) => {
@@ -395,7 +400,7 @@ impl GetStateOutputResponse {
     /// # Returns
     /// Optional state output if found
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> GetStateOutputResponse {
         let utxo_vec: Option<zkvm::zkos_types::Output> = match resp.result {
             Ok(response) => {
@@ -430,13 +435,14 @@ impl GetUtxosFromDBResponse {
     /// # Returns
     /// Vector of UTXOs from database query
     pub fn get_response(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> GetUtxosFromDBResponse {
         let utxo_vec: Vec<utxo_in_memory::pgsql::UtxoOutputRaw> = match resp.result {
             Ok(response) => {
                 // println!("i am here 1 : {:?}", response);
-                let data: utxo_in_memory::pgsql::UtxoHexEncodedResult =
-                    serde_json::from_value(response).unwrap();
+                let data: utxo_in_memory::pgsql::UtxoHexEncodedResult = serde_json
+                    ::from_value(response)
+                    .unwrap();
                 match data.result {
                     Some(vec_utxo) => {
                         utxo_in_memory::pgsql::UtxoHexDecodeResult::decode_from_hex(vec_utxo).result
@@ -469,18 +475,19 @@ impl GetTxCommit {
     /// # Returns
     /// Transaction hash string or error message
     pub fn get_txhash(
-        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>,
+        resp: crate::rpcclient::txrequest::RpcResponse<serde_json::Value>
     ) -> Result<String, String> {
         let tx_hash: Result<String, String> = match resp.result {
-            Ok(response) => match response {
-                serde_json::Value::String(txHash) => {
-                    match serde_json::from_str::<GetTxCommit>(&txHash) {
-                        Ok(value) => Ok(value.txHash),
-                        Err(_) => Err(txHash),
+            Ok(response) =>
+                match response {
+                    serde_json::Value::String(txHash) => {
+                        match serde_json::from_str::<GetTxCommit>(&txHash) {
+                            Ok(value) => Ok(value.txHash),
+                            Err(_) => Err(txHash),
+                        }
                     }
+                    _ => Err("errror".to_string()),
                 }
-                _ => Err("errror".to_string()),
-            },
             Err(arg) => Err(arg.to_string()),
         };
         tx_hash

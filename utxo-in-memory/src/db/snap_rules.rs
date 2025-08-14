@@ -21,21 +21,19 @@ pub struct SnapRules {
 impl SnapRules {
     /// Creates SnapRules from environment variables
     pub fn env() -> SnapRules {
-        dotenv::from_path(Path::new("/testnet/zkos-rust/utxo-in-memory/.env")).ok();
-        // dotenv::dotenv().expect("Failed loading dotenv");
-
+        dotenv::dotenv().ok();
         let snapshot_file_location: String = std::env::var("SNAPSHOT_FILE_LOCATION")
-            .expect("missing environment variable SNAPSHOT_FILE_LOCATION");
+            .unwrap_or_else(|_| "./zkos_snapshot/snapshot_storage/map".to_string());
         let snapshot_blockheight_threshold: SequenceNumber =
             std::env::var("SNAPSHOT_BLOCKHEIGHT_THRESHOLD")
-                .expect("missing environment variable SNAPSHOT_BLOCKHEIGHT_THRESHOLD")
+                .unwrap_or_else(|_| "1000".to_string())
                 .parse::<SequenceNumber>()
-                .unwrap();
+                .unwrap_or(1000);
         let snapshot_duration_threshold: SequenceNumber =
             std::env::var("SNAPSHOT_DURATION_THRESHOLD")
-                .expect("missing environment variable SNAPSHOT_DURATION_THRESHOLD")
+                .unwrap_or_else(|_| "0".to_string())
                 .parse::<SequenceNumber>()
-                .unwrap();
+                .unwrap_or(0);
         SnapRules {
             path: snapshot_file_location,
             block_size_threshold: snapshot_blockheight_threshold,

@@ -22,6 +22,9 @@
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 
+# Install ProtoBuf compiler for dependency of validator wallet
+sudo apt-get -y install protobuf-compiler
+
 # Install PostgreSQL
 # Ubuntu/Debian
 sudo apt update
@@ -356,6 +359,7 @@ BLOCK_HEIGHT_FILE=height.txt
 ### Common Issues
 
 #### Database Connection Failed
+
 ```bash
 # Check PostgreSQL status
 sudo systemctl status postgresql
@@ -365,6 +369,7 @@ psql -h localhost -U zkos_user -d zkos_db
 ```
 
 #### Build Errors
+
 ```bash
 # Update Rust
 rustup update
@@ -375,6 +380,7 @@ cargo build --release
 ```
 
 #### UTXO Store Not Starting
+
 ```bash
 # Check environment variables
 echo $DATABASE_URL
@@ -429,4 +435,4 @@ RUST_LOG=debug cargo run -p transactionapi
 
 ---
 
-**Ready to build with ZkOS? Start with the examples and join our community!** 🚀 
+**Ready to build with ZkOS? Start with the examples and join our community!** 🚀

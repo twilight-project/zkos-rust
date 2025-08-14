@@ -25,6 +25,8 @@ mod service;
 mod threadpool;
 /// Shared types for RPC operations
 mod types;
+/// Error handling for RPC operations
+mod error;
 
 /// Re-export server and types modules
 pub use self::server::*;
