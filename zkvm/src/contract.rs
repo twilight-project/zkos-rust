@@ -1,3 +1,27 @@
+//! Contract types and operations for ZkVM.
+//!
+//! This module defines the core contract system, including:
+//!
+//! - [`Contract`]: A container with a predicate-guarded payload and unique anchor.
+//! - [`ContractID`]: Unique identifier for contracts, derived from their content.
+//! - [`Anchor`]: 32-byte identifier that makes contracts unique and enables ratcheting.
+//! - [`PortableItem`]: Enumeration of items that can be stored in contracts (strings,
+//!   programs, values, and coins).
+//!
+//! The module provides serialization/deserialization, encoding/decoding utilities,
+//! and contract identification through deterministic ID generation.
+//!
+//! # Example
+//! ```
+//! use zkvm::contract::{Contract, Anchor, PortableItem};
+//! let anchor = Anchor::from_raw_bytes([0u8; 32]);
+//! let contract = Contract {
+//!     predicate: Predicate::Opaque(Default::default()),
+//!     payload: vec![PortableItem::String(String::Opaque(b"hello".to_vec()))],
+//!     anchor,
+//! };
+//! let id = contract.id();
+//! ```
 use serde::{Deserialize, Serialize};
 
 use crate::constraints::Commitment;
@@ -22,7 +46,7 @@ pub const PROG_TYPE: u8 = 0x01;
 /// Prefix for the value type in the Output Structure
 pub const VALUE_TYPE: u8 = 0x02;
 
-/// Prefix for the value type in the Output Structure
+/// Prefix for the coin type in the Output Structure
 pub const COIN_TYPE: u8 = 0x03;
 
 /// A unique identifier for an anchor
@@ -120,6 +144,7 @@ impl Decodable for Contract {
 }
 
 impl AsRef<[u8]> for ContractID {
+    /// Returns a reference to the contract ID as a byte slice.
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
     }
@@ -248,6 +273,7 @@ impl PortableItem {
 }
 
 impl MerkleItem for ContractID {
+    /// Commits the contract ID to the transcript for Merkle tree operations.
     fn commit(&self, t: &mut Transcript) {
         t.append_message(b"contract", self.as_bytes());
     }

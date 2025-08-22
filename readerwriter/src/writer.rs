@@ -1,8 +1,21 @@
+//! Writer trait and error types for binary serialization.
+//!
+//! This module provides the [`Writer`] trait for writing binary data, and the [`WriteError`] type for error handling.
+//!
+//! # Example
+//! ```
+//! use readerwriter::Writer;
+//! let mut buf = Vec::new();
+//! buf.write_u32(b"mylabel", 42).unwrap();
+//! ```
+
 use core::mem;
 use std::fmt::Formatter;
 
+/// Error kinds returned by the writer.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WriteError {
+    /// Not enough capacity to complete the write.
     InsufficientCapacity,
 }
 
@@ -17,8 +30,10 @@ impl std::fmt::Display for WriteError {
 impl std::error::Error for WriteError {}
 
 /// Interface for writing binary data.
+///
+/// Implement this trait for types that can write bytes to a buffer or stream.
 pub trait Writer {
-    /// Writes bytes with the given label. If there is no sufficient capacity,
+    /// Writes bytes with the given label. If there is not sufficient capacity,
     /// performs no modifications and returns WriteError::InsufficientCapacity.
     fn write(&mut self, label: &'static [u8], src: &[u8]) -> Result<(), WriteError>;
 

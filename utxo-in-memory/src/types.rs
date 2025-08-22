@@ -1,12 +1,50 @@
+//! ZkOS UTXO Types and Data Structures
+//!
+//! This module defines the core data structures used throughout the UTXO state management system.
+//! It provides types for representing UTXOs, blocks, and transaction processing results.
+//!
+//! ## Core Types
+//!
+//! - **`UTXO`**: Individual unspent transaction output with key, value, and type
+//! - **`ZkosBlock`**: Block representation with UTXO additions and removals
+//! - **`ZkosBlockResult`**: Result of block processing operations
+//! - **`TxInputOutputType`**: Enumeration of UTXO types (Coin, Memo, State)
+//!
+//! ## Type Aliases
+//!
+//! - **`UtxoKey`**: Serialized UTXO identifier (Vec<u8>)
+//! - **`UtxoValue`**: Serialized UTXO value data (Vec<u8>)
+//! - **`SequenceNumber`**: Block height and sequence tracking (usize)
+//!
+//! ## Usage
+//!
+//! ```rust
+//! use utxo_in_memory::types::{UTXO, TxInputOutputType, ZkosBlock};
+//!
+//! // Create a new UTXO
+//! let utxo = UTXO::new(
+//!     bincode::serialize(&utxo_id).unwrap(),
+//!     bincode::serialize(&output_data).unwrap(),
+//!     TxInputOutputType::Coin
+//! );
+//!
+//! // Create a block with UTXO operations
+//! let block = ZkosBlock::new(
+//!     vec![utxo.clone()],  // Add UTXOs
+//!     vec![],              // Remove UTXOs
+//!     123                  // Block height
+//! );
+//! ```
+
 #![allow(non_snake_case)]
 #![allow(missing_docs)]
-//! Definition of the proof struct.
-//! 
 use serde_derive::{Deserialize, Serialize};
 pub type SequenceNumber = usize;
 
 // bincode::serialize(&value).unwrap()
+/// Serialized UTXO identifier used as key in storage
 pub type UtxoKey = Vec<u8>; //pub struct Utxo {txid: TxId,output_index: u8,}
+/// Serialized UTXO value data containing output information
 pub type UtxoValue = Vec<u8>; // pub struct Output {pub out_type: OutputType, pub output: OutputData,}
 use transaction::reference_tx::RecordUtxo;
 use transaction::TransactionData;
@@ -25,14 +63,31 @@ use crate::blockoperations::blockprocessing::Block;
 //     }
 // }
 
+/// Enumeration of UTXO types supported by the ZkOS system
+/// 
+/// Each type represents a different category of state in the system:
+/// - **Coin**: Confidential digital assets with ElGamal encryption
+/// - **Memo**: Programmable data containers with time-bound access
+/// - **State**: Smart contract state with nonce-based versioning
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TxInputOutputType {
+    /// Confidential digital assets (Type 0)
     Coin = 0, //uint8
+    /// Programmable data containers (Type 1)
     Memo = 1, //uint8
+    /// Smart contract state (Type 2)
     State = 2, //uint8
               // Genesis = 3, //uint8
 }
+
 impl TxInputOutputType {
+    /// Converts an IOType to TxInputOutputType for input processing
+    /// 
+    /// # Arguments
+    /// * `input_type` - The IOType to convert
+    /// 
+    /// # Returns
+    /// * Corresponding TxInputOutputType
     pub fn convert_input_type(input_type: IOType) -> Self {
         match input_type {
             IOType::Coin => TxInputOutputType::Coin,
@@ -40,6 +95,14 @@ impl TxInputOutputType {
             IOType::Memo => TxInputOutputType::Memo,
         }
     }
+    
+    /// Converts an IOType to TxInputOutputType for output processing
+    /// 
+    /// # Arguments
+    /// * `output_type` - The IOType to convert
+    /// 
+    /// # Returns
+    /// * Corresponding TxInputOutputType
     pub fn convert_output_type(output_type: IOType) -> Self {
         match output_type {
             IOType::Coin => TxInputOutputType::Coin,
@@ -47,19 +110,40 @@ impl TxInputOutputType {
             IOType::Memo => TxInputOutputType::Memo,
         }
     }
+    
+    /// Converts the enum to its underlying u8 representation
+    /// 
+    /// # Returns
+    /// * u8 value representing the type
     pub fn convert_uint8(&self) -> u8 {
         self.clone() as u8
     }
 }
 
+/// Individual Unspent Transaction Output (UTXO) representation
+/// 
+/// A UTXO represents an unspent transaction output in the ZkOS system.
+/// Each UTXO contains a unique key, serialized value data, and type classification.
+/// 
+/// # Fields
+/// * `key` - Serialized UTXO identifier (transaction ID + output index)
+/// * `value` - Serialized output data containing the actual UTXO information
+/// * `input_type` - Type classification (Coin, Memo, or State)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct UTXO {
+    /// Serialized UTXO identifier
     pub key: UtxoKey,
+    /// Serialized UTXO value data
     pub value: UtxoValue,
+    /// Type classification of the UTXO
     pub input_type: TxInputOutputType,
 }
 
 impl UTXO {
+    /// Creates a default UTXO with empty key/value and Coin type
+    /// 
+    /// # Returns
+    /// * Default UTXO instance
     pub fn default() -> Self {
         UTXO {
             key: bincode::serialize(&"".to_string()).unwrap(),
@@ -67,6 +151,16 @@ impl UTXO {
             input_type: TxInputOutputType::Coin,
         }
     }
+    
+    /// Creates a new UTXO with specified key, value, and type
+    /// 
+    /// # Arguments
+    /// * `key` - Serialized UTXO identifier
+    /// * `value` - Serialized UTXO value data
+    /// * `input_type` - Type classification
+    /// 
+    /// # Returns
+    /// * New UTXO instance
     pub fn new(key: UtxoKey, value: UtxoValue, input_type: TxInputOutputType) -> Self {
         UTXO {
             key,
@@ -75,6 +169,16 @@ impl UTXO {
         }
     }
 
+    /// Creates a UTXO from a transaction input block
+    /// 
+    /// This method extracts the UTXO key from a transaction input and creates
+    /// a corresponding UTXO representation for removal from storage.
+    /// 
+    /// # Arguments
+    /// * `input` - Transaction input containing UTXO reference
+    /// 
+    /// # Returns
+    /// * UTXO instance representing the input
     pub fn get_utxokey_from_input_block(input: Input) -> Self {
         UTXO::new(
             bincode::serialize(input.as_utxo().unwrap()).unwrap(),
@@ -84,6 +188,18 @@ impl UTXO {
         // UTXO::default()
     }
 
+    /// Creates a UTXO from a transaction output block
+    /// 
+    /// This method creates a UTXO representation from a transaction output,
+    /// including the transaction ID and output index for unique identification.
+    /// 
+    /// # Arguments
+    /// * `output` - Transaction output data
+    /// * `txid` - Transaction identifier
+    /// * `output_index` - Index of the output within the transaction
+    /// 
+    /// # Returns
+    /// * UTXO instance representing the output
     pub fn get_utxo_from_output_block(
         output: &Output,
         txid: TxID,
@@ -96,6 +212,16 @@ impl UTXO {
         )
     }
 
+    /// Creates UTXOs from a vector of record UTXO outputs
+    /// 
+    /// This method processes a collection of record UTXOs and converts them
+    /// to the internal UTXO representation for storage.
+    /// 
+    /// # Arguments
+    /// * `record_utxo_vec` - Vector of record UTXO outputs
+    /// 
+    /// # Returns
+    /// * Vector of UTXO instances
     pub fn get_utxo_from_record_utxo_output(record_utxo_vec: Vec<RecordUtxo>) -> Vec<UTXO> {
         let mut utxo_out: Vec<UTXO> = Vec::new();
         for record_utxo in record_utxo_vec {
@@ -109,13 +235,31 @@ impl UTXO {
     }
 }
 
+/// ZkOS block representation for UTXO processing
+/// 
+/// A ZkosBlock contains the UTXO operations (additions and removals) that
+/// occur within a single blockchain block. This structure is used for
+/// processing blocks and updating the UTXO state.
+/// 
+/// # Fields
+/// * `add_utxo` - Vector of UTXOs to add to the state
+/// * `remove_block` - Vector of UTXOs to remove from the state
+/// * `block_height` - Height of the block in the blockchain
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ZkosBlock {
+    /// UTXOs to add to the state
     pub add_utxo: Vec<UTXO>,
+    /// UTXOs to remove from the state
     pub remove_block: Vec<UTXO>,
+    /// Block height in the blockchain
     pub block_height: SequenceNumber,
 }
+
 impl ZkosBlock {
+    /// Creates a default ZkosBlock with empty UTXO lists and height 0
+    /// 
+    /// # Returns
+    /// * Default ZkosBlock instance
     pub fn default() -> Self {
         ZkosBlock {
             add_utxo: Vec::new(),
@@ -123,6 +267,16 @@ impl ZkosBlock {
             block_height: 0,
         }
     }
+    
+    /// Creates a new ZkosBlock with specified UTXO operations and height
+    /// 
+    /// # Arguments
+    /// * `add_utxo_sets` - UTXOs to add to the state
+    /// * `remove_utxo_sets` - UTXOs to remove from the state
+    /// * `block_height` - Height of the block
+    /// 
+    /// # Returns
+    /// * New ZkosBlock instance
     pub fn new(
         add_utxo_sets: Vec<UTXO>,
         remove_utxo_sets: Vec<UTXO>,
@@ -135,6 +289,17 @@ impl ZkosBlock {
         }
     }
 
+    /// Extracts UTXO operations from a blockchain block
+    /// 
+    /// This method processes a blockchain block and extracts all UTXO
+    /// additions and removals from the transactions within the block.
+    /// It handles both transfer and script transactions.
+    /// 
+    /// # Arguments
+    /// * `block` - Blockchain block containing transactions
+    /// 
+    /// # Returns
+    /// * ZkosBlock with extracted UTXO operations
     pub fn get_block_details(block: Block) -> Self {
         let block_height: usize = block.block_height as usize;
         let mut input_utxo_set: Vec<UTXO> = Vec::new();
@@ -180,13 +345,30 @@ impl ZkosBlock {
     }
 }
 
+/// Result of ZkOS block processing operations
+/// 
+/// This structure contains the results of processing a ZkosBlock,
+/// including successfully added/removed UTXOs and any errors that occurred.
+/// 
+/// # Fields
+/// * `utxo_added` - UTXOs successfully added to the state
+/// * `utxo_removed` - UTXOs successfully removed from the state
+/// * `error_vec` - Errors encountered during processing
 #[derive(Debug)]
 pub struct ZkosBlockResult {
+    /// UTXOs successfully added to the state
     pub utxo_added: Vec<UTXO>,
+    /// UTXOs successfully removed from the state
     pub utxo_removed: Vec<UTXO>,
+    /// Errors encountered during block processing
     pub error_vec: Vec<std::io::Error>,
 }
+
 impl ZkosBlockResult {
+    /// Creates a new ZkosBlockResult with empty vectors
+    /// 
+    /// # Returns
+    /// * New ZkosBlockResult instance
     pub fn new() -> Self {
         ZkosBlockResult {
             utxo_added: Vec::new(),
@@ -196,7 +378,9 @@ impl ZkosBlockResult {
     }
 }
 
+/// Type alias for ZkosBlock
 pub type ZkBlock = ZkosBlock;
+/// Type alias for ZkosBlockResult
 pub type ZkBlockResult = ZkosBlockResult;
 
 // cargo test -- --nocapture --test-threads 1

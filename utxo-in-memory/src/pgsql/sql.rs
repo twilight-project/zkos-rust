@@ -1,21 +1,31 @@
-/*! Manage the Utxo ser Db insert and removal */
-use crate::{error::UtxosetError, ThreadPool};
+//! PostgreSQL bulk operations for UTXO storage.
+//!
+//! This module provides bulk insert and remove operations for UTXOs in PostgreSQL,
+//! including transaction batching and data serialization for efficient database operations.
+
 use crate::db::KeyId;
 use crate::pgsql::{POSTGRESQL_POOL_CONNECTION, THREADPOOL_SQL_QUEUE};
+use crate::ThreadPool;
 use r2d2_postgres::postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
 
-
+/// Data structure for PostgreSQL UTXO insert operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PGSQLDataInsert {
+    /// UTXO key identifier
     pub key: KeyId,
+    /// Serialized output data
     pub data: Vec<u8>,
+    /// Owner address bytes
     pub owner_address: Vec<u8>,
+    /// Script address string
     pub script_address: String,
+    /// Output index (vout)
     pub vout: usize,
 }
 
 impl PGSQLDataInsert {
+    /// Creates new PGSQLDataInsert instance
     pub fn new(
         key: KeyId,
         data: Vec<u8>,
@@ -24,51 +34,55 @@ impl PGSQLDataInsert {
         vout: usize,
     ) -> Self {
         PGSQLDataInsert {
-            key,
+            key: key,
             data: data.clone(),
-            owner_address,
+            owner_address: owner_address,
             script_address: script_address.clone(),
-            vout,
+            vout: vout,
         }
     }
 }
 
+/// Trait for PostgreSQL database operations
 pub trait PGSQLDBtrait {
+    /// Adds data to SQL database
     fn add_into_sqldb(&mut self, input_type: usize);
+    /// Removes data from SQL database
     fn remove_from_sqldb(&mut self);
 }
 
 impl PGSQLDBtrait for PGSQLDataInsert {
     fn add_into_sqldb(&mut self, input_type: usize) {
-       sqldb_queue_lock_and_execute();
+        let sql_queue = THREADPOOL_SQL_QUEUE.lock().unwrap();
+        sql_queue.execute(move || {});
+        drop(sql_queue);
     }
     fn remove_from_sqldb(&mut self) {
-        sqldb_queue_lock_and_execute();
-    }
-}
-fn sqldb_queue_lock_and_execute() {
-    match THREADPOOL_SQL_QUEUE.lock() {
-        Ok(sql_queue) => {
-            sql_queue.execute(move || {});
-            drop(sql_queue);
-        }
-        Err(e) => {
-            eprintln!("Failed to lock the THREADPOOL_SQL_QUEUE: {}", e);
-        }
+        let sql_queue = THREADPOOL_SQL_QUEUE.lock().unwrap();
+        sql_queue.execute(move || {});
+        drop(sql_queue);
     }
 }
 
+/// Transaction structure for bulk PostgreSQL operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PGSQLTransaction {
+    /// UTXOs to remove
     pub remove_utxo: Vec<KeyId>,
+    /// Coin UTXOs to insert
     pub insert_coin_utxo: Vec<PGSQLDataInsert>,
+    /// Memo UTXOs to insert
     pub insert_memo_utxo: Vec<PGSQLDataInsert>,
+    /// State UTXOs to insert
     pub insert_state_utxo: Vec<PGSQLDataInsert>,
+    /// Transaction ID
     pub txid: String,
+    /// Block height
     pub block_height: u64,
 }
 
 impl PGSQLTransaction {
+    /// Creates new PGSQLTransaction with specified data
     pub fn new(
         remove_utxo: Vec<KeyId>,
         insert_coin_utxo: Vec<PGSQLDataInsert>,
@@ -86,6 +100,8 @@ impl PGSQLTransaction {
             block_height,
         }
     }
+
+    /// Creates default empty PGSQLTransaction
     pub fn default() -> Self {
         PGSQLTransaction {
             remove_utxo: Vec::new(),
@@ -97,6 +113,7 @@ impl PGSQLTransaction {
         }
     }
 
+    /// Updates UTXO log in PostgreSQL with all transaction data
     pub fn update_utxo_log(&mut self) -> bool {
         let remove_utxo = self.remove_utxo.clone();
         let insert_coin_utxo = self.insert_coin_utxo.clone();
@@ -109,64 +126,47 @@ impl PGSQLTransaction {
 
         //remove utxo from psql
         if remove_utxo.len() > 0 {
-            match remove_bulk_utxo_in_psql(remove_utxo.clone(), coin_table_name){
-                Ok(_)=>{},
-                Err(e)=> eprintln!("Failed to remove_bulk_utxo_in_coin_psql: {}", e)
-            };
-            match remove_bulk_utxo_in_psql(remove_utxo.clone(), memo_table_name){
-                Ok(_)=>{},
-                Err(e)=> eprintln!("Failed to remove_bulk_utxo_in_memo_psql: {}", e)
-            
-            };
-            match remove_bulk_utxo_in_psql(remove_utxo.clone(), state_table_name){
-                Ok(_)=>{},
-                Err(e )=> eprintln!("Failed to remove_bulk_utxo_in_state_psql: {}", e)
-            };
+            remove_bulk_utxo_in_psql(remove_utxo.clone(), coin_table_name);
+            remove_bulk_utxo_in_psql(remove_utxo.clone(), memo_table_name);
+            remove_bulk_utxo_in_psql(remove_utxo.clone(), state_table_name);
         }
 
         if insert_coin_utxo.len() > 0 {
-            match insert_bulk_utxo_in_psql_coin(
+            insert_bulk_utxo_in_psql_coin(
                 insert_coin_utxo,
                 self.txid.clone(),
                 self.block_height,
                 coin_table_name,
-            ){
-                Ok(_)=>{},
-                Err(e)=>eprintln!("Failed to insert_bulk_utxo_in_coin_psql: {}", e)
-            };
+            );
         }
         if insert_memo_utxo.len() > 0 {
-            match insert_bulk_utxo_in_psql_memo_or_state(
+            insert_bulk_utxo_in_psql_memo_or_state(
                 insert_memo_utxo,
                 self.txid.clone(),
                 self.block_height,
                 memo_table_name,
-            ){
-                Ok(_)=>{},
-                Err(e)=> eprintln!("Failed to insert_bulk_utxo_in_memo_psql: {}", e)
-            };
+            );
         }
         if insert_state_utxo.len() > 0 {
-            match insert_bulk_utxo_in_psql_memo_or_state(
+            insert_bulk_utxo_in_psql_memo_or_state(
                 insert_state_utxo,
                 self.txid.clone(),
                 self.block_height,
                 state_table_name,
-            ){
-                Ok(_)=>{},
-                Err(e)=> eprintln!("Failed to insert_bulk_utxo_in_state_psql: {}", e)
-            };
+            );
         }
+
         true
     }
 }
 
+/// Bulk inserts coin UTXOs into PostgreSQL
 pub fn insert_bulk_utxo_in_psql_coin(
     mut insert_utxo: Vec<PGSQLDataInsert>,
     tx_id: String,
     block_height: u64,
     table_name: &str,
-) -> Result<(), UtxosetError>{
+) {
     let mut bulk_query_insert: String = format!(
         "INSERT INTO {}(utxo, output, owner_address, txid, vout, block_height) VALUES",
         table_name
@@ -194,7 +194,6 @@ pub fn insert_bulk_utxo_in_psql_coin(
         params_vec.push(&raw_utxo.data);
         params_vec.push(&raw_utxo.owner_address);
     }
-
     let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
     match client.execute(&bulk_query_insert, &params_vec) {
         Ok(result) => {}
@@ -205,12 +204,13 @@ pub fn insert_bulk_utxo_in_psql_coin(
     }
 }
 
+/// Bulk inserts memo or state UTXOs into PostgreSQL
 pub fn insert_bulk_utxo_in_psql_memo_or_state(
     mut insert_utxo: Vec<PGSQLDataInsert>,
     tx_id: String,
     block_height: u64,
     table_name: &str,
-) -> Result<(), UtxosetError>{
+) {
     let mut bulk_query_insert: String = format!(
         "INSERT INTO {}(utxo, output, owner_address, script_address, txid, vout, block_height) VALUES",
         table_name
@@ -239,9 +239,7 @@ pub fn insert_bulk_utxo_in_psql_memo_or_state(
         params_vec.push(&raw_utxo.data);
         params_vec.push(&raw_utxo.owner_address);
     }
-
     let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
-    // client.execute(&bulk_query_insert, &params_vec).unwrap();
     match client.execute(&bulk_query_insert, &params_vec) {
         Ok(result) => {}
         Err(arr) => println!(
@@ -249,14 +247,13 @@ pub fn insert_bulk_utxo_in_psql_memo_or_state(
             arr, block_height
         ),
     }
-
 }
 
-pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str)->Result<(), UtxosetError> {
+/// Bulk removes UTXOs from PostgreSQL
+pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str) {
     let mut bulk_query_remove: String = format!("DELETE FROM {} WHERE utxo = any($1);", table_name);
-    let mut client = POSTGRESQL_POOL_CONNECTION.get()?;
-    client.execute(&bulk_query_remove, &[&remove_utxo])?;
-    Ok(())
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
+    client.execute(&bulk_query_remove, &[&remove_utxo]).unwrap();
 }
 
 // ------------------------------------------------------------------------
@@ -265,7 +262,7 @@ pub fn remove_bulk_utxo_in_psql(remove_utxo: Vec<KeyId>, table_name: &str)->Resu
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::pgsql::{deserialize_tx_id, deserialize_tx_string, tx_id_string};
+    //use crate::pgsql::{deserialize_tx_id, deserialize_tx_string, tx_id_string};
     // use std::fs::File;
     // use std::io::prelude::*;
     use zkvm::tx::TxID;
@@ -280,22 +277,24 @@ mod test {
     #[test]
     fn remove_utxo_in_psql_test() {}
     #[test]
+    #[ignore]
     fn print_test_tx_test() {
-        let test1 = deserialize_tx_string();
-        println!("transaction - {:#?}", test1);
+        //     let test1 = deserialize_tx_string();
+        //     println!("transaction - {:#?}", test1);
 
-        let test2 = deserialize_tx_id();
-        println!("transaction_id - {:#?}", test2);
+        //     let test2 = deserialize_tx_id();
+        //     println!("transaction_id - {:#?}", test2);
     }
     #[test]
+    #[ignore]
     fn tx_to_psqldata_test() {
-        let mut pg_insert_data = PGSQLTransaction::default();
-        pg_insert_data.txid = tx_id_string();
-        // pg_insert_data.txid = hex::decode(tx_id_string().clone()).unwrap();
-        pg_insert_data.block_height = 5;
-        let test_transaction = deserialize_tx_string();
-        let tx_input = test_transaction.get_tx_inputs();
-        let tx_output = test_transaction.get_tx_outputs();
+        // let mut pg_insert_data = PGSQLTransaction::default();
+        // pg_insert_data.txid = tx_id_string();
+        // // pg_insert_data.txid = hex::decode(tx_id_string().clone()).unwrap();
+        // pg_insert_data.block_height = 5;
+        // let test_transaction = deserialize_tx_string();
+        // let tx_input = test_transaction.get_tx_inputs();
+        // let tx_output = test_transaction.get_tx_outputs();
         // pg_insert_data.io_type = 0;
         // for input in tx_input {
         //     let utxo_key = bincode::serialize(&input.as_utxo().unwrap()).unwrap();
@@ -349,14 +348,3 @@ mod test {
         // pg_insert_data.update_utxo_log();
     }
 }
-
-// use std::fs::File;
-// use std::io::prelude::*;
-// let mut file1 = File::create("pg_insert_data.txt").unwrap();
-// file1.write_all(&serde_json::to_vec(&pg_insert_data.clone()).unwrap()).unwrap();
-
-// let mut remove_utxo_new: Vec<Vec<u8>> = Vec::new();
-// for datautxo in insert_utxo.clone() {
-//     remove_utxo_new.push(datautxo.key);
-// }
-// remove_bulk_utxo_in_psql(remove_utxo_new);

@@ -1,6 +1,27 @@
-#![allow(missing_docs)]
+// Copyright © 2019 Interstellar & Stellar Development Foundation
+// Copyright © 2025 Twilight Project Contributors
+// SPDX-License-Identifier: Apache-2.0
+//
+// Portions of this file are derived from the `merkle` crate in the
+// `stellar/slingshot` project (Apache-2.0).
 
-//! API for operations on merkle binary trees.
+//! Merkle tree utilities for cryptographic applications.
+//!
+//! This crate provides efficient, flexible, and generic tools for constructing and verifying
+//! Merkle binary trees, including root calculation, proof generation, and proof verification.
+//!
+//! # Features
+//! - Generic over item type (implement `MerkleItem`)
+//! - Efficient root calculation and incremental building
+//! - Merkle path/proof generation and verification
+//! - Serialization support via Serde
+//!
+//! # Example
+//! ```
+//! use merkle::{MerkleTree, Hash};
+//! // ... your example here ...
+//! ```
+
 use address::{Address, Network};
 use core::marker::PhantomData;
 use merlin::Transcript;
@@ -9,13 +30,15 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use subtle::ConstantTimeEq;
 
-/// Merkle hash of a node.
+/// Merkle hash of a node (32 bytes).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Hash(pub [u8; 32]);
 
-/// MerkleItem defines an item in the Merkle tree.
+/// Trait for items that can be included in a Merkle tree.
+///
+/// Implement this trait for your item type to allow it to be committed to a Merkle tree.
 pub trait MerkleItem: Sized {
-    /// Commits the hash of the item to Transcript.
+    /// Commits the hash of the item to the provided transcript.
     fn commit(&self, t: &mut Transcript);
 }
 
@@ -28,8 +51,7 @@ pub struct Hasher<M: MerkleItem> {
 /// Merkle tree of hashes with a given size.
 pub struct MerkleTree;
 
-/// Efficient builder of the merkle root.
-/// See `MerkleTree::build_root`
+/// A builder for incrementally constructing a Merkle root from a sequence of items.
 pub struct MerkleRootBuilder<M: MerkleItem> {
     hasher: Hasher<M>,
     roots: Vec<Option<Hash>>,
@@ -44,8 +66,14 @@ impl fmt::Debug for Hash {
 }
 
 impl MerkleTree {
-    /// Builds and returns the root hash of a Merkle tree constructed from
-    /// the supplied list.
+    /// Computes the Merkle root of a list of items.
+    ///
+    /// # Arguments
+    /// * `label` - A domain separation label for the transcript.
+    /// * `list` - The items to include in the tree.
+    ///
+    /// # Returns
+    /// The root hash of the Merkle tree.
     pub fn root<M, I>(label: &'static [u8], list: I) -> Hash
     where
         M: MerkleItem,
