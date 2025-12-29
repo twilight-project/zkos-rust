@@ -2,7 +2,7 @@
 name = "utxo-in-memory"
 version = "0.1.1"
 edition = "2021"
-eadme = "README.md"
+readme = "README.md"
 repository = "https://github.com/twilight-project/zkos-rust"
 categories = ["cryptography", "blockchain"]
 keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs","vm", "smart-contracts"]

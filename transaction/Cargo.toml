@@ -30,12 +30,12 @@ bincode = "1.3.3"
 
 [dependencies.quisquis-rust]
 git = "https://github.com/twilight-project/quisquis-rust.git"
-tag = "Testnet-v1.0.0"
+tag = "Testnet-v1.0.1"
 
 
 [dependencies.zkschnorr]
 git = "https://github.com/twilight-project/zk-schnorr.git"
-tag = "Testnet-v1.0.1"
+tag = "Testnet-v1.0.0"
 
 
 [dependencies.address]
