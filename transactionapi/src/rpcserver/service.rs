@@ -1,146 +1,198 @@
+#![allow(non_snake_case)]
+//! RPC service implementation for transaction processing and blockchain interaction.
+//!
+//! This module provides core RPC service functions for transaction submission,
+//! mint/burn operations, and blockchain state queries with thread pool management
+//! and Prometheus metrics integration.
+
+use super::error::{RpcError, RpcResult};
 use super::threadpool::ThreadPool;
-use super::MintOrBurnTx;
+use crate::TransactionStatusId;
 use address::{Address, Network};
 use curve25519_dalek::scalar::Scalar;
 use hex;
+use prometheus::{register_gauge, Gauge};
 use quisquislib::accounts::Account;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
-use std::error::Error;
-// use std::sync::mpsc;
-// use std::sync::Arc;
 use std::sync::Mutex;
-// use std::thread;
-use crate::TransactionStatusId;
-use prometheus::{register_counter, register_gauge, Counter, Encoder, Gauge, TextEncoder};
+use std::time::Duration;
+use tokio::runtime::Runtime;
 use transaction::Transaction;
-// #[macro_use]
-// extern crate lazy_static;
+
 lazy_static! {
-    pub static ref THREADPOOL_RPC_QUEUE: Mutex<ThreadPool> =
-        Mutex::new(ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue")));
-    pub static ref TOTAL_TX_COUNTER: Gauge =
-        register_gauge!("tx_counter", "A counter for tx").unwrap();
-}
-pub fn tx_queue(transaction: Transaction, fee: u64) {
-    {
-        let queue = THREADPOOL_RPC_QUEUE.lock().unwrap();
-        queue.execute(move || {
-            let _ = tx_commit(transaction, fee);
-        });
-    } // Mutex lock is automatically dropped here
+    /// Thread pool for handling RPC queue operations
+    pub static ref THREADPOOL_RPC_QUEUE: Mutex<ThreadPool> = Mutex::new(
+        ThreadPool::new(10, String::from("THREADPOOL_RPC_Queue"))
+    );
+    /// Prometheus gauge for tracking total transaction count
+    pub static ref TOTAL_TX_COUNTER: Gauge = register_gauge!(
+        "tx_counter",
+        "A counter for tx"
+    ).unwrap();
+    /// Runtime for async operations in thread pool
+    pub static ref RUNTIME: Runtime = Runtime::new().unwrap();
+
+    pub static ref ZKORACLE_TX_SUBMIT_URL: String = std::env
+        ::var("ZKORACLE_TX_SUBMIT_URL")
+        .unwrap_or("https://tx-submit.twilight.rest".to_string());
 }
 
-pub async fn tx_commit(transaction: Transaction, fee: u64) -> Result<String, String> {
-    let client = Client::new();
-    let url = "http://0.0.0.0:7000/transaction";
+/// Configuration for the transaction service
+#[derive(Clone, Debug)]
+pub struct ServiceConfig {
+    pub oracle_url: String,
+    pub timeout_seconds: u64,
+    pub max_retries: u32,
+}
 
-    let serialized: Vec<u8> = bincode::serialize(&transaction).map_err(|e| e.to_string())?;
-    // {
-    //     Ok(bytes) => bytes,
-    //     Err(e) => {
-    //         return Err(format!(
-    //             r#"{{"error": "error in server Payload (faulty data) {}"}}"#,
-    //             e
-    //         ))
-    //     }
-    // };
+impl Default for ServiceConfig {
+    fn default() -> Self {
+        Self {
+            oracle_url: ZKORACLE_TX_SUBMIT_URL.clone(),
+            timeout_seconds: 30,
+            max_retries: 3,
+        }
+    }
+}
+
+/// Queues a transaction for processing using the thread pool
+pub fn tx_queue(transaction: Transaction, fee: u64) -> RpcResult<()> {
+    let queue = THREADPOOL_RPC_QUEUE
+        .lock()
+        .map_err(|_| RpcError::InternalError("Failed to acquire thread pool lock".to_string()))?;
+
+    queue.execute(move || {
+        if let Err(e) = RUNTIME.block_on(tx_commit(transaction, fee)) {
+            eprintln!("Transaction commit failed: {}", e);
+        }
+    });
+
+    Ok(())
+}
+
+/// Commits a transaction to the blockchain via HTTP POST
+///
+/// # Arguments
+/// * `transaction` - Transaction to commit
+/// * `fee` - Fee to pay for the transaction
+///
+/// # Returns
+/// Result containing the transaction hash or error message
+pub async fn tx_commit(transaction: Transaction, fee: u64) -> RpcResult<String> {
+    let config = ServiceConfig::default();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(config.timeout_seconds))
+        .build()
+        .map_err(|e| RpcError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
+
+    let url = format!("{}/transaction", config.oracle_url);
+    let serialized: Vec<u8> = bincode::serialize(&transaction)
+        .map_err(|e| RpcError::SerializationError(e.to_string()))?;
+
     let tx_hex = hex::encode(serialized.clone());
-    //Creating dummy TxiD of ZKOS Transaction to be used as transaction id
+
+    // Create transaction ID using Keccak256 hash
     let mut hasher = Keccak256::new();
     hasher.update(&serialized);
     let checksum = hasher.finalize();
+
     let payload = Payload {
         id: hex::encode(checksum.to_vec()),
         tx: tx_hex,
         fee,
     };
-    // let json_data = serde_json::to_string(&payload)?;
-    let json_data = match serde_json::to_string(&payload) {
-        Ok(json_data) => json_data,
-        Err(e) => {
-            return Err(format!(
-                r#"{{"error": "error in transaction Payload (faulty data) {}"}}"#,
-                e
-            ))
-        }
-    };
+    // let result = nyks_wallet::transfer_tx(payload.id, payload.tx, payload.fee).await;
 
-    let response = match client
-        .post(url)
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .body(json_data)
-        .send()
-        .await
-    {
-        Ok(response) => response,
-        Err(e) => {
-            return Err(format!(
-                r#"{{"error": "error in committing transaction: {}"}}"#,
-                e
-            ))
+    // let json_data = serde_json::to_string(&payload)
+    //     .map_err(|e| RpcError::SerializationError(format!("Failed to serialize payload: {}", e)))?;
+    // println!("url: {}", url);
+    // Retry logic
+    let mut last_error = None;
+    for attempt in 1..=config.max_retries {
+        match nyks_wallet::transfer_tx(payload.id.clone(), payload.tx.clone(), payload.fee).await {
+            Ok((response, code)) => {
+                if code == 0 {
+                    TOTAL_TX_COUNTER.inc();
+                    return Ok(response);
+                } else {
+                    last_error = Some(RpcError::NetworkError(format!(
+                        "HTTP error, code: {}, response: {}",
+                        code, response
+                    )));
+                }
+            }
+            Err(e) => {
+                last_error = Some(RpcError::NetworkError(format!("Request failed: {}", e)));
+                if attempt < config.max_retries {
+                    tokio::time::sleep(Duration::from_millis(100 * (attempt as u64))).await;
+                    continue;
+                }
+            }
         }
-    };
-    let response_body: String = match response.text().await {
-        Ok(response_body) => response_body,
-        Err(e) => {
-            return Err(format!(
-                r#"{{"error": "error in committing transaction: {}"}}"#,
-                e
-            ))
-        }
-    };
-    TOTAL_TX_COUNTER.inc();
-    Ok(response_body)
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        RpcError::InternalError("Transaction commit failed after all retries".to_string())
+    }))
 }
 
+/// Initiates mint/burn transaction with account and scalar data
 pub async fn mint_burn_tx_initiate(
     value: u64,
     qq_account: &Account,
     encrypt_scalar: &Scalar,
     twilight_address: String,
-) -> Result<String, Box<dyn Error>> {
-    let client = Client::new();
-    let url = "http://0.0.0.0:7000/burnmessage";
+) -> RpcResult<String> {
+    let config = ServiceConfig::default();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(config.timeout_seconds))
+        .build()
+        .map_err(|e| RpcError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
 
-    // convert qq_account into hex string
+    let url = format!("{}/burnmessage", config.oracle_url);
+
     let qq_account_hex = account_to_hex_str(qq_account, Network::default());
-    // convert encrypt_scalar into hex string
     let encrypt_scalar_hex = hex::encode(encrypt_scalar.to_bytes());
-    // create payload
+
     let payload = MintOrBurnPayload {
         btc_value: value,
         qq_account: qq_account_hex,
         encrypt_scalar: encrypt_scalar_hex,
         twilight_address,
     };
-    let json_data = serde_json::to_string(&payload)?;
-    // let json_data = match serde_json::to_string(&payload) {
-    //     Ok(json_data) => json_data,
-    //     Err(e) => return format!(r#"{{"error": "error in transaction Payload (faulty data)"}}"#),
-    // };
+
+    let json_data = serde_json::to_string(&payload)
+        .map_err(|e| RpcError::SerializationError(format!("Failed to serialize payload: {}", e)))?;
 
     let response = client
-        .post(url)
+        .post(&url)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(json_data)
         .send()
-        .await?;
-    //{
-    //  Ok(response) => response,
-    //  Err(e) => return format!(r#"{{"error": "error in commiting transaction"}}"#),
-    //};
-    let response_body = response.text().await?;
+        .await
+        .map_err(|e| RpcError::NetworkError(format!("Request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(RpcError::NetworkError(format!(
+            "HTTP error: {}",
+            response.status()
+        )));
+    }
+
+    let response_body = response
+        .text()
+        .await
+        .map_err(|e| RpcError::NetworkError(format!("Failed to read response: {}", e)))?;
+
     Ok(response_body)
-    //let response_body: String = match response.text().await?{
-    //  Ok(response_body) => return response_body,
-    //  Err(e) => return format!(r#"{{"error": "error in commiting transaction"}}"#)
-    //};
 }
 
+/// Placeholder for transaction status query functionality
 pub fn tx_status(transaction: TransactionStatusId) {}
 
+/// Transaction payload structure for blockchain submission
 #[derive(Serialize, Deserialize)]
 struct Payload {
     id: String,
@@ -148,6 +200,7 @@ struct Payload {
     fee: u64,
 }
 
+/// Mint/burn operation payload structure
 #[derive(Serialize, Deserialize)]
 struct MintOrBurnPayload {
     btc_value: u64,
@@ -156,20 +209,26 @@ struct MintOrBurnPayload {
     twilight_address: String,
 }
 
+/// Response structure for transaction operations
 #[derive(Serialize, Deserialize)]
 struct Response {
     txHash: String,
 }
 
-/// Utility function to convert Account into hex string for sending it over the network
-///convert account to bare bytes and then encode the complete sequence to hex
+/// Converts Account to hex string for network transmission
+///
+/// # Arguments
+/// * `account` - Account to convert
+/// * `net` - Network to use
+///
+/// # Returns
+/// Hex string representation of the account
+/// # Note: Convert account to bare bytes and then encode the complete sequence to hex
 pub fn account_to_hex_str(account: &Account, net: Network) -> String {
     let (pk, enc) = account.get_account();
-    // convert pk to standard coin address
     let address = Address::standard_address(net, pk);
     let mut bytes = Vec::new();
     bytes.extend_from_slice(&address.as_bytes());
     bytes.extend_from_slice(&enc.to_bytes());
-    let hex = hex::encode(bytes);
-    hex
+    hex::encode(bytes)
 }

@@ -1,6 +1,50 @@
 #![allow(non_snake_case)]
 #![deny(missing_docs)]
-//! Definition of the proof struct.
+
+//! Zero-knowledge proof structures for confidential transactions.
+//!
+//! This module provides the core proof types used in ZkOS confidential transactions:
+//! - **RevealProof**: Proves knowledge of hidden values (used in burn operations)
+//! - **DarkTxProof**: Complete privacy proofs for Dark transactions
+//! - **ShuffleTxProof**: Shuffle proofs for QuisQuis transactions
+//!
+//! # Overview
+//!
+//! The proof system ensures transaction privacy while maintaining verifiability:
+//! - **Delta/Epsilon Accounts**: Core privacy mechanism for value hiding
+//! - **DLEQ Proofs**: Prove same value commitment across different bases
+//! - **Range Proofs**: Verify values are non-negative using Bulletproofs
+//! - **Shuffle Proofs**: Prove input/output permutation correctness
+//!
+//! # Example
+//! ```
+//! use transaction::proof::{DarkTxProof, RevealProof};
+//! use quisquislib::accounts::prover::Prover;
+//! use curve25519_dalek::scalar::Scalar;
+//! use quisquislib::ristretto::RistrettoPublicKey;
+//!
+//! // Create a reveal proof for burning
+//! let reveal_proof = RevealProof::new(encrypt_scalar, amount);
+//! assert!(reveal_proof.verify(encryption, initial_pk));
+//!
+//! // Create a Dark transaction proof
+//! let dark_proof = DarkTxProof::create_dark_tx_proof(
+//!     &mut prover,
+//!     &value_vector,
+//!     &delta_accounts,
+//!     &epsilon_accounts,
+//!     &delta_rscalar,
+//!     &sender_updated_delta_account,
+//!     &updated_delta_accounts,
+//!     &sender_updated_balance,
+//!     &receiver_value_balance,
+//!     &sender_sk,
+//!     senders_count,
+//!     receivers_count,
+//!     base_pk,
+//!     None, // QuisQuis transaction
+//! );
+//! ```
 
 use bulletproofs::PedersenGens;
 use bulletproofs::RangeProof;
@@ -18,44 +62,132 @@ use quisquislib::{
 };
 
 use serde::{Deserialize, Serialize};
+
+/// Proof for revealing hidden values in burn operations.
+///
+/// This proof allows the owner of an encrypted asset to prove they know
+/// the encryption scalar and amount without revealing them to others.
+/// It's used primarily in burn operations to prove asset destruction.
+///
+/// # Fields
+/// - `encrypt_scalar`: The encryption scalar used to hide the amount
+/// - `amount`: The actual amount being revealed
+///
+/// # Example
+/// ```
+/// use transaction::proof::RevealProof;
+/// use curve25519_dalek::scalar::Scalar;
+/// use quisquislib::elgamal::ElGamalCommitment;
+/// use quisquislib::ristretto::RistrettoPublicKey;
+///
+/// let proof = RevealProof::new(encrypt_scalar, 100);
+/// assert!(proof.verify(encryption, initial_pk));
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RevealProof {
     pub encrypt_scalar: Scalar,
     pub amount: u64,
 }
+
 impl RevealProof {
+    /// Creates a new reveal proof.
+    ///
+    /// # Arguments
+    /// * `encrypt_scalar` - The encryption scalar used to hide the amount
+    /// * `amount` - The actual amount being revealed
+    ///
+    /// # Returns
+    /// A new `RevealProof` instance
     pub fn new(encrypt_scalar: Scalar, amount: u64) -> Self {
         RevealProof {
             encrypt_scalar,
             amount,
         }
     }
+
+    /// Returns the encryption scalar.
     pub fn get_encrypt_scalar(&self) -> Scalar {
         self.encrypt_scalar
     }
+
+    /// Returns the revealed amount.
     pub fn get_amount(&self) -> u64 {
         self.amount
     }
-    /// Verify the reveal proof
-    /// Recreate the encryption using the encrypt_scalar and amount and verify
-    /// if the encryption matches the encryption in the reveal proof
+
+    /// Verifies the reveal proof by reconstructing the encryption.
+    ///
+    /// This method recreates the ElGamal commitment using the provided
+    /// encryption scalar and amount, then compares it with the original
+    /// encryption to verify the proof is valid.
+    ///
+    /// # Arguments
+    /// * `encryption` - The original ElGamal encryption
+    /// * `initial_pk` - The public key used for encryption
+    ///
+    /// # Returns
+    /// `true` if the proof is valid, `false` otherwise
+    ///
+    /// # Example
+    /// ```
+    /// use transaction::proof::RevealProof;
+    /// use quisquislib::elgamal::ElGamalCommitment;
+    /// use quisquislib::ristretto::RistrettoPublicKey;
+    ///
+    /// let proof = RevealProof::new(encrypt_scalar, 100);
+    /// let is_valid = proof.verify(encryption, initial_pk);
+    /// assert!(is_valid);
+    /// ```
     pub fn verify(&self, encryption: ElGamalCommitment, initial_pk: RistrettoPublicKey) -> bool {
-        // recreate encryption using reveal proof commitment scalar and the initial pk of the account to be burned
+        // Recreate encryption using reveal proof commitment scalar and initial pk
         let recreated_enc = ElGamalCommitment::generate_commitment(
             &initial_pk,
             self.encrypt_scalar,
             Scalar::from(self.amount),
         );
-        // compare the encryption
-        if encryption == recreated_enc {
-            true
-        } else {
-            false
-        }
+
+        // Compare the encryptions
+        encryption == recreated_enc
     }
 }
-/// Used in Dark Transaction and Quisquis Tx
-/// Store Dark Tx Proof
+
+/// Zero-knowledge proof for Dark transactions.
+///
+/// Dark transactions provide complete privacy by hiding all transaction
+/// details behind cryptographic proofs. This proof structure contains
+/// all the necessary components to verify a Dark transaction without
+/// revealing amounts or relationships.
+///
+/// # Components
+/// - **Delta/Epsilon Accounts**: Core privacy mechanism for value hiding
+/// - **DLEQ Proofs**: Prove same value commitment across different bases
+/// - **Range Proofs**: Verify values are non-negative using Bulletproofs
+/// - **Updated Output Proofs**: Optional proofs for Dark transaction outputs
+///
+/// # Example
+/// ```
+/// use transaction::proof::DarkTxProof;
+/// use quisquislib::accounts::prover::Prover;
+/// use curve25519_dalek::scalar::Scalar;
+/// use quisquislib::ristretto::RistrettoPublicKey;
+///
+/// let dark_proof = DarkTxProof::create_dark_tx_proof(
+///     &mut prover,
+///     &value_vector,
+///     &delta_accounts,
+///     &epsilon_accounts,
+///     &delta_rscalar,
+///     &sender_updated_delta_account,
+///     &updated_delta_accounts,
+///     &sender_updated_balance,
+///     &receiver_value_balance,
+///     &sender_sk,
+///     senders_count,
+///     receivers_count,
+///     base_pk,
+///     None, // QuisQuis transaction
+/// );
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DarkTxProof {
     pub(super) delta_accounts: Vec<Account>,
@@ -67,95 +199,88 @@ pub struct DarkTxProof {
     pub(super) range_proof: Vec<RangeProof>,
     // Proof only needed for Dark Tx. None in case of Quisquis Tx
     pub(super) updated_output_proof: Option<SigmaProof>,
-    //ONLY FOR TESTING PURPOSES
-    pub(super) receivers_count: usize, //SHOULD BE REMOVED LATER
+    // ONLY FOR TESTING PURPOSES
+    pub(super) receivers_count: usize, // SHOULD BE REMOVED LATER
 }
 
-///
-/// Store the shuffle proof and missing info for QuisQuis TX
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ShuffleTxProof {
-    pub(super) input_dash_accounts: Vec<Account>, //Updated input accounts
-    pub(super) input_shuffle_proof: ShuffleProof,
-    pub(super) input_shuffle_statement: ShuffleStatement,
-    pub(super) updated_delta_dlog: SigmaProof,
-    pub(super) output_shuffle_proof: ShuffleProof,
-    pub(super) output_shuffle_statement: ShuffleStatement,
-}
 impl DarkTxProof {
-    /// Serializes the proof into a byte array
+    /// Serializes the proof into a byte array.
     ///
-    /// # Layoutec<>
+    /// # Returns
+    /// Byte representation of the proof
     ///
-    /// The layout of the darktx proof encoding is:
+    /// # Note
+    /// This is a placeholder implementation. The actual serialization
+    /// format needs to be designed to handle all proof components.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(64);
-        //DESIGN BYTE STREAM FOR PROOF CATERING FOR VECTORS
+        // DESIGN BYTE STREAM FOR PROOF CATERING FOR VECTORS
         let (pk, _enc) = self.delta_accounts[0].get_account();
         buf.extend_from_slice(&pk.as_bytes());
-        // buf.extend_from_slice(self.);
-        // buf.extend_from_slice(self.);
-        // buf.extend_from_slice(self.);
-        // buf.extend_from_slice(self.);
-        // buf.extend_from_slice(self.);
-        // buf.extend_from_slice(self.);
-        // buf.extend_from_slice(self.);
-        // buf.extend(self.);
+        // TODO: Implement complete serialization
         buf
     }
 
     /// Deserializes the proof from a byte slice.
     ///
-    /// Returns an error if the byte slice cannot be parsed into a `DarkTxProof`.
-    pub fn from_bytes(_slice: &[u8]) /*-> Result<DarkTxProof, &'static str >*/
-    {
-        // if slice.len() < 1 {
-        //     return Err("DarkTxProofError::FormatError");
-        // }
-        // let version = slice[0];
-        // let mut slice = &slice[1..];
-
-        // if slice.len() % 32 != 0 {
-        //     return Err(R1CSError::FormatError);
-        // }
-
-        // let minlength = match version {
-        //     ONE_PHASE_COMMITMENTS => 11 * 32,
-        //     TWO_PHASE_COMMITMENTS => 14 * 32,
-        //     _ => return Err(R1CSError::FormatError),
-        // };
-
-        // if slice.len() < minlength {
-        //     return Err(R1CSError::FormatError);
-        // }
-
-        // // This macro takes care of counting bytes in the slice
-        // macro_rules! read32 {
-        //     () => {{
-        //         let tmp = util::read32(slice);
-        //         slice = &slice[32..];
-        //         tmp
-        //     }};
-        // }
-
-        // let A_I1 = CompressedRistretto(read32!());
-        // let A_O1 = CompressedRistretto(read32!());
-        // let S1 = CompressedRistretto(read32!());
-        // let T_5 = CompressedRistretto(read32!());
-        // let T_6 = CompressedRistretto(read32!());
-        // let t_x = Scalar::from_canonical_bytes(read32!()).ok_or(R1CSError::FormatError)?;
-        // let t_x_blinding = Scalar::from_canonical_bytes(read32!()).ok_or(R1CSError::FormatError)?;
-        // let e_blinding = Scalar::from_canonical_bytes(read32!()).ok_or(R1CSError::FormatError)?;
-
-        // // XXX: IPPProof from_bytes gives ProofError.
-        // let ipp_proof = InnerProductProof::from_bytes(slice).map_err(|_| R1CSError::FormatError)?;
-
-        // Ok(R1CSProof {
-        //     ipp_proof,
-        // })
-    }
+    /// # Arguments
+    /// * `_slice` - Byte slice to deserialize from
     ///
-    /// create Dark transaction proof for Prover
+    /// # Note
+    /// This is a placeholder implementation. The actual deserialization
+    /// format needs to be designed to handle all proof components.
+    pub fn from_bytes(_slice: &[u8]) /*-> Result<DarkTxProof, &'static str>*/
+    {
+        // TODO: Implement complete deserialization
+    }
+
+    /// Creates a Dark transaction proof for the prover.
+    ///
+    /// This method generates all the necessary zero-knowledge proofs
+    /// for a Dark transaction, including delta/epsilon account proofs,
+    /// range proofs, and optional output update proofs.
+    ///
+    /// # Arguments
+    /// * `prover` - The QuisQuis prover instance
+    /// * `value_vector` - Transfer amounts as scalars
+    /// * `delta_accounts` - Delta accounts for privacy
+    /// * `epsilon_accounts` - Epsilon accounts for privacy
+    /// * `delta_rscalar` - Random scalars for delta accounts
+    /// * `sender_updated_delta_account` - Updated delta accounts for senders
+    /// * `updated_delta_account` - All updated delta accounts
+    /// * `sender_updated_balance` - New balances for sender accounts
+    /// * `receiver_value_balance` - Final balances for receiver accounts
+    /// * `sender_sk` - Secret keys for sender accounts
+    /// * `senders_count` - Number of sender accounts
+    /// * `receivers_count` - Number of receiver accounts
+    /// * `base_pk` - Base public key for account generation
+    /// * `update_outputs_statement` - Optional output update statement for Dark transactions
+    ///
+    /// # Returns
+    /// A complete `DarkTxProof` instance
+    ///
+    /// # Example
+    /// ```
+    /// use transaction::proof::DarkTxProof;
+    /// use quisquislib::accounts::prover::Prover;
+    ///
+    /// let dark_proof = DarkTxProof::create_dark_tx_proof(
+    ///     &mut prover,
+    ///     &value_vector,
+    ///     &delta_accounts,
+    ///     &epsilon_accounts,
+    ///     &delta_rscalar,
+    ///     &sender_updated_delta_account,
+    ///     &updated_delta_accounts,
+    ///     &sender_updated_balance,
+    ///     &receiver_value_balance,
+    ///     &sender_sk,
+    ///     senders_count,
+    ///     receivers_count,
+    ///     base_pk,
+    ///     None, // QuisQuis transaction
+    /// );
+    /// ```
     pub fn create_dark_tx_proof(
         prover: &mut quisquislib::accounts::Prover,
         value_vector: &[Scalar],
@@ -170,52 +295,50 @@ impl DarkTxProof {
         senders_count: usize,
         receivers_count: usize,
         base_pk: RistrettoPublicKey,
-        update_outputs_statement: Option<(&[Account], Scalar, Scalar)>, //updated_outputs: Option<&[Account]>,
-                                                                        //updated_out_pk_rscalar: Option<Scalar>,
-                                                                        //updated_out_comm_rscalar: Option<Scalar>,
+        update_outputs_statement: Option<(&[Account], Scalar, Scalar)>,
     ) -> DarkTxProof {
-        //create DLEQ proof for same balance value committed based on Epsilon and delta account
+        // Create DLEQ proof for same balance value committed in epsilon and delta accounts
         let delta_dleq = Prover::verify_delta_compact_prover(
-            &delta_accounts,
-            &epsilon_accounts,
-            &delta_rscalar,
-            &value_vector,
+            delta_accounts,
+            epsilon_accounts,
+            delta_rscalar,
+            value_vector,
             prover,
         );
 
-        // let updated_delta_accounts_sender_slice = &delta_accounts[..senders_count];
+        // Create proof for sender account updates and remaining balances
         let (updated_sender_epsilon_accounts, epsilon_sender_rscalar_vector, sender_account_dleq) =
             Prover::verify_account_prover(
-                &sender_updated_delta_account,
+                sender_updated_delta_account,
                 sender_updated_balance,
                 sender_sk,
                 prover,
                 base_pk,
             );
-        //create rangeproof on senders and receivers
-        //create sender_final + reciver balance vector
+
+        // Create range proofs for sender and receiver accounts
         let bl_rp_vector: Vec<u64> = sender_updated_balance
-            .into_iter()
+            .iter()
             .cloned()
             .chain(reciever_value_balance.iter().cloned())
             .collect();
-        //create rscalar vector for sender and reciver epsilon accounts.
-        //extract rscalars for reciever epsilon accounts
+
+        // Extract receiver rscalars from delta_rscalar
         let rec_rscalars_slice = &delta_rscalar[senders_count..senders_count + receivers_count];
-        //receiver rscalars are extracted from rscalars vector returned in create_delta_and_epsilon_accounts
 
         let scalars_bp_vector: Vec<Scalar> = epsilon_sender_rscalar_vector
             .iter()
             .cloned()
             .chain(rec_rscalars_slice.iter().cloned())
             .collect();
-        //Generate range proof over sender/reciever account values. i.,e balance >=0 for all
+
+        // Generate range proof over sender/receiver account values (balance >= 0 for all)
         let range_proof =
             prover.verify_non_negative_sender_receiver_prover(&bl_rp_vector, &scalars_bp_vector);
 
-        // check if is is dark or quisquis tx
+        // Handle Dark vs QuisQuis transaction differences
         match update_outputs_statement {
-            // Dark Tx
+            // Dark transaction - create updated output proof
             Some((updated_outputs, updated_out_pk_rscalar, updated_out_comm_rscalar)) => {
                 let updated_output_proof = Prover::verify_update_account_dark_tx_prover(
                     updated_delta_account,
@@ -235,7 +358,8 @@ impl DarkTxProof {
                     updated_output_proof: Some(updated_output_proof),
                     receivers_count,
                 }
-            } // Quisquis Tx
+            }
+            // QuisQuis transaction - no output update proof needed
             None => DarkTxProof {
                 delta_accounts: delta_accounts.to_vec(),
                 epsilon_accounts: epsilon_accounts.to_vec(),
@@ -248,60 +372,55 @@ impl DarkTxProof {
                 receivers_count,
             },
         }
-        // Zero balance proofs on Recievers are sent using Witness fields in the transaction
-
-        // if updated_outputs.is_some() && delta_updated_accounts.is_some() {
-        //     // Dark TX
-        //     // if dark tx then create updated output proof
-
-        //     let updated_output_proof = prover.verify_update_account_dark_tx_prover(
-        //         delta_updated_accounts,
-        //         updated_outputs,
-        //         updated_out_pk_rscalar,
-        //         updated_out_comm_rscalar,
-        //     );
-        //     DarkTxProof {
-        //         delta_accounts: delta_accounts.to_vec(),
-        //         epsilon_accounts: epsilon_accounts.to_vec(),
-        //         delta_dleq,
-        //         updated_sender_epsilon_accounts,
-        //         sender_account_dleq,
-        //         range_proof,
-        //         updated_output_proof: Some(updated_output_proof),
-        //         receivers_count,
-        //     }
-        // } else {
-        //     // QuisQuis TX
-        //     DarkTxProof {
-        //         delta_accounts: delta_accounts.to_vec(),
-        //         epsilon_accounts: epsilon_accounts.to_vec(),
-        //         delta_dleq,
-        //         updated_sender_epsilon_accounts,
-        //         sender_account_dleq,
-        //         range_proof,
-        //         updated_output_proof: None,
-        //         receivers_count,
-        //     }
-        // }
     }
 
+    /// Verifies the Dark transaction proof.
     ///
-    /// Verify the DarkTx Proof
+    /// This method performs comprehensive verification of all proof components:
+    /// - Delta/epsilon account identity verification
+    /// - DLEQ proof verification for value consistency
+    /// - Delta account update verification
+    /// - Sender account balance and secret key verification
+    /// - Range proof verification for non-negative values
+    /// - Optional output update proof verification for Dark transactions
+    ///
+    /// # Arguments
+    /// * `verifier` - The QuisQuis verifier instance
+    /// * `updated_input` - Updated input accounts (input for Dark Tx, input' for QuisQuis Tx)
+    /// * `update_output_accounts` - Optional output accounts (Some for Dark Tx, None for QuisQuis Tx)
+    ///
+    /// # Returns
+    /// `Ok(())` if verification succeeds, `Err` otherwise
+    ///
+    /// # Errors
+    /// * Various verification errors if any proof component fails
+    ///
+    /// # Example
+    /// ```
+    /// use transaction::proof::DarkTxProof;
+    /// use quisquislib::accounts::verifier::Verifier;
+    ///
+    /// let result = dark_proof.verify(
+    ///     &mut verifier,
+    ///     &updated_input,
+    ///     update_output_accounts, // Some(&outputs) for Dark Tx, None for QuisQuis Tx
+    /// );
+    /// assert!(result.is_ok());
+    /// ```
     pub fn verify(
         &self,
         verifier: &mut Verifier,
-        updated_input: &[Account], //Updated_input = input in case of Dark Tx. In case of quisquis tx, it is input' from shuffle
-        // Used in case of Dark tx. In case of quisquis tx, it is None. Shuffle takes care of the update
+        updated_input: &[Account],
         update_output_accounts: Option<&[Account]>,
     ) -> Result<(), &'static str> {
         let base_pk = RistrettoPublicKey::generate_base_pk();
-        //identity check function to verify the construction of epsilon accounts using correct rscalars
+
+        // Verify epsilon account construction using correct rscalars
         Verifier::verify_delta_identity_check(&self.epsilon_accounts)?;
 
-        // Verify the DLEQ proof for same balance value commitment in Epsilon and Delta accounts
+        // Verify DLEQ proof for same balance value commitment in epsilon and delta accounts
         let delta_dleq = self.delta_dleq.clone();
         let (zv_vector, zr1_vector, zr2_vector, x) = delta_dleq.get_dleq();
-        // verify dleq proof
         Verifier::verify_delta_compact_verifier(
             &self.delta_accounts,
             &self.epsilon_accounts,
@@ -311,37 +430,23 @@ impl DarkTxProof {
             &x,
             verifier,
         )?;
-        #[cfg(feature = "debug_print")]
-        {
-            println!("DLEQ Proof verified");
-        }
 
-        // Verify Update Delta.
-        // checks if pk_input' = pk_delta =pk_output'
-        // checks if com_output' = com_input' * com_delta
-        // checks if updated value is reflected in the updated_delta_accounts
+        // Verify delta account updates
         Account::verify_delta_update(
             &self.updated_delta_accounts,
             &self.delta_accounts,
             updated_input,
         )?;
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Verify Delta Update verified");
-        }
-        // Verify the same value proof for Updated Delta Sender account and the updated value epsilon account
+
+        // Verify sender account balance and secret key
         let (zv_sender_acc, zsk_sender_acc, zr_sender_acc, x_sender_acc) =
             self.sender_account_dleq.clone().get_dleq();
 
         let senders_count: usize = self.updated_sender_epsilon_accounts.len();
         let updated_delta_account_sender = &self.updated_delta_accounts[..senders_count];
 
-        //let senders_count: usize = self.updated_sender_epsilon_accounts.len();
-        //let updated_delta_account_sender = &updated_delta_accounts[..senders_count];
-
-        //verify sender account signature and remaining balance.
         Verifier::verify_account_verifier_bulletproof(
-            &updated_delta_account_sender,
+            updated_delta_account_sender,
             &self.updated_sender_epsilon_accounts,
             &base_pk,
             &zv_sender_acc,
@@ -350,40 +455,28 @@ impl DarkTxProof {
             x_sender_acc,
             verifier,
         )?;
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Sender account balance and sk verified");
-        }
-        // let senders_count: usize = updated_delta_account_sender.len();
-        //let total_count : usize = self.epsilon_accounts.len();
-        //Verify the sender + Reciever bulletproofs to proof that the balance is >=0 for all accounts
 
+        // Verify range proofs for sender + receiver accounts (balance >= 0 for all)
         let reciever_epsilon_accounts_slice =
             &self.epsilon_accounts[senders_count..senders_count + self.receivers_count].to_vec();
-        //println!(
-        //  "Reciever epsilon accounts {:?}",
-        //  reciever_epsilon_accounts_slice
-        //);
-        //prepare epsilon account vector for sender + reciver
+
         let bp_epsilon_vec: Vec<Account> = self
             .updated_sender_epsilon_accounts
             .iter()
             .cloned()
             .chain(reciever_epsilon_accounts_slice.iter().cloned())
             .collect();
-        //println!("BP Epsilon Vector {:?}", bp_epsilon_vec);
 
-        //check if batched bulletproof or vector proof
-        println!("Range Proof Length {:?}", self.range_proof.len());
+        // Choose verification method based on proof type
         match self.range_proof.len() {
-            //batched bulletproof. # of prover values are power of 2
+            // Batched bulletproof (number of prover values is power of 2)
             1 => verifier
                 .verify_non_negative_sender_receiver_bulletproof_batch_verifier(
                     &bp_epsilon_vec,
                     &self.range_proof[0],
                 )
                 .map_err(|_| "Range Proof Verification Failed")?,
-            //vector proof. # of prover values are not power of 2
+            // Vector proof (number of prover values is not power of 2)
             _ => verifier
                 .verify_non_negative_sender_receiver_bulletproof_vector_verifier(
                     &bp_epsilon_vec,
@@ -392,13 +485,9 @@ impl DarkTxProof {
                 .map_err(|_| "Range Proof Verification Failed")?,
         }
 
-        // check if verifying the proof for Dark Tx or Quisquis Tx
-        // Verify the updated output proof in case of Dark Tx
-        //Do nothing in case of Quisquis Tx
+        // Verify updated output proof for Dark transactions
         match update_output_accounts {
             Some(updated_outputs) => {
-                // Dark TX
-                // verify the updated output proof
                 let updated_output_proof = self.updated_output_proof.clone().unwrap();
                 let (z_vector, x) = updated_output_proof.get_dlog();
                 Verifier::verify_update_account_dark_tx_verifier(
@@ -408,203 +497,192 @@ impl DarkTxProof {
                     &x,
                     verifier,
                 )?;
-            } /* Quisquis TX*/
-            // do nothing. Update and shuffle proof is handled separately
-            None => (),
-        }
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Dark Tx Output Update verified");
+            }
+            None => {
+                // QuisQuis transaction - update and shuffle proof handled separately
+            }
         }
 
         Ok(())
     }
 }
 
-// impl Serialize for DarkTxProof {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         serializer.serialize_bytes(&self.to_bytes()[..])
-//     }
-// }
-
-//impl<'de> Deserialize<'de> for DarkTxProof {
-//    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//  where
-//    D: Deserializer<'de>,
-// {
-//     struct R1CSProofVisitor;
-
-//     impl<'de> Visitor<'de> for R1CSProofVisitor {
-//         type Value = R1CSProof;
-
-//         fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-//             formatter.write_str("a valid R1CSProof")
-//         }
-
-//         fn visit_bytes<E>(self, v: &[u8]) -> Result<R1CSProof, E>
-//         where
-//             E: serde::de::Error,
-//         {
-//             // Using Error::custom requires T: Display, which our error
-//             // type only implements when it implements std::error::Error.
-//             #[cfg(feature = "std")]
-//             return R1CSProof::from_bytes(v).map_err(serde::de::Error::custom);
-//             // In no-std contexts, drop the error message.
-//             #[cfg(not(feature = "std"))]
-//             return R1CSProof::from_bytes(v)
-//                 .map_err(|_| serde::de::Error::custom("deserialization error"));
-//         }
-//     }
-
-//     deserializer.deserialize_bytes(R1CSProofVisitor)
-//  }
-//}
+/// Zero-knowledge proof for QuisQuis transaction shuffles.
+///
+/// QuisQuis transactions provide privacy by shuffling inputs and outputs
+/// with existing UTXO set accounts. This proof structure contains all
+/// the necessary components to verify the shuffle operations.
+///
+/// # Components
+/// - **Input Shuffle Proof**: Proves input permutation correctness
+/// - **Output Shuffle Proof**: Proves output permutation correctness
+/// - **Updated Delta DLOG Proof**: Proves anonymity account updates
+/// - **Shuffle Statements**: Metadata for shuffle verification
+///
+/// # Example
+/// ```
+/// use transaction::proof::ShuffleTxProof;
+/// use quisquislib::accounts::prover::Prover;
+/// use quisquislib::shuffle::Shuffle;
+///
+/// let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
+///     &mut prover,
+///     &input_dash_accounts_slice,
+///     &updated_delta_accounts_slice,
+///     &rscalars_slice,
+///     &input_shuffle,
+///     &output_shuffle,
+/// );
+/// ```
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ShuffleTxProof {
+    pub(super) input_dash_accounts: Vec<Account>, // Updated input accounts
+    pub(super) input_shuffle_proof: ShuffleProof,
+    pub(super) input_shuffle_statement: ShuffleStatement,
+    pub(super) updated_delta_dlog: SigmaProof,
+    pub(super) output_shuffle_proof: ShuffleProof,
+    pub(super) output_shuffle_statement: ShuffleStatement,
+}
 
 impl ShuffleTxProof {
+    /// Creates a shuffle proof for QuisQuis transactions.
     ///
-    ///create shuffle proof
+    /// This method generates proofs for both input and output shuffles,
+    /// along with the necessary DLOG proofs for anonymity account updates.
+    ///
+    /// # Arguments
+    /// * `prover` - The QuisQuis prover instance
+    /// * `input_dash_accounts_slice` - Input' anonymity account set
+    /// * `updated_delta_accounts_slice` - Output' anonymity account set
+    /// * `rscalars_slice` - Random scalars for delta anonymity accounts
+    /// * `input_shuffle` - Input shuffle configuration
+    /// * `output_shuffle` - Output shuffle configuration
+    ///
+    /// # Returns
+    /// A complete `ShuffleTxProof` instance
+    ///
+    /// # Example
+    /// ```
+    /// use transaction::proof::ShuffleTxProof;
+    /// use quisquislib::accounts::prover::Prover;
+    /// use quisquislib::shuffle::Shuffle;
+    ///
+    /// let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
+    ///     &mut prover,
+    ///     &input_dash_accounts_slice,
+    ///     &updated_delta_accounts_slice,
+    ///     &rscalars_slice,
+    ///     &input_shuffle,
+    ///     &output_shuffle,
+    /// );
+    /// ```
     pub fn create_shuffle_proof(
         prover: &mut quisquislib::accounts::Prover,
-        // input' anonymity account set
         input_dash_accounts_slice: &[Account],
-        // output' anonymity account set
         updated_delta_accounts_slice: &[Account],
-        // rscalars for delta anonymity accounts
         rscalars_slice: &[Scalar],
-        // input anonymity account set. Used for zero balance proof in case of on the fly anonymity account creation
-        //  input_anonymity_account_slice: Option<&[Account]>,
-        //  anonymity_comm_scalar: Option<&[Scalar]>,
-        // for input shuffle and update proof
         input_shuffle: &Shuffle,
-        // for output shuffle and update proof
         output_shuffle: &Shuffle,
     ) -> ShuffleTxProof {
-        //Step 1. create proof for Input shuffle
-
-        //generate Xcomit generator points of length m+1
+        // Generate Xcommit generator points of length m+1
         let xpc_gens = VectorPedersenGens::new(ROWS + 1);
-
-        // Prepare the constraint system
         let pc_gens = PedersenGens::default();
 
+        // Step 1: Create proof for input shuffle
         let (input_shuffle_proof, input_shuffle_statement) =
             ShuffleProof::create_shuffle_proof(prover, input_shuffle, &pc_gens, &xpc_gens);
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Input Shuffle Proof created");
-        }
-        // Step 2. generate DLOG proof on Anonymity accounts in Updated Delta accounts
-        // prove that the anonymity delta accounts are Zero balance and created using correct rscalars
+
+        // Step 2: Generate DLOG proof on anonymity accounts in updated delta accounts
+        // Prove that anonymity delta accounts have zero balance and are created using correct rscalars
         let updated_delta_dlog = Prover::verify_update_account_prover(
-            &input_dash_accounts_slice,
-            &updated_delta_accounts_slice,
-            &rscalars_slice,
+            input_dash_accounts_slice,
+            updated_delta_accounts_slice,
+            rscalars_slice,
             prover,
         );
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Updated Delta DLOG Proof created");
-        }
-        //if annoymity accounts are created on the fly.
-        //create zero balance proof for all the anonymity accounts
-        /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
-         ** All inputs with no UtxoId will be gathered as new anonymity set and a zero balance proof will have to be provided
-         ** since we are doing compact batch proof we need to collect the anonymity set before we can run the proof*/
-        // Do Not use it. Should be part of Witnesses in the transaction
-        // if input_anonymity_account_slice.is_some(){
-        //     let zero_balance_dlog = Prover::zero_balance_account_vector_prover(
-        //         &input_anonymity_account_slice.unwrap(),
-        //         &anonymity_comm_scalar.unwrap(),
-        //         prover,
-        //     );
-        // }
+
         let (output_shuffle_proof, output_shuffle_statement) =
             ShuffleProof::create_shuffle_proof(prover, output_shuffle, &pc_gens, &xpc_gens);
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Output Shuffle Proof created");
-        }
+
         ShuffleTxProof {
             input_dash_accounts: input_shuffle.get_outputs_vector(),
             input_shuffle_proof,
             input_shuffle_statement,
             updated_delta_dlog,
-            //zero_balance_dlog: None,
-            // updated_delta_accounts: output_shuffle.get_inputs_vector(),
             output_shuffle_proof,
             output_shuffle_statement,
         }
     }
+
+    /// Verifies the shuffle proof.
     ///
-    /// verify the shuffle proof
+    /// This method verifies all shuffle proof components:
+    /// - Input shuffle proof verification
+    /// - Updated delta DLOG proof verification
+    /// - Output shuffle proof verification
+    ///
+    /// # Arguments
+    /// * `verifier` - The QuisQuis verifier instance
+    /// * `input_accounts` - Original input accounts
+    /// * `output_accounts` - Final output accounts
+    /// * `updated_delta_accounts` - Updated delta accounts
+    ///
+    /// # Returns
+    /// `Ok(())` if verification succeeds, `Err` otherwise
+    ///
+    /// # Errors
+    /// * Various verification errors if any proof component fails
+    ///
+    /// # Example
+    /// ```
+    /// use transaction::proof::ShuffleTxProof;
+    /// use quisquislib::accounts::verifier::Verifier;
+    ///
+    /// let result = shuffle_proof.verify(
+    ///     &mut verifier,
+    ///     &input_accounts,
+    ///     &output_accounts,
+    ///     &updated_delta_accounts,
+    /// );
+    /// assert!(result.is_ok());
+    /// ```
     pub fn verify(
         &self,
         verifier: &mut Verifier,
         input_accounts: &[Account],
         output_accounts: &[Account],
         updated_delta_accounts: &[Account],
-        //anonymity_index: usize,
     ) -> Result<(), &'static str> {
-        //Recreate Pedersen Commitment (PC) Genarater and Xtended PC (XPC) Gens
-        //generate Xcomit generator points of length m+1
+        // Recreate Pedersen Commitment (PC) Generator and Extended PC (XPC) Gens
         let xpc_gens = VectorPedersenGens::new(ROWS + 1);
-        // Prepare the constraint system
         let pc_gens = PedersenGens::default();
 
-        //verify the input shuffle
+        // Verify the input shuffle
         self.input_shuffle_proof.verify(
             verifier,
             &self.input_shuffle_statement,
-            &input_accounts,
+            input_accounts,
             &self.input_dash_accounts,
             &pc_gens,
             &xpc_gens,
         )?;
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Input Shuffle Proof verified");
-        }
+
         // Verify DLOG proof on Anonymity accounts in Updated Delta accounts
         let (z_vector, x) = self.updated_delta_dlog.clone().get_dlog();
-        // ind the number of anonymity accounts
-        let num_anonymity_accounts = z_vector.len(); // Z vector contains z for each anonymity account at the prover time
+        let num_anonymity_accounts = z_vector.len();
         let anonymity_index = updated_delta_accounts.len() - num_anonymity_accounts;
         let updated_accounts_slice = &self.input_dash_accounts[anonymity_index..9];
         let updated_delta_accounts_slice = &updated_delta_accounts[anonymity_index..9];
 
-        //verify dlog proof
-        #[cfg(feature = "debug_print")]
-        {
-            println!("BEFORE Anony index {:?}", anonymity_index);
-        }
+        //verify the dlog proof
         Verifier::verify_update_account_verifier(
-            &updated_accounts_slice,
-            &updated_delta_accounts_slice,
+            updated_accounts_slice,
+            updated_delta_accounts_slice,
             &z_vector,
             &x,
             verifier,
         )?;
-        #[cfg(feature = "debug_print")]
-        {
-            println!("AFTER Anony index {:?}", anonymity_index);
-        }
-        /* NEEDS SUPPORT OF UTXO SET TO DETERMINE THE CORRECT COMBINATION OF ANONYMITY INPUT
-         //Step 7. if annoymity accounts are created on the fly.
-         //create zero balance proof for all the anonymity accounts
-         if self.zero_balance_dlog.is_some(){
-        // let input_anonymity_account_slice =
-         let (z_zero_balance, x_zero_balance) = self.zero_balance_dlog.clone().unwrap().get_dlog();
-         println!("In verifier");
-         //verify zero balance proof for anonymity set
-         Verifier::zero_balance_account_verifier(
-             &updated_accounts_slice,
-             &z_zero_balance,
-             x_zero_balance,
-             verifier,
-         )?;*/
+
         //verify the output shuffle
         self.output_shuffle_proof.verify(
             verifier,
@@ -614,86 +692,29 @@ impl ShuffleTxProof {
             &pc_gens,
             &xpc_gens,
         )?;
-        #[cfg(feature = "debug_print")]
-        {
-            println!("Output Shuffle Proof verified");
-        }
+
         Ok(())
     }
-    /// Serializes the proof into a byte array
+
+    /// Serializes the proof into a byte array.
     ///
-    /// # Layoutec<>
+    /// # Returns
+    /// Byte representation of the proof
     ///
-    /// The layout of the darktx proof encoding is:
+    /// # Note
+    /// This is a placeholder implementation. The actual serialization
+    /// format needs to be designed to handle all proof components.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(64);
         //DESIGN BYTE STREAM FOR PROOF CATERING FOR VECTORS
         let (pk, _enc) = self.input_dash_accounts[0].get_account();
         buf.extend_from_slice(&pk.as_bytes());
-        // buf.extend_from_slice(self.);
-        // buf.extend_from_slice(self.);
-        // buf.extend(self.);
+        // TODO: Implement complete serialization
         buf
     }
-
-    //     /// Deserializes the proof from a byte slice.
-    //     ///
-    //     /// Returns an error if the byte slice cannot be parsed into a `DarkTxProof`.
-    //     pub fn from_bytes(_slice: &[u8]) /*-> Result<DarkTxProof, &'static str >*/
-    //     {
-    //         // let e_blinding = Scalar::from_canonical_bytes(read32!()).ok_or(R1CSError::FormatError)?;
-
-    //         // // XXX: IPPProof from_bytes gives ProofError.
-    //         // let ipp_proof = InnerProductProof::from_bytes(slice).map_err(|_| R1CSError::FormatError)?;
-
-    //         // Ok(R1CSProof {
-    //         //     ipp_proof,
-    //         // })
-    //     }
 }
-
-// impl Serialize for ShuffleTxProof {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         serializer.serialize_bytes(&self.to_bytes()[..])
-//     }
-// }
-
-//impl<'de> Deserialize<'de> for ShuffleTxProof {
-//  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//  where
-//    D: Deserializer<'de>,
-// {
-// struct R1CSProofVisitor;
-
-// impl<'de> Visitor<'de> for R1CSProofVisitor {
-//     type Value = R1CSProof;
-
-//     fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-//         formatter.write_str("a valid R1CSProof")
-//     }
-
-//     fn visit_bytes<E>(self, v: &[u8]) -> Result<R1CSProof, E>
-//     where
-//         E: serde::de::Error,
-//     {
-//         // Using Error::custom requires T: Display, which our error
-//         // type only implements when it implements std::error::Error.
-//         #[cfg(feature = "std")]
-//         return R1CSProof::from_bytes(v).map_err(serde::de::Error::custom);
-//         // In no-std contexts, drop the error message.
-//         #[cfg(not(feature = "std"))]
-//         return R1CSProof::from_bytes(v)
-//             .map_err(|_| serde::de::Error::custom("deserialization err or"));
-//     }
-// }
-
-// deserializer.deserialize_bytes(R1CSProofVisitor)
-// }
-//}
-
+//TODO: Implement complete serialization for all proof components
+//TODO: Implement complete deserialization for all proof components
 // ------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------
@@ -702,30 +723,22 @@ impl ShuffleTxProof {
 mod test {
     use super::*;
     use merlin::Transcript;
+
     #[test]
     fn test_create_dark_tx_proof() {
         let base_pk = RistrettoPublicKey::generate_base_pk();
 
-        let value_vector: Vec<Scalar> = vec![
-            -Scalar::from(-(-5i64) as u64),
-            // -Scalar::from(-(-3i64) as u64),
-            Scalar::from(5u64),
-            // Scalar::from(3u64),
-        ];
-        println!("Value Vector {:?}", value_vector);
+        let value_vector: Vec<Scalar> = vec![-Scalar::from(-(-5i64) as u64), Scalar::from(5u64)];
+
         let mut updated_accounts: Vec<Account> = Vec::new();
         let mut sender_sk: Vec<RistrettoSecretKey> = Vec::new();
 
         for i in 0..2 {
             let (updated_account, sk) =
                 Account::generate_random_account_with_value(Scalar::from(10u64));
-
             updated_accounts.push(updated_account);
 
-            // lets save the first and second sk as sender's sk as we discard the rest
-            if i == 0
-            /*|| i == 1*/
-            {
+            if i == 0 {
                 sender_sk.push(sk);
             }
         }
@@ -736,33 +749,14 @@ mod test {
         let updated_delta_accounts =
             Account::update_delta_accounts(&updated_accounts, &delta_accounts).unwrap();
 
-        // balance that we want to prove should be sender balance - the balance user is trying to send
-        let sender_updated_balance: Vec<u64> = vec![5u64]; //, 7u64];
-        let reciever_value_balance: Vec<u64> = vec![5u64]; //, 13u64];
+        let sender_updated_balance: Vec<u64> = vec![5u64];
+        let reciever_value_balance: Vec<u64> = vec![5u64];
 
-        //get sender_updated delta accounts for verify account proof
         let sender_updated_delta_account = &updated_delta_accounts[..1];
-        //create DarkTx Prover merlin transcript
         let mut transcript = Transcript::new(b"TxProof");
         let mut prover = Prover::new(b"DarkTx", &mut transcript);
-        // create proof for QuisQuis variant
-        // let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
-        //     &mut prover,
-        //     &value_vector,
-        //     &delta_accounts,
-        //     &epsilon_accounts,
-        //     &delta_rscalar_vector,
-        //     &sender_updated_delta_account,
-        //     &sender_updated_balance,
-        //     &reciever_updated_balance,
-        //     &sender_sk,
-        //     2,
-        //     2,
-        //     base_pk,
-        //     None,
-        // );
 
-        // update the delta_updated_accounts to create output for dark tx
+        // Create outputs for Dark transaction
         let pk_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
         let comm_update_scalar = Scalar::random(&mut rand::rngs::OsRng);
 
@@ -777,7 +771,8 @@ mod test {
                 )
             })
             .collect::<Vec<Account>>();
-        // create proof for Dark Tx variant
+
+        // Create proof for Dark transaction variant
         let dark_tx_proof = DarkTxProof::create_dark_tx_proof(
             &mut prover,
             &value_vector,
@@ -794,31 +789,15 @@ mod test {
             base_pk,
             Some((&outputs, pk_update_scalar, comm_update_scalar)),
         );
-        //println!("Dark Tx Proof {:?}", dark_tx_proof);
 
-        //verify the proof
-
-        //create DarkTx Prover merlin transcript
+        // Verify the proof
         let mut v_transcript = Transcript::new(b"TxProof");
         let mut verifier = Verifier::new(b"DarkTx", &mut v_transcript);
 
-        //create updated senders delta account slice
-        // let updated_senders_delta_account = &dark_tx_proof.delta_accounts[..2];
-
-        // Standard verification in case of Quisquis Tx
-        // let verify = dark_tx_proof.verify(
-        //     &mut verifier,
-        //     &updated_accounts,
-        //     &updated_delta_accounts,
-        //     None,
-        // );
-        // Veification in case of Dark Tx
-
         let verify = dark_tx_proof.verify(&mut verifier, &updated_accounts, Some(&outputs));
-        //let verify = dark_tx_proof.verify(&mut verifier, &updated_accounts, None);
-        println!("{:?}", verify);
-        assert!(verify.is_ok())
+        assert!(verify.is_ok());
     }
+
     #[test]
     fn create_scalar_test() {
         let iin: i64 = -5;
@@ -834,17 +813,20 @@ mod test {
         println!("Scalar {:#?}", -Scalar::from(uin as u64));
         println!("Scalar {:#?}", Scalar::from(-iin as u64));
     }
+
     #[test]
     fn test_reveal_proof() {
-        // create public key randomly
+        // Create public key randomly
         let base_pk = RistrettoPublicKey::generate_base_pk();
-        // create a encryption
+
+        // Create an encryption
         let enc_scalar = Scalar::random(&mut rand::rngs::OsRng);
         let enc: ElGamalCommitment =
             ElGamalCommitment::generate_commitment(&base_pk, enc_scalar, Scalar::from(100u64));
 
         let proof = RevealProof::new(enc_scalar.clone(), 100u64);
-        // verify
+
+        // Verify
         let verify = proof.verify(enc.clone(), base_pk);
         assert!(verify);
     }

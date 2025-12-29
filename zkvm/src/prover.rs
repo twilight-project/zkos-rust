@@ -1,3 +1,12 @@
+//! Prover types and operations for ZkVM.
+//!
+//! This module defines the transaction proving system, including:
+//!
+//! - [`Prover`]: Main prover that creates transactions and generates proofs
+//! - [`ProverRun`]: Running state for program execution during proving
+//!
+//! The module provides transaction building, R1CS proof generation, and signature
+//! creation with support for witness data and performance timing.
 // ignore warnings
 #![allow(warnings)]
 use bulletproofs::r1cs::ConstraintSystem;
@@ -23,120 +32,127 @@ use std::time::Instant;
 /// Prover passes the list of instructions through the VM,
 /// creates an aggregated transaction signature (for `signtx` instruction),
 /// creates a R1CS proof and returns a complete `Tx` object that can be published.
-// pub struct Prover<'g> {
-//     // TBD: use Multikey as a witness thing
-//     signtx_items: Vec<(VerificationKey, ContractID)>,
-//     cs: r1cs::Prover<'g, Transcript>,
-//     batch: starsig::BatchVerifier<rand::rngs::ThreadRng>,
-// }
+pub struct Prover<'g> {
+    // TBD: use Multikey as a witness thing
+    signtx_items: Vec<(VerificationKey, ContractID)>,
+    cs: r1cs::Prover<'g, Transcript>,
+    batch: starsig::BatchVerifier<rand::rngs::ThreadRng>,
+}
 
-// pub struct ProverRun {
-//     program: VecDeque<Instruction>,
-// }
+/// Running state for program execution during proving.
+pub struct ProverRun {
+    program: VecDeque<Instruction>,
+}
 
-// impl<'t, 'g> Delegate<r1cs::Prover<'g, Transcript>> for Prover<'g> {
-//     type RunType = ProverRun;
-//     type BatchVerifier = starsig::BatchVerifier<rand::rngs::ThreadRng>;
+impl<'t, 'g> Delegate<r1cs::Prover<'g, Transcript>> for Prover<'g> {
+    type RunType = ProverRun;
+    type BatchVerifier = starsig::BatchVerifier<rand::rngs::ThreadRng>;
 
-//     fn commit_variable(
-//         &mut self,
-//         com: &Commitment,
-//     ) -> Result<(CompressedRistretto, r1cs::Variable), VMError> {
-//         let (v, v_blinding) = com.witness().ok_or(VMError::WitnessMissing)?;
-//         Ok(self.cs.commit(v.into(), v_blinding))
-//     }
+    /// Commits a variable to the constraint system using witness data.
+    fn commit_variable(
+        &mut self,
+        com: &Commitment,
+    ) -> Result<(CompressedRistretto, r1cs::Variable), VMError> {
+        let (v, v_blinding) = com.witness().ok_or(VMError::WitnessMissing)?;
+        Ok(self.cs.commit(v.into(), v_blinding))
+    }
 
-//     fn process_tx_signature(
-//         &mut self,
-//         pred: Predicate,
-//         contract_id: ContractID,
-//     ) -> Result<(), VMError> {
-//         let k = pred.to_verification_key_witness()?;
-//         self.signtx_items.push((k, contract_id));
-//         Ok(())
-//     }
+    /// Processes transaction signature by extracting verification key witness and storing it.
+    fn process_tx_signature(
+        &mut self,
+        pred: Predicate,
+        contract_id: ContractID,
+    ) -> Result<(), VMError> {
+        let k = pred.to_verification_key_witness()?;
+        self.signtx_items.push((k, contract_id));
+        Ok(())
+    }
 
-//     fn next_instruction(
-//         &mut self,
-//         run: &mut Self::RunType,
-//     ) -> Result<Option<Instruction>, VMError> {
-//         Ok(run.program.pop_front())
-//     }
+    /// Retrieves the next instruction from the program queue.
+    fn next_instruction(
+        &mut self,
+        run: &mut Self::RunType,
+    ) -> Result<Option<Instruction>, VMError> {
+        Ok(run.program.pop_front())
+    }
 
-//     fn new_run(&self, data: ProgramItem) -> Result<Self::RunType, VMError> {
-//         Ok(ProverRun {
-//             program: data.to_program()?.to_vec().into(),
-//         })
-//     }
+    /// Creates a new run instance from a program item.
+    fn new_run(&self, data: ProgramItem) -> Result<Self::RunType, VMError> {
+        Ok(ProverRun {
+            program: data.to_program()?.to_vec().into(),
+        })
+    }
 
-//     fn cs(&mut self) -> &mut r1cs::Prover<'g, Transcript> {
-//         &mut self.cs
-//     }
+    /// Returns a mutable reference to the constraint system.
+    fn cs(&mut self) -> &mut r1cs::Prover<'g, Transcript> {
+        &mut self.cs
+    }
 
-//     fn batch_verifier(&mut self) -> &mut Self::BatchVerifier {
-//         &mut self.batch
-//     }
-// }
+    /// Returns a mutable reference to the batch verifier.
+    fn batch_verifier(&mut self) -> &mut Self::BatchVerifier {
+        &mut self.batch
+    }
+}
 
-// impl<'g> Prover<'g> {
-//     /// Builds a transaction with a given list of instructions and a `TxHeader`.
-//     /// Returns a transaction `Tx` along with its ID (`TxID`) and a transaction log (`TxLog`).
-//     /// Fails if the input program is malformed, or some witness data is missing.
-//     pub fn build_tx(
-//         program: Program,
-//         header: TxHeader,
-//         bp_gens: &BulletproofGens,
-//     ) -> Result<UnsignedTx, VMError> {
-//         // Prepare the constraint system
+impl<'g> Prover<'g> {
+    /// Builds a transaction with a given list of instructions and a `TxHeader`.
+    /// Returns a transaction `Tx` along with its ID (`TxID`) and a transaction log (`TxLog`).
+    /// Fails if the input program is malformed, or some witness data is missing.
+    pub fn build_tx(
+        program: Program,
+        header: TxHeader,
+        bp_gens: &BulletproofGens,
+    ) -> Result<UnsignedTx, VMError> {
+        // Prepare the constraint system
 
-//         let pc_gens = PedersenGens::default();
-//         let cs = r1cs::Prover::new(&pc_gens, Transcript::new(b"ZkVM.r1cs"));
+        let pc_gens = PedersenGens::default();
+        let cs = r1cs::Prover::new(&pc_gens, Transcript::new(b"ZkVM.r1cs"));
 
-//         // Serialize the tx program
-//         let mut bytecode = Vec::new();
+        // Serialize the tx program
+        let mut bytecode = Vec::new();
 
-//         program.encode(&mut bytecode)?;
+        program.encode(&mut bytecode)?;
 
-//         let mut prover = Prover {
-//             signtx_items: Vec::new(),
-//             cs: cs,
-//             batch: starsig::BatchVerifier::new(rand::thread_rng()),
-//         };
+        let mut prover = Prover {
+            signtx_items: Vec::new(),
+            cs: cs,
+            batch: starsig::BatchVerifier::new(rand::thread_rng()),
+        };
 
-//         let vm = VM::new(
-//             header,
-//             ProverRun {
-//                 program: program.to_vec().into(),
-//             },
-//             &mut prover,
-//         );
+        let vm = VM::new(
+            header,
+            ProverRun {
+                program: program.to_vec().into(),
+            },
+            &mut prover,
+        );
 
-//         let (txid, txlog, _fee) = vm.run()?;
+        let (txid, txlog, _fee) = vm.run()?;
 
-//         // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
-//         prover.cs.transcript().append_message(b"ZkVM.txid", &txid.0);
+        // Commit txid so that the proof is bound to the entire transaction, not just the constraint system.
+        prover.cs.transcript().append_message(b"ZkVM.txid", &txid.0);
 
-//         // Generate the R1CS proof
-//         // time this code
+        // Generate the R1CS proof
+        // time this code
 
-//         let now = Instant::now();
-//         let proof = prover
-//             .cs
-//             .prove(bp_gens)
-//             .map_err(|_| VMError::InvalidR1CSProof)?;
-//         // Defer signing of the transaction to the UnsignedTx API.
-//         let elapsed = now.elapsed();
-//         println!("Elapsed Prover: {:.2?}", elapsed);
-//         println!("Prover: Proof Size{:?}", proof.serialized_size());
-//         Ok(UnsignedTx {
-//             header,
-//             program: bytecode,
-//             proof,
-//             txid,
-//             txlog,
-//             signing_instructions: prover.signtx_items,
-//         })
-//     }
+        let now = Instant::now();
+        let proof = prover
+            .cs
+            .prove(bp_gens)
+            .map_err(|_| VMError::InvalidR1CSProof)?;
+        // Defer signing of the transaction to the UnsignedTx API.
+        let elapsed = now.elapsed();
+        println!("Elapsed Prover: {:.2?}", elapsed);
+        println!("Prover: Proof Size{:?}", proof.serialized_size());
+        Ok(UnsignedTx {
+            header,
+            program: bytecode,
+            proof,
+            txid,
+            txlog,
+            signing_instructions: prover.signtx_items,
+        })
+    }
     //New bulid tx
     //
     // pub fn build_tx_new(

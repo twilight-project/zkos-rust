@@ -1,45 +1,58 @@
 [package]
 name = "transactionapi"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+readme = "README.md"
+description = "ZkOS Transaction API for blockchain interaction and UTXO management"
+repository = "https://github.com/twilight-project/zkos-rust"
+keywords = ["blockchain", "zkos", "rpc", "api", "utxo"]
+categories = ["api-bindings", "blockchain"]
+publish = false
+rust-version = "1.70"
+# documentation = "https://docs.rs/"
+# license, repository, authors inherited from [workspace.package]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
 name = "api_server"
-
 [dependencies]
-serde = { version = "1.0.150", features = ["derive"] }
-serde_json = "1.0.91"
+serde = { version = "1.0.131", features = ["derive"] }
+serde_derive = "1.0.131"
+serde_json = "1.0.68"
 dotenv = "0.15.0"
-jsonrpsee = { version = "0.16.2", features = [
-    "server",
-    "client",
-    "jsonrpsee-core",
-    "macros",
-] }
+jsonrpc = "0.12.1"
+jsonrpc-http-server = "18.0"
+jsonrpc-core = "18.0.0"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 lazy_static = "1.4.0"
-hex = "0.4.3"
-tokio = { version = "1.24.1", features = ["rt-multi-thread", "macros"] }
+hex = "0.4"
+tokio = { version = "1", features = ["full"] }
 prometheus = "0.12"
 rocket = "0.5.0"
 ctrlc = "3.1.9"
-thiserror = "1.0.57"
+
+
+jsonrpsee = "0.16.2"
 
 curve25519-dalek = { version = "3", features = ["serde"] }
 merlin = "2"
 getrandom = { version = "0.2", default-features = false, features = ["js"] }
-uuid = { version = "0.8.2", features = ["v4", "serde"] } #https://github.com/serde-rs/serde/issues/324
+uuid = { version = "0.8.2", features = [
+    "v4",
+    "serde",
+] } #https://github.com/serde-rs/serde/issues/324
 sha3 = "0.9.1"
 
 bincode = "1.3.3"
 # tendermint-rpc = "0.28.0"
 # check bitcoin core rpc 
 
+nyks-wallet = { git = "https://github.com/twilight-project/nyks-wallet", tag = "v0.1.0", default-features = false, features = [
+    "validator-wallet",
+] }
+
 [dependencies.quisquis-rust]
-#path = "../../quisquis-rust"
 git = "https://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+tag = "Testnet-v1.0.1"
 
 
 [dependencies.transaction]
@@ -63,4 +76,3 @@ features = ["yoloproofs"]
 [features]
 default = []
 nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
-

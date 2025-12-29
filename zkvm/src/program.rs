@@ -1,3 +1,24 @@
+//! Program types and operations for ZkVM.
+//!
+//! This module defines the program system for ZkVM, including:
+//!
+//! - [`Program`]: A builder for assembling sequences of instructions with chained method calls.
+//! - [`ProgramItem`]: Represents either a program (prover's view) or bytecode (verifier's view).
+//!
+//! The module provides program construction, parsing, serialization, and Merkle tree integration.
+//! Programs can be built using a fluent API that mirrors ZkVM instructions, enabling type-safe
+//! program creation and manipulation.
+//!
+//! # Example
+//! ```
+//! use zkvm::program::Program;
+//! let program = Program::build(|p| {
+//!     p.push("hello")
+//!      .input()
+//!      .output(1);
+//! });
+//! let bytes = program.to_bytes();
+//! ```
 use crate::encoding::*;
 use crate::errors::VMError;
 use crate::merkle::MerkleItem;
@@ -90,7 +111,7 @@ macro_rules! def_op_inner {
 impl Encodable for Program {
     fn encode(&self, w: &mut impl Writer) -> Result<(), WriteError> {
         for i in self.0.iter() {
-            i.borrow().encode(w)?;
+            i.encode(w)?;
         }
         Ok(())
     }
@@ -109,6 +130,12 @@ impl core::ops::Deref for Program {
     }
 }
 
+impl Default for Program {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Program {
     /// Creates an empty `Program`.
     pub fn new() -> Self {
@@ -124,7 +151,7 @@ impl Program {
     /// Returns the resulting program.
     pub fn build<F>(builder: F) -> Self
     where
-        F: FnOnce(&mut Self) -> (),
+        F: FnOnce(&mut Self),
     {
         let mut program = Self::new();
         builder(&mut program);
@@ -181,18 +208,18 @@ impl Program {
 
     // def_op!(cloak, Cloak, usize, usize, "cloak:m:n");
     def_op!(fee, Fee, "fee");
-    // def_op!(input, Input, "input");
-    // def_op!(output, Output, usize, "output:k");
-    // def_op!(contract, Contract, usize, "contract:k");
+    def_op!(input, Input, "input");
+    def_op!(output, Output, usize, "output:k");
+    def_op!(contract, Contract, usize, "contract:k");
 
-    // def_op!(log, Log, "log");
-    // def_op!(call, Call, "call");
+    def_op!(log, Log, "log");
+    def_op!(call, Call, "call");
 
-    // def_op!(signtx, Signtx, "signtx");
-    // def_op!(signid, Signid, "signid");
-    // def_op!(signtag, Signtag, "signtag");
-    // def_op!(inputcoin, InputCoin, usize, "inputcoin:k");
-    // def_op!(outputcoin, OutputCoin, usize, "outputcoin:k");
+    def_op!(signtx, Signtx, "signtx");
+    def_op!(signid, Signid, "signid");
+    def_op!(signtag, Signtag, "signtag");
+    def_op!(inputcoin, InputCoin, usize, "inputcoin:k");
+    def_op!(outputcoin, OutputCoin, usize, "outputcoin:k");
 
     /// Takes predicate tree and index of program in Merkle tree to verify
     /// the program's membership in that Merkle tree and call the program.
@@ -223,7 +250,7 @@ impl Encodable for ProgramItem {
     fn encode(&self, w: &mut impl Writer) -> Result<(), WriteError> {
         match self {
             ProgramItem::Program(prog) => w.write(b"program", &prog.encode_to_vec()),
-            ProgramItem::Bytecode(bytes) => w.write(b"program", &bytes),
+            ProgramItem::Bytecode(bytes) => w.write(b"program", bytes),
         }
     }
 }
@@ -246,7 +273,7 @@ impl ProgramItem {
     pub fn to_program(self) -> Result<Program, VMError> {
         match self {
             ProgramItem::Program(prog) => Ok(prog),
-            ProgramItem::Bytecode(_) => return Err(VMError::TypeNotProgram),
+            ProgramItem::Bytecode(_) => Err(VMError::TypeNotProgram),
         }
     }
 
@@ -255,7 +282,7 @@ impl ProgramItem {
     /// Use `encode` method to serialize both opaque/nonopaque programs.
     pub fn to_bytecode(self) -> Result<Vec<u8>, VMError> {
         match self {
-            ProgramItem::Program(_) => return Err(VMError::TypeNotProgram),
+            ProgramItem::Program(_) => Err(VMError::TypeNotProgram),
             ProgramItem::Bytecode(bytes) => Ok(bytes),
         }
     }
@@ -271,7 +298,7 @@ impl MerkleItem for ProgramItem {
     fn commit(&self, t: &mut Transcript) {
         match self {
             ProgramItem::Program(prog) => prog.commit(t),
-            ProgramItem::Bytecode(bytes) => t.append_message(b"program", &bytes),
+            ProgramItem::Bytecode(bytes) => t.append_message(b"program", bytes),
         }
     }
 }

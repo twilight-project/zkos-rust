@@ -1,19 +1,24 @@
-use crate::{error::UtxosetError, ThreadPool};
+//! PostgreSQL initialization module for setting up database tables.
+//!
+//! This module initializes the PostgreSQL database connection pool and
+//! creates the necessary tables for UTXO storage. It uses lazy_static to
+//! ensure thread-safe initialization of the connection pool.
+
+use crate::{db::KeyId, ThreadPool};
+use lazy_static::lazy_static;
 use r2d2_postgres::postgres::NoTls;
 use r2d2_postgres::PostgresConnectionManager;
-use std::sync::Mutex;
-
+use std::collections::HashMap;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use zkvm::Output;
 lazy_static! {
     pub static ref POSTGRESQL_POOL_CONNECTION: r2d2::Pool<PostgresConnectionManager<NoTls>> = {
         dotenv::dotenv().expect("Failed loading dotenv");
         let postgresql_url =
             std::env::var("POSTGRESQL_URL").expect("missing environment variable POSTGRESQL_URL");
-        
-        let manager = PostgresConnectionManager::new(postgresql_url.parse().expect("Can not parse the POSTGRES_URL credentials to create a database connection"), NoTls);
-        match r2d2::Pool::new(manager){
-            Ok(pool) => pool,
-            Err(e) => panic!("Error creating r2d2 pool: {}", e)
-        }
+        let manager = PostgresConnectionManager::new(postgresql_url.parse().unwrap(), NoTls);
+        r2d2::Pool::new(manager).unwrap()
     };
     pub static ref THREADPOOL_SQL_QUEUE: Mutex<ThreadPool> =
         Mutex::new(ThreadPool::new(1, String::from("THREADPOOL_SQL_QUEUE")));
@@ -35,24 +40,26 @@ pub fn init_psql() {
     }
 }
 
-fn create_utxo_coin_table() -> Result<(), UtxosetError> {
+fn create_utxo_coin_table() -> Result<(), r2d2_postgres::postgres::Error> {
     let query = format!(
-            "CREATE TABLE IF NOT EXISTS public.utxo_coin_logs (
-                    utxo BYTEA PRIMARY KEY,
-                    output BYTEA,
-                    owner_address BYTEA,
-                    txid CHAR(64),
-                    vout BIGINT,
-                    block_height BIGINT
-                );"
+        "CREATE TABLE IF NOT EXISTS public.utxo_coin_logs (
+            utxo BYTEA PRIMARY KEY,
+            output BYTEA,
+            owner_address BYTEA,
+            txid CHAR(64),
+            vout BIGINT,
+            block_height BIGINT
+          );"
     );
 
-    let mut client = POSTGRESQL_POOL_CONNECTION.get()?;
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
 
-    client.execute(&query, &[])?;
-    Ok(())
+    match client.execute(&query, &[]) {
+        Ok(_) => Ok(()),
+        Err(arg) => Err(arg),
+    }
 }
-fn create_utxo_memo_table() -> Result<(), UtxosetError> {
+fn create_utxo_memo_table() -> Result<(), r2d2_postgres::postgres::Error> {
     let query = format!(
         "CREATE TABLE IF NOT EXISTS public.utxo_memo_logs (
             utxo BYTEA PRIMARY KEY,
@@ -65,12 +72,14 @@ fn create_utxo_memo_table() -> Result<(), UtxosetError> {
           );"
     );
 
-    let mut client = POSTGRESQL_POOL_CONNECTION.get()?;
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
 
-    client.execute(&query, &[])?;
-    Ok(())
+    match client.execute(&query, &[]) {
+        Ok(_) => Ok(()),
+        Err(arg) => Err(arg),
+    }
 }
-fn create_utxo_state_table() -> Result<(), UtxosetError> {
+fn create_utxo_state_table() -> Result<(), r2d2_postgres::postgres::Error> {
     let query = format!(
         "CREATE TABLE IF NOT EXISTS public.utxo_state_logs (
             utxo BYTEA PRIMARY KEY,
@@ -83,23 +92,10 @@ fn create_utxo_state_table() -> Result<(), UtxosetError> {
           );"
     );
 
-    let mut client = POSTGRESQL_POOL_CONNECTION.get()?;
+    let mut client = POSTGRESQL_POOL_CONNECTION.get().unwrap();
 
-    client.execute(&query, &[])?;
-    Ok(())
-
-}
-
-
-// // ------------------------------------------------------------------------
-// // Tests
-// // ------------------------------------------------------------------------
-#[cfg(test)]
-mod test {
-    use super::*;
-    // cargo test -- --nocapture --test create_psql_table_test --test-threads 1
-    #[test]
-    fn create_psql_table_test() {
-        init_psql();
+    match client.execute(&query, &[]) {
+        Ok(_) => Ok(()),
+        Err(arg) => Err(arg),
     }
 }

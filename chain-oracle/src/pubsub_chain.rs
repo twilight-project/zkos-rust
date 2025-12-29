@@ -1,3 +1,20 @@
+//! Block subscription and chain event utilities.
+//!
+//! This module provides functions and statics for subscribing to new blocks from a Cosmos-based
+//! blockchain, as well as utilities for making HTTP requests to the chain's REST API.
+//!
+//! # Features
+//! - Block subscription with threaded processing
+//! - Configurable endpoint via environment variable
+//! - Utilities for requesting data from the chain
+//!
+//! # Example
+//! ```
+//! use chain_oracle::pubsub_chain::subscribe_block;
+//! let (receiver, handle) = subscribe_block(false);
+//! ```
+
+use lazy_static::lazy_static;
 use std::{
     sync::{mpsc, Arc, Mutex},
     thread, time,
@@ -5,14 +22,28 @@ use std::{
 // #[macro_use]
 // extern crate lazy_static;
 lazy_static! {
+    /// Global thread pool for block serialization tasks.
     pub static ref BLOCK_SERIALIZER_THREADPOOL: Arc<Mutex<ThreadPool>> = Arc::new(Mutex::new(
         ThreadPool::new(1, String::from("BLOCK_SERIALIZER_THREADPOOL Threadpool"))
     ));
-    pub static ref NYKS_BLOCK_SUBSCRIBER_URL: String = std::env::var("NYKS_BLOCK_SUBSCRIBER_URL")
-    .unwrap_or("http://localhost:1317/".to_string());
+    /// The URL of the Cosmos chain RPC endpoint, set via the `NYKS_BLOCK_SUBSCRIBER_URL` environment variable.
+    /// Defaults to `http://localhost:1317/` if not set.
+    pub static ref NYKS_BLOCK_SUBSCRIBER_URL: String =
+        std::env::var("NYKS_BLOCK_SUBSCRIBER_URL").unwrap_or("http://localhost:1317/".to_string());
 }
 use crate::{block_types::Block, BlockRaw, ThreadPool};
 
+/// Subscribes to new blocks from the Cosmos chain.
+///
+/// Spawns a background thread that fetches and processes new blocks, sending them through a channel.
+///
+/// # Arguments
+/// * `empty_block` - If true, includes empty blocks in the subscription.
+///
+/// # Returns
+/// A tuple containing:
+/// - An `Arc<Mutex<mpsc::Receiver<Block>>>` for receiving new blocks.
+/// - A `JoinHandle` for the background thread.
 pub fn subscribe_block(
     empty_block: bool,
 ) -> (Arc<Mutex<mpsc::Receiver<Block>>>, thread::JoinHandle<()>) {
@@ -23,7 +54,7 @@ pub fn subscribe_block(
         ::new()
         .name("subsciber_thread".to_string())
         .spawn(move || {
-            let  block_ser_threadpool = BLOCK_SERIALIZER_THREADPOOL.lock().unwrap();
+            let block_ser_threadpool = BLOCK_SERIALIZER_THREADPOOL.lock().unwrap();
             let mut latest_height = match BlockRaw::get_latest_block_height() {
                 Ok(height) => height,
                 Err(arg) => {
@@ -41,16 +72,15 @@ pub fn subscribe_block(
                     match block_raw_result {
                         Ok(block_raw) => {
                             block_ser_threadpool.execute(move || {
-                            let block = Block::new(block_raw);
-                            if block.transactions.len() > 0 || empty_block {
-                                sender1.clone().send(block).unwrap();
-                            }
-                        });
+                                let block = Block::new(block_raw);
+                                if !block.transactions.is_empty() || empty_block {
+                                    sender1.clone().send(block).unwrap();
+                                }
+                            });
                             block_height += 1;
-                            // Block::write_local_block_height(block_height);
                         }
                         Err(arg) => {
-                            if arg == "3".to_string() {
+                            if arg.as_str() == "3"{
                                 println!("block fetching at block height :{}, return code=3, fetching next block", block_height);
                                 block_height += 1;
                             } else {
@@ -69,7 +99,6 @@ pub fn subscribe_block(
                             }
                         }
                     }
-                
                 }
                 let mut height_attempt = 0;
                 while latest_height < block_height {
@@ -78,11 +107,11 @@ pub fn subscribe_block(
                         Ok(height) => height,
                         Err(arg) => {
                             height_attempt += 1;
-                            if height_attempt == 5 {
+                            if height_attempt == 10 {
                                 println!("Cannot get latest height \nError: {:?}\n", arg);
                             }
                             thread::sleep(time::Duration::from_millis(500));
-                            0
+                            1
                         }
                     };
                     if height_attempt == 10 {
@@ -95,31 +124,32 @@ pub fn subscribe_block(
         })
         .unwrap();
 
-    return (Arc::clone(&receiver_mutex), subsciber_thread);
+    (Arc::clone(&receiver_mutex), subsciber_thread)
 }
 
+/// Makes a blocking HTTP GET request to the given URL.
+///
+/// # Arguments
+/// * `url` - The URL to request.
+///
+/// # Returns
+/// - `Ok(String)` with the response body if successful.
+/// - `Err(String)` with an error message if the request fails
 pub fn request_url(url: &str) -> Result<String, String> {
     let client = reqwest::blocking::Client::new();
     match client.get(url).send() {
         Ok(res) => match res.text() {
             Ok(text) => Ok(text),
-            Err(arg) => {
-                return Err(arg.to_string());
-            }
+            Err(arg) => Err(arg.to_string()),
         },
-        Err(arg) => {
-            return Err(arg.to_string());
-        }
+        Err(arg) => Err(arg.to_string()),
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
+    use super::*;
     use crate::{block_types::Block, BlockRaw};
-
-    use super::subscribe_block;
 
     #[test]
     fn get_latest_block_test() {

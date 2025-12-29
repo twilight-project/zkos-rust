@@ -1,5 +1,13 @@
+//! Utility functions for JSON-RPC client implementation.
+//!
+//! This module provides helper functions for generating UUIDs and other
+//! common utilities used in the JSON-RPC client implementation.
+//!
+//! ## Functions
+//!
+//! - `uuid_str`: Generate a random UUID string
+//!
 use getrandom::getrandom;
-use uuid::Uuid;
 
 // use crate::prelude::*;
 

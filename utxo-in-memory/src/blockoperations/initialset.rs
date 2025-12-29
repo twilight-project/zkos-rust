@@ -1,8 +1,18 @@
+//! Genesis set management module for loading and creating initial UTXO sets.
+//!
+//! This module handles the loading of genesis UTXO sets from files and provides
+//! functionality to create new genesis blocks for testing and initialization.
+
 use curve25519_dalek::scalar::Scalar;
 use quisquislib::accounts::Account;
 use std::fs;
 use std::io::prelude::*;
 use transaction::reference_tx::RecordUtxo;
+
+/// Loads genesis UTXO set from the main genesis file
+///
+/// # Returns
+/// Vector of RecordUtxo containing the genesis UTXO set
 pub fn load_genesis_sets() -> Vec<RecordUtxo> {
     let read_data = fs::read("../utxo-in-memory\\src\\blockoperations\\genesis_sets.txt");
     let mut record_utxo: Vec<RecordUtxo> = Vec::new();
@@ -16,6 +26,11 @@ pub fn load_genesis_sets() -> Vec<RecordUtxo> {
     }
     record_utxo
 }
+
+/// Loads test genesis UTXO set from the test genesis file
+///
+/// # Returns
+/// Vector of RecordUtxo containing the test genesis UTXO set
 pub fn load_genesis_sets_test() -> Vec<RecordUtxo> {
     let read_data =
         fs::read("../utxo-in-memory\\src\\blockoperations\\test\\genesis_sets_test.txt");
@@ -31,27 +46,11 @@ pub fn load_genesis_sets_test() -> Vec<RecordUtxo> {
     record_utxo
 }
 
-// in future get the geensis block data from the chain
-// let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
-// let recordutxo = transaction::reference_tx::create_genesis_block(10000, 100, acc);
-// let mut file = std::fs::File::create("../utxo-in-memory\\src\\blockoperations\\genesis_sets.txt").unwrap();
-// file.write_all(&serde_json::to_vec_pretty(&recordutxo.clone()).unwrap())
-//     .unwrap();
-//written insite utxostore
-// pub fn init_utxo() {
-//     let mut utxo_storage = UTXO_STORAGE.lock().unwrap();
-//     utxo_storage.load_from_snapshot();
-//     //load data from intial block from chain
-//     if utxo_storage.block_height == 0 {
-//         let recordutxo = crate::blockoperations::load_genesis_sets();
-//         let add_utxo = UTXO::get_utxo_from_record_utxo_output(recordutxo);
-//         for utxo in add_utxo {
-//             let _ = utxo_storage.add(utxo.key, utxo.value, utxo.input_type);
-//         }
-//         utxo_storage.block_height = 1;
-//     }
-// }
-
+/// Creates and saves a new genesis block with random account and UTXOs
+///
+/// This function generates a random account with 20 units of value and creates
+/// a genesis block with 10000 UTXOs, 100 of which are script UTXOs. The result
+/// is serialized and saved to the genesis_sets.txt file.
 pub fn set_genesis_sets() {
     let (acc, prv) = Account::generate_random_account_with_value(Scalar::from(20u64));
     let recordutxo = transaction::reference_tx::create_genesis_block(10000, 100, acc);

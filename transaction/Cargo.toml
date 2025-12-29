@@ -1,15 +1,19 @@
 [package]
 name = "transaction"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-license = "Apache-2.0"
-#repository = ""
+repository = "https://github.com/twilight-project/zkos-rust"
 categories = ["cryptography", "blockchain"]
-keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs"]
-description = "A blockchain VM with QuisQuis transactions and zero-knowledge smart contracts"
+keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs", "confidential", "privacy"]
+description ="Confidential transaction system with zero-knowledge proofs for the ZkOS workspace"
+readme = "README.md"
+rust-version = "1.70"
+publish = false
+# documentation = "https://docs.rs/"
+# license, repository, authors inherited from [workspace.package]
 
 [dependencies]
-thiserror = "1.0.57"
+thiserror = "1"
 byteorder = "1"
 rand = "0.7"
 subtle = "2"
@@ -25,14 +29,13 @@ serde_bytes = "0.11.9"
 bincode = "1.3.3"
 
 [dependencies.quisquis-rust]
-#path = "../../quisquis-rust"
 git = "https://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+tag = "Testnet-v1.0.0"
 
 
 [dependencies.zkschnorr]
 git = "https://github.com/twilight-project/zk-schnorr.git"
-#path = "../../ZkSchnorr"
+tag = "Testnet-v1.0.1"
 
 
 [dependencies.address]

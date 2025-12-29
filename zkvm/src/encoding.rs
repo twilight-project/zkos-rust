@@ -85,7 +85,7 @@ pub trait WriterExt: Writer {
 
     /// Writes an Address of account
     fn write_address(&mut self, label: &'static [u8], x: &String) -> Result<(), WriteError> {
-        self.write(label, &x.as_bytes()[..])
+        self.write(label, x.as_bytes())
     }
 }
 

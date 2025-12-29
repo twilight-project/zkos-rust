@@ -1,13 +1,3 @@
-// -*- mode: rust; -*-
-//
-// This file is part of ZkOS.
-//
-// See LICENSE for licensing information.
-//
-// Authors:
-//
-//
-
 //! Various constants, such as the gas per byte and maximum number of inputs/outputs.
 //!
 //! Most of the constants are given with

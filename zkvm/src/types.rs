@@ -15,31 +15,6 @@ use crate::scalar_witness::ScalarWitness;
 use crate::transcript::TranscriptProtocol;
 use crate::zkos_types::OutputCoin;
 
-
-/// Transaction ID is a unique 32-byte identifier of a transaction effects represented by `TxLog`.
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct TxID(pub Hash);
-
-
-impl AsRef<[u8]> for TxID {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl core::ops::Deref for TxID {
-    type Target = [u8];
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl core::ops::DerefMut for TxID {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 /// An item on a VM stack.
 #[derive(Debug)]
 pub enum Item {
@@ -332,7 +307,7 @@ impl String {
     /// Downcast the data item to an `Contract` type.
     pub fn to_output(self) -> Result<Contract, VMError> {
         match self {
-            String::Opaque(data) => Ok((&data[..]).read_all(|r| Contract::decode(r))?),
+            String::Opaque(data) => Ok((&data[..]).read_all(Contract::decode)?),
             String::Output(i) => Ok(*i),
             _ => Err(VMError::TypeNotOutput),
         }

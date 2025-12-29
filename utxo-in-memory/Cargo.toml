@@ -1,9 +1,18 @@
 [package]
 name = "utxo-in-memory"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+eadme = "README.md"
+repository = "https://github.com/twilight-project/zkos-rust"
+categories = ["cryptography", "blockchain"]
+keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs","vm", "smart-contracts"]
+description = "UTXO State management system with in-memory storage ans psql persisitence"
+publish = false
+rust-version = "1.70"
+# documentation = "https://docs.rs/"
+# license, repository, authors inherited from [workspace.package]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 # [[bin]]
 # name = "api_server"
 [dependencies]
@@ -44,13 +53,11 @@ r2d2_postgres = "0.18.1"
 temp-env = "0.3.4"
 prometheus = "0.12"
 serde_ini = "0.2"
-thiserror = "1.0.57"
 
 
 [dependencies.quisquis-rust]
-#path = "../../quisquis-rust"
 git = "https://github.com/twilight-project/quisquis-rust.git"
-branch = "develop"
+tag = "Testnet-v1.0.1"
 
 [dependencies.transaction]
 path = "../transaction"
