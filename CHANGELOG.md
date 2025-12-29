@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 - No pending changes.
 
+## [0.1.1] – 2025-12-29
+### Maintenance
+- Updated internal dependency `quisquis-rust` to tag `Testnet-v1.0.1` in workspace crates (`address`, `transaction`, `transactionapi`, `zkvm`, `utxo-in-memory`).
+- No public API or functional behavior changes are expected from this update.
+- This release is a routine dependency maintenance update to keep the cryptographic stack in sync.
+
 ## [0.1.0] – 2025-07-15
 
 ### Security Warning ⚠️

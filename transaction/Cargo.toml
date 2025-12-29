@@ -1,6 +1,6 @@
 [package]
 name = "transaction"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 repository = "https://github.com/twilight-project/zkos-rust"
 categories = ["cryptography", "blockchain"]
@@ -35,7 +35,7 @@ tag = "Testnet-v1.0.0"
 
 [dependencies.zkschnorr]
 git = "https://github.com/twilight-project/zk-schnorr.git"
-tag = "Testnet-v1.0.0"
+tag = "Testnet-v1.0.1"
 
 
 [dependencies.address]

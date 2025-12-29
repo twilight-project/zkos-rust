@@ -1,6 +1,6 @@
 [package]
 name = "zkvm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/twilight-project/zkos-rust"
@@ -56,7 +56,7 @@ features = ["yoloproofs"]
 
 [dependencies.quisquis-rust]
 git = "https://github.com/twilight-project/quisquis-rust.git"
-tag = "Testnet-v1.0.0"
+tag = "Testnet-v1.0.1"
 
 [features]
 default = []

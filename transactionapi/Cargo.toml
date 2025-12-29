@@ -1,6 +1,6 @@
 [package]
 name = "transactionapi"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 readme = "README.md"
 description = "ZkOS Transaction API for blockchain interaction and UTXO management"
@@ -52,7 +52,7 @@ nyks-wallet = { git = "https://github.com/twilight-project/nyks-wallet", tag = "
 
 [dependencies.quisquis-rust]
 git = "https://github.com/twilight-project/quisquis-rust.git"
-tag = "Testnet-v1.0.0"
+tag = "Testnet-v1.0.1"
 
 
 [dependencies.transaction]

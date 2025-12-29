@@ -1,6 +1,6 @@
 [package]
 name = "address"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A Rust crate for creating, parsing, and validating ZkOS addresses with support for standard and script address types."
 repository = "https://github.com/twilight-project/zkos-rust"
@@ -23,7 +23,7 @@ ripemd = "0.1.3"
 
 [dependencies.quisquis-rust]
 git = "https://github.com/twilight-project/quisquis-rust.git"
-tag = "Testnet-v1.0.0"
+tag = "Testnet-v1.0.1"
 
 [features]
 default = []
