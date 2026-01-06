@@ -56,7 +56,7 @@ pub mod rpcclient;
 pub mod rpcserver;
 #[macro_use]
 extern crate lazy_static;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// Transaction status identifier for querying transaction state
 ///

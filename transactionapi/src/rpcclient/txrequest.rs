@@ -3,7 +3,7 @@ use super::method::Method;
 // use curve25519_dalek::digest::Output;
 use jsonrpc_core::response::Output;
 use jsonrpc_core::Version;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use utxo_in_memory::pgsql::QueryUtxoFromDB;
 // use super::method::Method;
 use reqwest::blocking::Response;

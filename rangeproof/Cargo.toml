@@ -1,31 +1,28 @@
 [package]
 name = "rangeproof"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "Programmable range proof construction using Bulletproofs R1CS framework."
-repository = "https://github.com/twilight-project/zkos-rust"
+repository.workspace = true
 keywords = ["cryptography", "crypto", "bulletproof", "spacesuit", "cloak"]
 categories = ["cryptography"]
 publish = false
-rust-version = "1.70"
+
 # documentation = "https://docs.rs/"
 # license, repository, authors inherited from [workspace.package]
 [dependencies]
-thiserror = "1"
-merlin = "2"
-rand = "0.7"
-subtle = "2"
-curve25519-dalek = { version = "3", features = ["serde"] }
-serde = { version = "1.0", features=["derive"] }
-
-[dependencies.bulletproofs]
-git = "https://github.com/dalek-cryptography/bulletproofs"
-branch = "develop"
-features = ["yoloproofs"]
+thiserror.workspace = true
+merlin.workspace = true
+rand.workspace = true
+subtle.workspace = true
+curve25519-dalek.workspace = true
+serde.workspace = true
+bulletproofs.workspace = true
 
 [features]
 default = []
-nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc", "subtle/nightly", "bulletproofs/nightly"]
+nightly = ["curve25519-dalek/alloc", "subtle/nightly", "bulletproofs/nightly"]
 
 [dev-dependencies]
 criterion = "0.2"

@@ -1,29 +1,30 @@
 [package]
 name = "mulmsgsig"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "Multi-message multi-signature scheme for Ristretto255 with batch verification support."
-repository = "https://github.com/twilight-project/zkos-rust"
+repository.workspace = true
 keywords = ["cryptography", "crypto", "signatures", "schnorr", "multi-message", "verification"]
 categories = ["cryptography"]
 publish = false
-rust-version = "1.70"
+
 # documentation = "https://docs.rs/merkle"
 # license, repository, authors inherited from [workspace.package]
 
 [dependencies]
-thiserror = "1"
-merlin = "2"
-rand = "0.7"
-subtle = "2"
-curve25519-dalek = { version = "3", features = ["serde"] }
-serde = { version = "1.0", features=["derive"] }
+thiserror.workspace = true
+merlin.workspace = true
+rand.workspace = true
+subtle.workspace = true
+curve25519-dalek.workspace = true
+serde.workspace = true
 
 [dependencies.starsig]
 path = "../starsig"
 
 [features]
 default = []
-nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc", "subtle/nightly"]
+nightly = ["curve25519-dalek/alloc", "subtle/nightly"]
 
 

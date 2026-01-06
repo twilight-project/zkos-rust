@@ -19,7 +19,7 @@ use hex;
 use quisquislib::elgamal::elgamal::ElGamalCommitment;
 use rand::Rng;
 use serde::de::{self, Deserializer, Visitor};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_ini;
 use std::fmt;
 use std::fs;

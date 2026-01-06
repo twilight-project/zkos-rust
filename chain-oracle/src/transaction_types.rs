@@ -2,8 +2,7 @@
 //!
 //! This module provides Rust structs for deserializing transaction data from
 //! Cosmos-based blockchains, as well as helpers for extracting and working with this data.
-use serde_derive::Deserialize;
-use serde_derive::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::block_types::BlockError;

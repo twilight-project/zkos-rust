@@ -3,8 +3,7 @@
 //! This module provides Rust structs for deserializing block and transaction data from
 //! Cosmos-based blockchains, as well as helpers for extracting and working with this data.
 use base64::prelude::*;
-use serde_derive::Deserialize;
-use serde_derive::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 lazy_static! {

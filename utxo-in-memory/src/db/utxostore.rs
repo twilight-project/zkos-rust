@@ -12,7 +12,7 @@ use crate::ADDRESS_TO_UTXO;
 pub type KeyId = Vec<u8>;
 pub type InputType = usize;
 use crate::ThreadPool;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::SystemTime;
 use zkvm::IOType;

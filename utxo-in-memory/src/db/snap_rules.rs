@@ -4,7 +4,7 @@
 //! including file paths, block height thresholds, and timing thresholds.
 
 use crate::db::SequenceNumber;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Configuration rules for snapshot creation and management

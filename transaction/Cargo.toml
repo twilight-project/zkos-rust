@@ -1,42 +1,42 @@
 [package]
 name = "transaction"
-version = "0.1.1"
-edition = "2021"
-repository = "https://github.com/twilight-project/zkos-rust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description ="Confidential transaction system with zero-knowledge proofs for the ZkOS workspace"
+repository.workspace = true
+readme = "README.md"
 categories = ["cryptography", "blockchain"]
 keywords = ["cryptography", "blockchain", "zero-knowledge", "bulletproofs", "confidential", "privacy"]
-description ="Confidential transaction system with zero-knowledge proofs for the ZkOS workspace"
-readme = "README.md"
-rust-version = "1.70"
+
 publish = false
-# documentation = "https://docs.rs/"
+# documentation = "https://docs.rs/transaction"
 # license, repository, authors inherited from [workspace.package]
 
 [dependencies]
-thiserror = "1"
-byteorder = "1"
-rand = "0.7"
-subtle = "2"
-curve25519-dalek = { version = "3", features = ["serde"] }
-serde = { version = "1.0", features=["derive"] }
-subtle-encoding = "0.5.1"
-hex = "^0.3"
-merlin = "2"
-sha3 = "0.9.1"
-bs58 = "0.4.0"
-ripemd = "0.1.3"
-serde_bytes = "0.11.9"
-bincode = "1.3.3"
+thiserror.workspace = true
+byteorder.workspace = true
+rand.workspace = true
+subtle.workspace = true
+curve25519-dalek.workspace = true
+serde.workspace = true
+subtle-encoding.workspace = true
+hex.workspace = true
+merlin.workspace = true
+sha3.workspace = true
+bs58.workspace = true
+ripemd.workspace = true
+serde_bytes.workspace = true
+bincode.workspace = true
 
 [dependencies.quisquis-rust]
-git = "https://github.com/twilight-project/quisquis-rust.git"
-tag = "Testnet-v1.0.1"
+workspace = true
 
+[dependencies.bulletproofs]
+workspace = true
 
 [dependencies.zkschnorr]
-git = "https://github.com/twilight-project/zk-schnorr.git"
-tag = "Testnet-v1.0.0"
-
+workspace = true
 
 [dependencies.address]
 path = "../address"
@@ -49,19 +49,14 @@ path = "../readerwriter"
 features = ["merlin"]
 
 
-[dependencies.bulletproofs]
-git = "https://github.com/dalek-cryptography/bulletproofs"
-branch = "develop"
-features = ["yoloproofs"]
-
 [features]
 default = []
-nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
+nightly = ["curve25519-dalek/alloc"]
 debug_print = []  # Define a custom feature for enabling debug prints
 
 [dev-dependencies]
 criterion = "0.2"
-serde_json = "1.0"
+serde_json.workspace = true
 
 
 

@@ -1,27 +1,28 @@
 [package]
 name = "starsig"
-version = "0.2.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "A pure-Rust implementation of Schnorr signatures using Ristretto"
-repository = "https://github.com/twilight-project/zkos-rust"
+repository.workspace = true
 readme = "README.md"
 categories = ["cryptography"]
 keywords = ["cryptography", "crypto", "signatures", "schnorr", "batch"]
 publish = false
-rust-version = "1.70"
+
 # documentation = "https://docs.rs/"
 # license, repository, authors inherited from [workspace.package]
 
 
 [dependencies]
-thiserror = "1"
-merlin = "2"
-rand_core = { version = "0.5", default-features = false }
-rand = "0.7"
-curve25519-dalek = { version = "3", features = ["serde"] }
-serde = { version = "1.0", features=["derive"] }
-hex = "^0.4"
+thiserror.workspace = true
+merlin.workspace = true
+rand_core.workspace = true
+rand.workspace = true
+curve25519-dalek.workspace = true
+serde.workspace = true
+hex.workspace = true
 
 [features]
 default = []
-nightly = ["curve25519-dalek/nightly", "curve25519-dalek/alloc"]
+nightly = ["curve25519-dalek/alloc"]

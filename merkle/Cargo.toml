@@ -1,14 +1,15 @@
 [package]
 name = "merkle"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "Efficient, generic Merkle tree utilities for cryptographic applications."
-repository = "https://github.com/twilight-project/zkos-rust"
+repository.workspace = true
 readme = "README.md"
 keywords = ["merkle", "tree", "cryptography", "hash", "proof"]
 categories = ["cryptography", "data-structures"]
 publish = false
-rust-version = "1.70"
+
 # documentation = "https://docs.rs/merkle"
 # license, repository, authors inherited from [workspace.package]
 
@@ -17,10 +18,10 @@ default = ["serde"]
 serde = ["dep:serde"]
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"], optional = true }
-merlin = "2"
-hex = "0.4"
-subtle = "2"
+serde = { workspace = true, optional = true }
+merlin.workspace = true
+hex.workspace = true
+subtle.workspace = true
 readerwriter = { path = "../readerwriter" }
 address = { path = "../address" }
 

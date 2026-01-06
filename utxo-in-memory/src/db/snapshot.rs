@@ -8,7 +8,7 @@
 use super::snap_rules::SnapRules;
 use crate::db::SequenceNumber;
 use rusty_leveldb::{CompressionType, Options, DB};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 /// Snapshot metadata containing storage state information
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

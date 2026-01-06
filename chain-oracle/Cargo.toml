@@ -1,28 +1,34 @@
 [package]
 name = "chain-oracle"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "A Rust library for connecting to a Cosmos-based blockchain, retrieving, parsing, and analyzing blocks and transactions—designed for integration with ZkOS and related systems."
-repository = "https://github.com/twilight-project/zkos-rust"
+repository.workspace = true
+
 readme = "README.md"
 keywords = ["cosmos", "blockchain", "oracle", "indexer", "zkvm"]
 categories = ["cryptography", "blockchain", "data-structures"]
+
+publish = false
+# documentation = "https://docs.rs/nyks-chain-oracle"
+# license, repository, authors inherited from [workspace.package]
 
 [lib]
 name = "chain_oracle"
 path = "src/lib.rs"
 
 [dependencies]
-serde = "1.0.131"
-serde_derive = "1.0.131"
-serde_json = "1.0.68"
+serde.workspace = true  
+serde_json.workspace = true
+hex.workspace = true
+bincode.workspace = true
+sha3.workspace = true
+sha2.workspace = true
+
 serde_with = { version = "1.4.0", features = ["json"] }
-bincode = "1.3.3"
-hex = "0.4.3"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 base64 = "0.22.0"
-sha3 = "0.9.1"
-sha2 = "0.10.7"
 stopwatch = "0.0.7"
 lazy_static = "1.4.0"
 dotenv = "0.15.0"
