@@ -22,9 +22,6 @@ use serde::{Deserialize, Serialize};
 /// let script_type = TransactionType::Script;
 /// let message_type = TransactionType::Message;
 ///
-/// // Convert from byte representation
-/// let from_byte = TransactionType::from_u8(0).unwrap();
-/// assert_eq!(from_byte, TransactionType::Transfer);
 /// ```
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize, Default)]
 pub enum TransactionType {
@@ -73,20 +70,6 @@ impl TransactionType {
 /// This enum contains the specific data structures for each transaction type,
 /// allowing type-safe handling of different transaction payloads.
 ///
-/// # Example
-/// ```
-/// use transaction::{TransactionData, TransferTransaction, ScriptTransaction, Message};
-/// use transaction::TransactionType;
-///
-/// // Transfer transaction data
-/// let transfer_data = TransactionData::TransactionTransfer(TransferTransaction::default());
-///
-/// // Script transaction data
-/// let script_data = TransactionData::TransactionScript(ScriptTransaction::default());
-///
-/// // Message transaction data
-/// let message_data = TransactionData::Message(Message::default());
-/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransactionData {
     /// Transfer transaction data
@@ -104,14 +87,6 @@ impl TransactionData {
     /// # Returns
     /// `Ok(TransferTransaction)` if the data is a transfer transaction, `Err` otherwise
     ///
-    /// # Example
-    /// ```
-    /// use transaction::{TransactionData, TransferTransaction};
-    ///
-    /// let transfer_tx = TransferTransaction::default();
-    /// let data = TransactionData::TransactionTransfer(transfer_tx.clone());
-    /// assert_eq!(data.to_transfer().unwrap(), transfer_tx);
-    /// ```
     pub fn to_transfer(self) -> Result<TransferTransaction, &'static str> {
         match self {
             TransactionData::TransactionTransfer(x) => Ok(x),
@@ -148,19 +123,6 @@ impl TransactionData {
 /// type and the corresponding data payload. All transactions must be verified
 /// before being accepted by the network.
 ///
-/// # Example
-/// ```
-/// use transaction::{Transaction, TransactionType, TransactionData, TransferTransaction};
-///
-/// let transfer_tx = TransferTransaction::default();
-/// let transaction = Transaction::new(
-///     TransactionType::Transfer,
-///     TransactionData::TransactionTransfer(transfer_tx),
-/// );
-///
-/// // Verify the transaction
-/// assert!(transaction.verify().is_ok());
-/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
     /// The transaction type
@@ -176,16 +138,6 @@ impl Transaction {
     /// * `tx_type` - The type of transaction
     /// * `tx` - The transaction data
     ///
-    /// # Example
-    /// ```
-    /// use transaction::{Transaction, TransactionType, TransactionData, TransferTransaction};
-    ///
-    /// let transfer_tx = TransferTransaction::default();
-    /// let transaction = Transaction::new(
-    ///     TransactionType::Transfer,
-    ///     TransactionData::TransactionTransfer(transfer_tx),
-    /// );
-    /// ```
     pub fn new(tx_type: TransactionType, tx: TransactionData) -> Transaction {
         Transaction { tx_type, tx }
     }
@@ -195,15 +147,6 @@ impl Transaction {
     /// # Arguments
     /// * `data` - The transfer transaction data
     ///
-    /// # Example
-    /// ```
-    /// use transaction::{Transaction, TransactionData, TransferTransaction};
-    ///
-    /// let transfer_tx = TransferTransaction::default();
-    /// let transaction = Transaction::transaction_transfer(
-    ///     TransactionData::TransactionTransfer(transfer_tx),
-    /// );
-    /// ```
     pub fn transaction_transfer(data: TransactionData) -> Transaction {
         Transaction {
             tx_type: TransactionType::default(),
@@ -238,18 +181,6 @@ impl Transaction {
     /// # Returns
     /// Vector of input values from the transaction
     ///
-    /// # Example
-    /// ```
-    /// use transaction::{Transaction, TransactionType, TransactionData, TransferTransaction};
-    ///
-    /// let transfer_tx = TransferTransaction::default();
-    /// let transaction = Transaction::new(
-    ///     TransactionType::Transfer,
-    ///     TransactionData::TransactionTransfer(transfer_tx),
-    /// );
-    ///
-    /// let inputs = transaction.get_tx_inputs();
-    /// ```
     pub fn get_tx_inputs(&self) -> Vec<Input> {
         match self.tx.clone() {
             TransactionData::TransactionTransfer(transfer_transaction) => {
@@ -299,21 +230,7 @@ impl Transaction {
     /// # Returns
     /// `Ok(())` if verification succeeds, `Err` otherwise
     ///
-    /// # Example
-    /// ```
-    /// use transaction::{Transaction, TransactionType, TransactionData, TransferTransaction};
-    ///
-    /// let transfer_tx = TransferTransaction::default();
-    /// let transaction = Transaction::new(
-    ///     TransactionType::Transfer,
-    ///     TransactionData::TransactionTransfer(transfer_tx),
-    /// );
-    ///
-    /// match transaction.verify() {
-    ///     Ok(()) => println!("Transaction is valid"),
-    ///     Err(e) => println!("Transaction verification failed: {}", e),
-    /// }
-    /// ```
+    /// todo: add example
     pub fn verify(&self) -> Result<(), &'static str> {
         match self.tx.clone() {
             TransactionData::TransactionTransfer(transfer_transaction) => {

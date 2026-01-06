@@ -122,7 +122,7 @@ impl From<u64> for SignedInteger {
 impl From<SignedInteger> for Scalar {
     fn from(val: SignedInteger) -> Self {
         if val.0 < 0 {
-            Scalar::zero() - Scalar::from((-val.0) as u64)
+            Scalar::ZERO - Scalar::from((-val.0) as u64)
         } else {
             Scalar::from(val.0 as u64)
         }

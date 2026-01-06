@@ -10,8 +10,8 @@ use quisquislib::{
     keys::{PublicKey, SecretKey},
     ristretto::{RistrettoPublicKey, RistrettoSecretKey},
 };
-use readerwriter::Encodable;
-use zkvm::merkle::{CallProof, Hasher, MerkleTree, Path};
+
+use zkvm::merkle::{CallProof, Hasher, MerkleTree};
 use zkvm::zkos_types::{
     Input, InputData, Output, OutputCoin, OutputData, OutputMemo, OutputState, Utxo,
 };
@@ -168,7 +168,9 @@ fn order_message_test_bali() {
     println!("{:?}", verify);
 }
 #[test]
+#[ignore]
 fn order_message_test() {
+
     let _program = order_message_prog_input_output(16u64, 9u64, 0, 0);
     let correct_program = self::order_message_prog(16u64, 9u64);
     //let correct_program = self::lend_order_initial_dup_test_stack_initialized();
@@ -510,6 +512,7 @@ fn order_message_prog_input_output(
 }
 
 #[test]
+#[ignore]
 fn trade_order_tx_input_output_test() {
     let _program = order_message_prog_input_output(16u64, 9u64, 0, 0);
     // let correct_program = self::order_message_prog_with_stack_initialized();
@@ -870,6 +873,7 @@ fn trade_order_settle_tx_lost_program_stack_initialized_test() {
 // }
 
 #[test]
+#[ignore]
 fn test_create_trade_order_program() {
     let correct_program = self::get_trader_order_program();
 

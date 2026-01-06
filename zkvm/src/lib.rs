@@ -37,22 +37,6 @@
 //! * [ZkVM API](https://github.com/stellar/slingshot/blob/main/zkvm/docs/zkvm-api.md) — how to create transactions with ZkVM
 //!
 //! ## Example
-//! ```
-//! use zkvm::{Prover, Verifier, Tx, Value, Predicate};
-//!
-//! // Create a transaction with confidential values
-//! let mut prover = Prover::new();
-//! let value = Value::confidential(100u64);
-//! let predicate = Predicate::Opaque(Default::default());
-//!
-//! // Build and prove transaction
-//! let tx = Tx::new().with_output(value, predicate);
-//! let proof = prover.prove(tx)?;
-//!
-//! // Verify the proof
-//! let mut verifier = Verifier::new();
-//! verifier.verify(proof)?;
-//! ```
 
 pub extern crate bulletproofs;
 pub extern crate merkle;

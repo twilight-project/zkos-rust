@@ -427,8 +427,8 @@ mod tests {
                 version: 0,
             }),
             TxEntry::Issue(
-                CompressedRistretto::from_slice(&[0u8; 32]),
-                CompressedRistretto::from_slice(&[1u8; 32]),
+                CompressedRistretto::from_slice(&[0u8; 32]).unwrap(),
+                CompressedRistretto::from_slice(&[1u8; 32]).unwrap(),
             ),
             TxEntry::Data(vec![0u8]),
             TxEntry::Data(vec![1u8]),

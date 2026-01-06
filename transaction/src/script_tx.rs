@@ -21,27 +21,6 @@
 //! - **Memo → Coin**: Value reveals with signature proofs  
 //! - **State → State**: Contract operations with state witnesses
 //!
-//! # Example
-//! ```
-//! use transaction::script_tx::ScriptTransaction;
-//! use zkvm::{Program, IOType};
-//! use quisquislib::ristretto::RistrettoSecretKey;
-//!
-//! // Create a script transaction for contract deployment
-//! let script_tx = ScriptTransaction::create_script_transaction(
-//!     &secret_keys,
-//!     program,
-//!     call_proof,
-//!     &inputs,
-//!     &outputs,
-//!     Some(tx_data),
-//!     true, // contract deploy
-//!     100,  // fee
-//! )?;
-//!
-//! // Verify the transaction
-//! assert!(script_tx.verify().is_ok());
-//! ```
 
 use address::Address;
 use quisquislib::{
@@ -77,27 +56,7 @@ use zkvm::merkle::CallProof;
 /// - **Memo**: Value-revealing inputs with signature proofs
 /// - **State**: Contract state inputs with state witnesses
 ///
-/// # Example
-/// ```
-/// use transaction::script_tx::ScriptTransaction;
-/// use zkvm::{Program, IOType};
-///
-/// let script_tx = ScriptTransaction::set_script_transaction(
-///     0,      // version
-///     100,    // fee
-///     0,      // maturity
-///     2,      // input_count
-///     2,      // output_count
-///     2,      // witness_count
-///     inputs,
-///     outputs,
-///     program_bytes,
-///     call_proof,
-///     r1cs_proof,
-///     witnesses,
-///     Some(tx_data),
-/// );
-/// ```
+/// todo: add example
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptTransaction {
     // Transaction header

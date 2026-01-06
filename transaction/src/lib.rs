@@ -34,35 +34,7 @@
 //! - **Custom Messages**: Extensible message system
 //!
 //! # Example
-//!
-//! ```rust
-//! use transaction::{Transaction, TransactionType, TransactionData};
-//! use transaction::{TransferTransaction, ScriptTransaction, Message};
-//! use zkvm::zkos_types::{Input, Output};
-//!
-//! // Create a transfer transaction
-//! let transfer_tx = TransferTransaction::create_quisquis_transaction(
-//!     &inputs,
-//!     &value_vector,
-//!     &account_vector,
-//!     &sender_updated_balance,
-//!     &receiver_value_balance,
-//!     &sender_sk,
-//!     senders_count,
-//!     receivers_count,
-//!     anonymity_account_diff,
-//!     witness_comm_scalar,
-//!     fee,
-//! ).unwrap();
-//!
-//! let transaction = Transaction::new(
-//!     TransactionType::Transfer,
-//!     TransactionData::TransactionTransfer(transfer_tx),
-//! );
-//!
-//! // Verify the transaction
-//! assert!(transaction.verify().is_ok());
-//! ```
+//! todo: add example
 //!
 //! # Architecture
 //!

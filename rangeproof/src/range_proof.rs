@@ -130,7 +130,7 @@ pub fn range_proof<CS: ConstraintSystem>(
     v_assignment: Option<SignedInteger>,
     n: BitRange,
 ) -> Result<(), R1CSError> {
-    let mut exp_2 = Scalar::one();
+    let mut exp_2 = Scalar::ONE;
     let n_usize: usize = n.into();
 
     // For each bit position from 0 to n-1
@@ -181,7 +181,7 @@ mod tests {
 
         for n in [2, 10, 32, 63].iter() {
             let (min, max) = (0u64, ((1u128 << n) - 1) as u64);
-            let values: Vec<u64> = (0..m).map(|_| rng.gen_range(min, max)).collect();
+            let values: Vec<u64> = (0..m).map(|_| rng.gen_range(min..max)).collect();
             for v in values {
                 assert!(range_proof_helper(v.into(), *n).is_ok());
             }

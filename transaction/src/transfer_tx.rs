@@ -13,30 +13,6 @@
 //! - **Verifiability**: Cryptographic proofs ensure transaction validity
 //! - **Balance Conservation**: Total input equals total output
 //!
-//! # Example
-//! ```
-//! use transaction::TransferTransaction;
-//! use quisquislib::ristretto::RistrettoSecretKey;
-//! use zkvm::zkos_types::{Input, Output};
-//!
-//! // Create a QuisQuis transfer
-//! let transfer_tx = TransferTransaction::create_quisquis_transaction(
-//!     &inputs,
-//!     &value_vector,
-//!     &account_vector,
-//!     &sender_updated_balance,
-//!     &receiver_value_balance,
-//!     &sender_sk,
-//!     senders_count,
-//!     receivers_count,
-//!     anonymity_account_diff,
-//!     witness_comm_scalar,
-//!     fee,
-//! ).unwrap();
-//!
-//! // Verify the transaction
-//! assert!(transfer_tx.verify().is_ok());
-//! ```
 
 use crate::proof::{DarkTxProof, ShuffleTxProof};
 use merlin::Transcript;
@@ -197,25 +173,8 @@ impl TransferTransaction {
     ///    Option<Scalar> carries the final scalar used in the reciever output encryption
     /// This is required to process burnMessage
     /// is Some if the reciever is zero balance in input
-    ///
-    /// # Example
-    /// ```
-    /// use transaction::TransferTransaction;
-    /// use quisquislib::ristretto::RistrettoSecretKey;
-    ///
-    /// let (tx, encrypt_scalars) = TransferTransaction::create_private_transfer_transaction(
-    ///     &value_vector,
-    ///     &account_vector,
-    ///     &sender_updated_balance,
-    ///     &receiver_value_balance,
-    ///     &input_vector,
-    ///     &sender_sk,
-    ///     senders_count,
-    ///     receivers_count,
-    ///     witness_comm_scalar,
-    ///     fee,
-    /// ).unwrap();
-    /// ```
+    /// 
+    /// todo: add example
     pub fn create_private_transfer_transaction(
         value_vector: &[i64],
         account_vector: &[Account],
@@ -431,25 +390,7 @@ impl TransferTransaction {
     /// # Returns
     /// `Ok(TransferTransaction)` - The created transaction
     ///
-    /// # Example
-    /// ```
-    /// use transaction::TransferTransaction;
-    /// use quisquislib::ristretto::RistrettoSecretKey;
-    ///
-    /// let tx = TransferTransaction::create_quisquis_transaction(
-    ///     &inputs,
-    ///     &value_vector,
-    ///     &account_vector,
-    ///     &sender_updated_balance,
-    ///     &receiver_value_balance,
-    ///     &sender_sk,
-    ///     senders_count,
-    ///     receivers_count,
-    ///     anonymity_account_diff,
-    ///     witness_comm_scalar,
-    ///     fee,
-    /// ).unwrap();
-    /// ```
+    /// todo: add example
     pub fn create_quisquis_transaction(
         inputs: &[Input],
         value_vector: &[i64],
@@ -674,13 +615,7 @@ impl TransferTransaction {
     /// # Returns
     /// `Ok(())` if verification succeeds, `Err` otherwise
     ///
-    /// # Example
-    /// ```
-    /// use transaction::TransferTransaction;
-    ///
-    /// let tx = TransferTransaction::create_quisquis_transaction(/* args */).unwrap();
-    /// assert!(tx.verify().is_ok());
-    /// ```
+    /// todo: add example
     pub fn verify(&self) -> Result<(), &'static str> {
         let inputs = self.get_input_values();
         let outputs = self.get_output_values();

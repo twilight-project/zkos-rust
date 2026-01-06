@@ -142,7 +142,7 @@ fn build_and_verify(
         let sig = if utx.signing_instructions.len() == 0 {
             Signature {
                 R: RISTRETTO_BASEPOINT_COMPRESSED,
-                s: Scalar::zero(),
+                s: Scalar::ZERO,
             }
         } else {
             // find all the secret scalars for the pubkeys used in the VM
@@ -200,7 +200,7 @@ fn build_and_verify(
 //     // let sig =
 //     //     Signature {
 //     //         R: RISTRETTO_BASEPOINT_COMPRESSED,
-//     //         s: Scalar::zero(),
+//     //         s: Scalar::ZERO,
 //     //     };
 //     //     let tx: zkvm::Tx = utx.clone().sign(sig);
 
@@ -570,7 +570,7 @@ fn build_and_verify(
 //     build_and_verify(prog, &vec![sk + factor]).unwrap();
 
 //     let wrong_prog = Program::build(|p| {
-//         p.push(secret_scalar + Scalar::one())
+//         p.push(secret_scalar + Scalar::ONE)
 //             .push(prev_output.clone())
 //             .input()
 //             .push(String::Opaque(call_proof.to_bytes().clone()))

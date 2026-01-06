@@ -354,7 +354,7 @@ pub fn create_genesis_block(
         rand::thread_rng().fill(&mut id);
 
         for j in 0..tot_outs_per_tx {
-            let random_number: u32 = rng.gen_range(0u32, 3u32);
+            let random_number: u32 = rng.gen_range(0..3);
 
             if random_number == 0 {
                 //coin output

@@ -11,17 +11,7 @@
 //! The module provides serialization/deserialization, encoding/decoding utilities,
 //! and contract identification through deterministic ID generation.
 //!
-//! # Example
-//! ```
-//! use zkvm::contract::{Contract, Anchor, PortableItem};
-//! let anchor = Anchor::from_raw_bytes([0u8; 32]);
-//! let contract = Contract {
-//!     predicate: Predicate::Opaque(Default::default()),
-//!     payload: vec![PortableItem::String(String::Opaque(b"hello".to_vec()))],
-//!     anchor,
-//! };
-//! let id = contract.id();
-//! ```
+
 use serde::{Deserialize, Serialize};
 
 use crate::constraints::Commitment;

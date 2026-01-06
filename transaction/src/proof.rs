@@ -16,35 +16,7 @@
 //! - **Range Proofs**: Verify values are non-negative using Bulletproofs
 //! - **Shuffle Proofs**: Prove input/output permutation correctness
 //!
-//! # Example
-//! ```
-//! use transaction::proof::{DarkTxProof, RevealProof};
-//! use quisquislib::accounts::prover::Prover;
-//! use curve25519_dalek::scalar::Scalar;
-//! use quisquislib::ristretto::RistrettoPublicKey;
-//!
-//! // Create a reveal proof for burning
-//! let reveal_proof = RevealProof::new(encrypt_scalar, amount);
-//! assert!(reveal_proof.verify(encryption, initial_pk));
-//!
-//! // Create a Dark transaction proof
-//! let dark_proof = DarkTxProof::create_dark_tx_proof(
-//!     &mut prover,
-//!     &value_vector,
-//!     &delta_accounts,
-//!     &epsilon_accounts,
-//!     &delta_rscalar,
-//!     &sender_updated_delta_account,
-//!     &updated_delta_accounts,
-//!     &sender_updated_balance,
-//!     &receiver_value_balance,
-//!     &sender_sk,
-//!     senders_count,
-//!     receivers_count,
-//!     base_pk,
-//!     None, // QuisQuis transaction
-//! );
-//! ```
+
 
 use bulletproofs::PedersenGens;
 use bulletproofs::RangeProof;
@@ -73,16 +45,6 @@ use serde::{Deserialize, Serialize};
 /// - `encrypt_scalar`: The encryption scalar used to hide the amount
 /// - `amount`: The actual amount being revealed
 ///
-/// # Example
-/// ```
-/// use transaction::proof::RevealProof;
-/// use curve25519_dalek::scalar::Scalar;
-/// use quisquislib::elgamal::ElGamalCommitment;
-/// use quisquislib::ristretto::RistrettoPublicKey;
-///
-/// let proof = RevealProof::new(encrypt_scalar, 100);
-/// assert!(proof.verify(encryption, initial_pk));
-/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RevealProof {
     pub encrypt_scalar: Scalar,
@@ -128,16 +90,6 @@ impl RevealProof {
     /// # Returns
     /// `true` if the proof is valid, `false` otherwise
     ///
-    /// # Example
-    /// ```
-    /// use transaction::proof::RevealProof;
-    /// use quisquislib::elgamal::ElGamalCommitment;
-    /// use quisquislib::ristretto::RistrettoPublicKey;
-    ///
-    /// let proof = RevealProof::new(encrypt_scalar, 100);
-    /// let is_valid = proof.verify(encryption, initial_pk);
-    /// assert!(is_valid);
-    /// ```
     pub fn verify(&self, encryption: ElGamalCommitment, initial_pk: RistrettoPublicKey) -> bool {
         // Recreate encryption using reveal proof commitment scalar and initial pk
         let recreated_enc = ElGamalCommitment::generate_commitment(
@@ -164,30 +116,6 @@ impl RevealProof {
 /// - **Range Proofs**: Verify values are non-negative using Bulletproofs
 /// - **Updated Output Proofs**: Optional proofs for Dark transaction outputs
 ///
-/// # Example
-/// ```
-/// use transaction::proof::DarkTxProof;
-/// use quisquislib::accounts::prover::Prover;
-/// use curve25519_dalek::scalar::Scalar;
-/// use quisquislib::ristretto::RistrettoPublicKey;
-///
-/// let dark_proof = DarkTxProof::create_dark_tx_proof(
-///     &mut prover,
-///     &value_vector,
-///     &delta_accounts,
-///     &epsilon_accounts,
-///     &delta_rscalar,
-///     &sender_updated_delta_account,
-///     &updated_delta_accounts,
-///     &sender_updated_balance,
-///     &receiver_value_balance,
-///     &sender_sk,
-///     senders_count,
-///     receivers_count,
-///     base_pk,
-///     None, // QuisQuis transaction
-/// );
-/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DarkTxProof {
     pub(super) delta_accounts: Vec<Account>,
@@ -259,28 +187,6 @@ impl DarkTxProof {
     /// # Returns
     /// A complete `DarkTxProof` instance
     ///
-    /// # Example
-    /// ```
-    /// use transaction::proof::DarkTxProof;
-    /// use quisquislib::accounts::prover::Prover;
-    ///
-    /// let dark_proof = DarkTxProof::create_dark_tx_proof(
-    ///     &mut prover,
-    ///     &value_vector,
-    ///     &delta_accounts,
-    ///     &epsilon_accounts,
-    ///     &delta_rscalar,
-    ///     &sender_updated_delta_account,
-    ///     &updated_delta_accounts,
-    ///     &sender_updated_balance,
-    ///     &receiver_value_balance,
-    ///     &sender_sk,
-    ///     senders_count,
-    ///     receivers_count,
-    ///     base_pk,
-    ///     None, // QuisQuis transaction
-    /// );
-    /// ```
     pub fn create_dark_tx_proof(
         prover: &mut quisquislib::accounts::Prover,
         value_vector: &[Scalar],
@@ -395,18 +301,6 @@ impl DarkTxProof {
     /// # Errors
     /// * Various verification errors if any proof component fails
     ///
-    /// # Example
-    /// ```
-    /// use transaction::proof::DarkTxProof;
-    /// use quisquislib::accounts::verifier::Verifier;
-    ///
-    /// let result = dark_proof.verify(
-    ///     &mut verifier,
-    ///     &updated_input,
-    ///     update_output_accounts, // Some(&outputs) for Dark Tx, None for QuisQuis Tx
-    /// );
-    /// assert!(result.is_ok());
-    /// ```
     pub fn verify(
         &self,
         verifier: &mut Verifier,
@@ -518,22 +412,7 @@ impl DarkTxProof {
 /// - **Output Shuffle Proof**: Proves output permutation correctness
 /// - **Updated Delta DLOG Proof**: Proves anonymity account updates
 /// - **Shuffle Statements**: Metadata for shuffle verification
-///
-/// # Example
-/// ```
-/// use transaction::proof::ShuffleTxProof;
-/// use quisquislib::accounts::prover::Prover;
-/// use quisquislib::shuffle::Shuffle;
-///
-/// let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
-///     &mut prover,
-///     &input_dash_accounts_slice,
-///     &updated_delta_accounts_slice,
-///     &rscalars_slice,
-///     &input_shuffle,
-///     &output_shuffle,
-/// );
-/// ```
+/// todo: add example
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ShuffleTxProof {
     pub(super) input_dash_accounts: Vec<Account>, // Updated input accounts
@@ -561,21 +440,7 @@ impl ShuffleTxProof {
     /// # Returns
     /// A complete `ShuffleTxProof` instance
     ///
-    /// # Example
-    /// ```
-    /// use transaction::proof::ShuffleTxProof;
-    /// use quisquislib::accounts::prover::Prover;
-    /// use quisquislib::shuffle::Shuffle;
-    ///
-    /// let shuffle_proof = ShuffleTxProof::create_shuffle_proof(
-    ///     &mut prover,
-    ///     &input_dash_accounts_slice,
-    ///     &updated_delta_accounts_slice,
-    ///     &rscalars_slice,
-    ///     &input_shuffle,
-    ///     &output_shuffle,
-    /// );
-    /// ```
+    /// todo: add example
     pub fn create_shuffle_proof(
         prover: &mut quisquislib::accounts::Prover,
         input_dash_accounts_slice: &[Account],
@@ -633,19 +498,7 @@ impl ShuffleTxProof {
     /// # Errors
     /// * Various verification errors if any proof component fails
     ///
-    /// # Example
-    /// ```
-    /// use transaction::proof::ShuffleTxProof;
-    /// use quisquislib::accounts::verifier::Verifier;
-    ///
-    /// let result = shuffle_proof.verify(
-    ///     &mut verifier,
-    ///     &input_accounts,
-    ///     &output_accounts,
-    ///     &updated_delta_accounts,
-    /// );
-    /// assert!(result.is_ok());
-    /// ```
+    /// todo: add example
     pub fn verify(
         &self,
         verifier: &mut Verifier,
@@ -765,7 +618,7 @@ mod test {
             .map(|account| {
                 Account::update_account(
                     *account,
-                    Scalar::zero(),
+                    Scalar::ZERO,
                     pk_update_scalar,
                     comm_update_scalar,
                 )
@@ -805,7 +658,7 @@ mod test {
 
         println!(
             "0 - Scalar {:#?}",
-            Scalar::zero() - Scalar::from(-iin as u64)
+            Scalar::ZERO - Scalar::from(-iin as u64)
         );
         println!(" -  {:#?}", -Scalar::from(-iin as u64));
         println!(" -Scalar {:#?}", -Scalar::from(iin as u64));

@@ -877,9 +877,9 @@ pub fn create_utxo_test_block(
     let mut new_set: Vec<RecordUtxo> = Vec::new();
 
     //select # of txs to be created. The numbers should be adjusted based on the size of the existing set
-    let num_txs = rng.gen_range(0u32, 100u32);
-    let num_inputs_per_tx = rng.gen_range(0u32, 9u32);
-    let num_outputs_per_tx = rng.gen_range(5u32, 15u32);
+    let num_txs = rng.gen_range(0..100);
+    let num_inputs_per_tx = rng.gen_range(0..9);
+    let num_outputs_per_tx = rng.gen_range(5..15);
 
     //let 10 % of these tx are transfer Txs
 
@@ -897,7 +897,7 @@ pub fn create_utxo_test_block(
             if set.len() == 0 {
                 break;
             }
-            let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
+            let random_number: u32 = rng.gen_range(0..set.len() as u32);
             let record: RecordUtxo = set[random_number as usize].clone();
 
             let inp = convert_output_to_input(record.clone()).unwrap();
@@ -908,7 +908,7 @@ pub fn create_utxo_test_block(
         //select random outputs
         let mut outputs: Vec<Output> = Vec::new();
         for i in 0..num_outputs_per_tx {
-            let random_number: u32 = rng.gen_range(0u32, 3u32);
+            let random_number: u32 = rng.gen_range(0..3);
             if random_number == 0 {
                 //coin output
                 let (pk, enc) = Account::generate_random_account_with_value(Scalar::from(20u64))
@@ -1001,7 +1001,7 @@ pub fn create_utxo_test_block(
             // if set.len() == 0 {
             //     break;
             // }
-            let random_number: u32 = rng.gen_range(0u32, set.len() as u32);
+            let random_number: u32 = rng.gen_range(0..set.len() as u32);
             let record: RecordUtxo = set[random_number as usize].clone();
             match record.value.out_type {
                 IOType::Coin => {

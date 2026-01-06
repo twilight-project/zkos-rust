@@ -354,7 +354,7 @@ where
 
         self.delegate.batch_verifier().append(
             -v_scalar,
-            iter::once(Scalar::one()),
+            iter::once(Scalar::ONE),
             iter::once(v_point.decompress()),
         );
 
@@ -382,7 +382,7 @@ where
             .cs()
             .allocate(sw.map(|s| s.to_scalar()))
             .map_err(|e| VMError::R1CSError(e))?;
-        let expr = Expression::LinearCombination(vec![(var, Scalar::one())], sw);
+        let expr = Expression::LinearCombination(vec![(var, Scalar::ONE)], sw);
         self.push_item(expr);
         Ok(())
     }
@@ -417,7 +417,7 @@ where
         // flv_point == flavor·B    ->   0 == -flv_point + flv_scalar·B
         self.delegate.batch_verifier().append(
             flv_scalar,
-            iter::once(-Scalar::one()),
+            iter::once(-Scalar::ONE),
             iter::once(flv_point.decompress()),
         );
 
@@ -798,7 +798,7 @@ where
         let (_, r1cs_var) = self.delegate.commit_variable(&var.commitment)?;
 
         Ok(Expression::LinearCombination(
-            vec![(r1cs_var, Scalar::one())],
+            vec![(r1cs_var, Scalar::ONE)],
             var.commitment.assignment(),
         ))
     }
@@ -1271,7 +1271,7 @@ where
 
     //     self.delegate.batch_verifier().append(
     //         -v_scalar,
-    //         iter::once(Scalar::one()),
+    //         iter::once(Scalar::ONE),
     //         iter::once(v_point.decompress()),
     //     );
 
@@ -1299,7 +1299,7 @@ where
             .cs()
             .allocate(sw.map(|s| s.to_scalar()))
             .map_err(|e| VMError::R1CSError(e))?;
-        let expr = Expression::LinearCombination(vec![(var, Scalar::one())], sw);
+        let expr = Expression::LinearCombination(vec![(var, Scalar::ONE)], sw);
         self.push_item(expr);
         Ok(())
     }
@@ -1324,7 +1324,7 @@ where
     //     // flv_point == flavor·B    ->   0 == -flv_point + flv_scalar·B
     //     self.delegate.batch_verifier().append(
     //         flv_scalar,
-    //         iter::once(-Scalar::one()),
+    //         iter::once(-Scalar::ONE),
     //         iter::once(flv_point.decompress()),
     //     );
 
@@ -1644,7 +1644,7 @@ where
         let (_, r1cs_var) = self.delegate.commit_variable(&var.commitment)?;
 
         Ok(Expression::LinearCombination(
-            vec![(r1cs_var, Scalar::one())],
+            vec![(r1cs_var, Scalar::ONE)],
             var.commitment.assignment(),
         ))
     }

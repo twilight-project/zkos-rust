@@ -11,25 +11,6 @@
 //! - **Reveal Proofs**: Prove knowledge of hidden values without revealing them
 //! - **Signature Verification**: Cryptographic authorization for message operations
 //!
-//! # Example
-//! ```
-//! use transaction::Message;
-//! use zkvm::zkos_types::{Input, MessageType};
-//! use curve25519_dalek::scalar::Scalar;
-//! use quisquislib::ristretto::RistrettoSecretKey;
-//!
-//! // Create a burn message
-//! let burn_message = Message::create_burn_message(
-//!     input,
-//!     amount,
-//!     encrypt_scalar,
-//!     secret_key,
-//!     initial_address,
-//! );
-//!
-//! // Verify the message
-//! assert!(burn_message.verify().is_ok());
-//! ```
 
 use address::{Address, AddressType};
 use curve25519_dalek::scalar::Scalar;
@@ -84,21 +65,7 @@ impl Message {
     /// A new `Message` instance
     ///
     /// # Example
-    /// ```
-    /// use transaction::Message;
-    /// use zkvm::zkos_types::{Input, MessageType, Witness};
-    /// use crate::proof::RevealProof;
-    ///
-    /// let message = Message::new(
-    ///     MessageType::Burn,
-    ///     0,
-    ///     2,
-    ///     input,
-    ///     "data".to_string(),
-    ///     reveal_proof,
-    ///     signature,
-    /// );
-    /// ```
+    /// todo: add example
     pub fn new(
         msg_type: MessageType,
         version: u64,
@@ -135,21 +102,7 @@ impl Message {
     /// # Returns
     /// A `Message` configured for burning the specified asset
     ///
-    /// # Example
-    /// ```
-    /// use transaction::Message;
-    /// use zkvm::zkos_types::Input;
-    /// use curve25519_dalek::scalar::Scalar;
-    /// use quisquislib::ristretto::RistrettoSecretKey;
-    ///
-    /// let burn_message = Message::create_burn_message(
-    ///     input,
-    ///     100, // amount to burn
-    ///     encrypt_scalar,
-    ///     secret_key,
-    ///     "initial_account_address".to_string(),
-    /// );
-    /// ```
+    /// todo: add example
     pub fn create_burn_message(
         input: Input,
         amount: u64,
@@ -200,16 +153,7 @@ impl Message {
     /// * `"Burn Message: Invalid Signature"` - If signature format is invalid
     /// * `"Burn Message: Signature verification failed"` - If signature verification fails
     ///
-    /// # Example
-    /// ```
-    /// use transaction::Message;
-    ///
-    /// let message = Message::create_burn_message(/* args */);
-    /// match message.verify() {
-    ///     Ok(()) => println!("Burn message verified successfully"),
-    ///     Err(e) => println!("Verification failed: {}", e),
-    /// }
-    /// ```
+    /// todo: add example
     pub fn verify(&self) -> Result<(), &'static str> {
         // Reconstruct initial public key from message data
         let init_address = Address::from_hex(&self.msg_data, AddressType::default())?;

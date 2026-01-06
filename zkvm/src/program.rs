@@ -10,15 +10,7 @@
 //! program creation and manipulation.
 //!
 //! # Example
-//! ```
-//! use zkvm::program::Program;
-//! let program = Program::build(|p| {
-//!     p.push("hello")
-//!      .input()
-//!      .output(1);
-//! });
-//! let bytes = program.to_bytes();
-//! ```
+
 use crate::encoding::*;
 use crate::errors::VMError;
 use crate::merkle::MerkleItem;

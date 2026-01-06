@@ -26,7 +26,7 @@ pub trait ReaderExt: Reader {
     /// Reads a Ristretto255 scalar (32 bytes).
     fn read_scalar(&mut self) -> Result<Scalar, ReadError> {
         let buf = self.read_u8x32()?;
-        Scalar::from_canonical_bytes(buf).ok_or(ReadError::InvalidFormat)
+        Scalar::from_canonical_bytes(buf).into_option().ok_or(ReadError::InvalidFormat)
     }
 
     /// Reads Encryption bytes as pair of Ristretto255 points (64 bytes).

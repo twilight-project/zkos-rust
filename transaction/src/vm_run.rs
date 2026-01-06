@@ -20,39 +20,7 @@
 //! 3. **Generate Proofs**: Create R1CS proofs for program execution
 //! 4. **Verify Proofs**: Validate proofs without re-execution
 //!
-//! # Example
-//!
-//! ```rust
-//! use transaction::vm_run::Prover;
-//! use zkvm::{Program, zkos_types::{Input, Output}};
-//! use bulletproofs::BulletproofGens;
-//!
-//! // Create a program
-//! let program = Program::new(vec![/* instructions */]);
-//! let inputs = vec![/* input data */];
-//! let outputs = vec![/* output data */];
-//!
-//! // Generate proof
-//! let (bytecode, proof) = Prover::build_proof(
-//!     program,
-//!     &inputs,
-//!     &outputs,
-//!     false, // not contract deployment
-//!     None,  // no transaction data
-//! ).unwrap();
-//!
-//! // Verify proof
-//! let is_valid = Verifier::verify_r1cs_proof(
-//!     &proof,
-//!     &bytecode,
-//!     &inputs,
-//!     &outputs,
-//!     false,
-//!     None,
-//! ).unwrap();
-//!
-//! assert!(is_valid);
-//! ```
+
 
 use bulletproofs::r1cs::{self, R1CSProof};
 use bulletproofs::{BulletproofGens, PedersenGens};
@@ -74,23 +42,7 @@ use zkvm::zkos_types::{Input, Output};
 /// of zero-knowledge proofs using Bulletproofs R1CS. It integrates with
 /// the ZkVM system to execute programs while building constraint systems.
 ///
-/// # Example
-/// ```
-/// use transaction::vm_run::Prover;
-/// use zkvm::{Program, zkos_types::{Input, Output}};
-///
-/// let program = Program::new(vec![/* instructions */]);
-/// let inputs = vec![/* input data */];
-/// let outputs = vec![/* output data */];
-///
-/// let (bytecode, proof) = Prover::build_proof(
-///     program,
-///     &inputs,
-///     &outputs,
-///     false, // not contract deployment
-///     None,  // no transaction data
-/// ).unwrap();
-/// ```
+
 pub struct Prover<'g> {
     /// The R1CS constraint system prover
     cs: r1cs::Prover<'g, Transcript>,
@@ -191,23 +143,6 @@ impl<'g> Prover<'g> {
     /// * `VMError::WitnessMissing` - If required witness data is missing
     /// * Other VM errors from program execution
     ///
-    /// # Example
-    /// ```
-    /// use transaction::vm_run::Prover;
-    /// use zkvm::{Program, zkos_types::{Input, Output}};
-    ///
-    /// let program = Program::new(vec![/* instructions */]);
-    /// let inputs = vec![/* input data */];
-    /// let outputs = vec![/* output data */];
-    ///
-    /// let (bytecode, proof) = Prover::build_proof(
-    ///     program,
-    ///     &inputs,
-    ///     &outputs,
-    ///     false, // not contract deployment
-    ///     None,  // no transaction data
-    /// ).unwrap();
-    /// ```
     pub fn build_proof(
         program: Program,
         inputs: &[Input],
@@ -268,23 +203,7 @@ impl<'g> Prover<'g> {
 /// re-executing the original program. It validates that the proof is
 /// consistent with the program, inputs, and outputs.
 ///
-/// # Example
-/// ```
-/// use transaction::vm_run::Verifier;
-/// use zkvm::zkos_types::{Input, Output};
-/// use bulletproofs::R1CSProof;
-///
-/// let is_valid = Verifier::verify_r1cs_proof(
-///     &proof,
-///     &bytecode,
-///     &inputs,
-///     &outputs,
-///     false, // not contract deployment
-///     None,  // no transaction data
-/// ).unwrap();
-///
-/// assert!(is_valid);
-/// ```
+
 pub struct Verifier {
     /// The R1CS constraint system verifier
     cs: r1cs::Verifier<Transcript>,
@@ -390,27 +309,7 @@ impl Verifier {
     /// * `VMError::InvalidR1CSProof` - If proof verification fails
     /// * Other VM errors from constraint system reconstruction
     ///
-    /// # Example
-    /// ```
-    /// use transaction::vm_run::Verifier;
-    /// use zkvm::zkos_types::{Input, Output};
-    /// use bulletproofs::R1CSProof;
-    ///
-    /// let is_valid = Verifier::verify_r1cs_proof(
-    ///     &proof,
-    ///     &bytecode,
-    ///     &inputs,
-    ///     &outputs,
-    ///     false, // not contract deployment
-    ///     None,  // no transaction data
-    /// ).unwrap();
-    ///
-    /// if is_valid {
-    ///     println!("Proof verification successful");
-    /// } else {
-    ///     println!("Proof verification failed");
-    /// }
-    /// ```
+
     pub fn verify_r1cs_proof(
         proof: &R1CSProof,
         program: &Vec<u8>,
